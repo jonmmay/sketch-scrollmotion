@@ -1,0 +1,682 @@
+/* global log , CocoaBridge , Config , Util , ContentSpec , View */
+"use strict";
+
+@import "sandbox.js";
+@import "cocoaBridge.js";
+@import "config.js";
+@import "contentSpec.js";
+@import "view.js";
+
+// Blocker TO DO: Files must comply with WorkCloud naming scheme
+
+// TO DO: An image button should be sized by the largest state layer
+
+// TO DO: Only Artboards of the same width/height ratio should be exported; all others ignored
+// TO DO: User can work at 1x or 2x Artboards
+// TO DO: How do slice layers work?
+// TO DO: How do symbols work? [layer parentOrSelfIsSymbol]
+// TO DO: Figure out how saving works: what folder should be defined for sandbox
+// TO DO: Message saved path relative to ~ when complete
+// TO DO: Multiple pages? Selections?
+// TO DO: Reveal export folder upon completion?
+// TO DO: User driven settings prompts? ala Origami
+
+// Global variables for accessing Sketch object model
+var $doc,
+    $selection;
+
+function initVars( context ) {
+    $doc = context.document;
+    $selection = context.selection;
+}
+
+function makeSlice( layer , rect , scaleFactor ) {
+    var slice = CocoaBridge.MSSliceMaker.slicesFromExportableLayer( layer , rect ).firstObject();
+    slice.page = $doc.currentPage().copyLightweight();
+    slice.format = Config.exportImgExt.replace( "." , "" );
+    slice.scale = scaleFactor;
+
+    return slice;
+}
+function exportAsImage( view, filename , scaleFactors ) {
+
+    var slice,
+        rect = view.layer.absoluteInfluenceRect(),
+        imageData;
+
+    // Convert js string to Obj-C string
+    filename = CocoaBridge.stringByAppendingString( filename );
+
+    slice = makeSlice( view.layer , rect , Config.exportScaleFactor );
+
+    Util.log("Writing asset " + slice + " to disk: " + filename );
+    imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
+    CocoaBridge.writeToFile( imageData , filename );
+}
+function handlerExportForProp( view , bindObj, prop ) {
+
+    var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : ContentSpec.create( "image" ),
+        layerName = Util.unique( view.getSanitizedName() ),
+        filename = Config.targetFolder + "/" + layerName,
+        ext = Config.exportImgExt,
+        src = filename.replace( Config.targetFolder + "/" , "" ) + ext;
+
+    overlay.setKeyValue( prop , [ src ] );
+    bindObj.exportFiles.push( { view: view , target: filename + ext } );
+    return overlay;
+}
+function handlerExport( view , bindObj ) {
+    return handlerExportForProp( view , bindObj , "images" );
+}
+
+var ViewData = ( function( _ViewData ) {
+
+    var metadataObjects = [], // Store view data once it have been bound
+        metadataResults = [], // Store resulting bound json for processing
+        bindingObjects = {}, // Store bindings handlers
+        objectGenerators = {}; // Store Sketch layer type binding handlers
+
+    function generateObjectByKind( bindObj ) {
+        var kind = bindObj.view.getLayerKind(),
+            generatorKind = objectGenerators[ kind ] ? kind : "default";
+
+        // log( "generating object for " + kind );
+
+        objectGenerators[ generatorKind ].object( bindObj );
+    }
+    function registerObjectGenerator( name , handler ) {
+        objectGenerators[ name ] = ( typeof handler === "object" ) ? handler : { object: handler };
+    }
+    function registry( name , handler ) {
+        if( bindingObjects[ name ] ) {
+            Util.log( "Overwriting binding: " + name );
+        }
+
+        // Object *can* support additional initialization properties
+        if( typeof handler === "function" ) {
+            handler = { compose: Util.noop };
+        } else if( typeof handler === "object" ) {
+            if( !handler.compose ) { handler.compose = Util.noop; }
+        } else {
+            Util.log( "Unacceptable handler: " + name );
+            return;
+        }
+
+        handler.inited = false;
+        bindingObjects[ name ] = handler;
+    }
+
+    function applyBindings( view , parentBindObj , bindings ) {
+        var bindObj = new BindObj( view , parentBindObj ),
+            stopAutoApplyBindingForChildren = false,
+            views;
+
+        bindings = bindings || view.getNameAttributes();
+
+        if( !view.isLayer() ) {
+            Util.log( "First argument must be a valid layer" );
+            return;
+        }
+        if( view.shouldBeIgnored() ) {
+            Util.log( "Layer should be ignored, <" + view.name + ">" );
+            return;
+        }
+
+        generateObjectByKind( bindObj );
+
+        Util.forEach( bindings , function( bindingArgs , bindingName ) {
+            var binding = bindingObjects[ bindingName ];
+
+            if( !binding ) {
+                Util.log( "Unknown bindging: " + bindingName );
+                return;
+            }
+
+            if( !binding.inited ) {
+                if( binding.init ) {
+                    binding.init();
+                }
+                binding.inited = true;
+            }
+
+            if( binding.stopAutoApplyBindingForChildren ) {
+                Util.log( bindingName + " has stopAutoApplyBindingForChildren" );
+                stopAutoApplyBindingForChildren = true;
+            }
+
+            // Compose overlay
+            binding.compose( bindObj , bindingArgs );
+        } );
+
+        // log( "Get bindings " + JSON.stringify( bindings ) );
+
+        if( view.isFolder() && view.hasSubviews && !stopAutoApplyBindingForChildren ) {
+            views = getEligibleSubviews( view.subviews() );
+
+            Util.forEach( views , function( subview ) {
+                applyBindings( subview , bindObj );
+            } );
+        }
+
+        metadataObjects.push( bindObj );
+    }
+    function getEligibleSubviews( views ) {
+        var eligibleViews = [];
+
+        Util.forEach( views , function( subview ) {
+            var bindings,
+                subsubviews,
+                isEligible = true;
+
+            if( subview.shouldBeIgnored() ) {
+                // Do not add if subview should be ignored
+                return;
+            } else if( subview.isArtboard() ) {
+                // Always add artboards
+                // Do nothing
+            } else if( subview.isFolder() && subview.hasSubviews ) {
+                bindings = subview.getNameAttributes();
+                
+                if( !Util.values( bindings ).length ) {
+                    // Look for next eligible subviews
+                    isEligible = false;
+                    Util.log( "<" + subview.name + "> isn't an eligible layer" );
+                    subsubviews = getEligibleSubviews( subview.subviews() );
+
+                    eligibleViews = eligibleViews.concat( subsubviews );
+                }
+            }
+
+            if( isEligible ) {
+                eligibleViews.push( subview );
+            }
+        } );
+        return eligibleViews;
+    }
+
+    function requiresExport( view ) {
+        var needExport = false,
+            borders = view.layer.style().borders().array(),
+            bordersLen = borders.count(),
+            fills = view.layer.style().fills().array();
+
+            needExport = bordersLen > 1;
+
+        if( !needExport ) {
+
+            // A color fill (0), gradient (1) or pattern (4); only color fill supported
+            Util.forEach( fills , function( fill ) {
+                if( fill.fillType() > 0 ) {
+                    needExport = true;
+                }
+            } );
+        }
+
+        return needExport;
+    }
+
+    function BindObj( view , parentView ) {
+        this.view = view;
+        this.parent = ( parentView instanceof this.constructor ) ? parentView : null;
+        this.overlay = null;
+        this.page = null;
+        this.exportFiles = [];
+    }
+
+    BindObj.prototype.setupRectforOverlay = function( overlay , view , parentView ) {
+        var pos;
+        pos = view.getLayoutRelativeTo( parentView );
+
+        overlay.layouts.landscape.width = Util.toPx( pos.width );
+        overlay.layouts.landscape.height = Util.toPx( pos.height );
+        overlay.layouts.landscape.x = Util.toPx( pos.x );
+        overlay.layouts.landscape.y = Util.toPx( pos.y );
+
+        overlay.hidden = !view.layer.isVisible();
+    };
+
+    return {
+        registerObjectGenerator: registerObjectGenerator,
+        objectGenerators: objectGenerators,
+        registry: registry,
+        applyBindings: applyBindings,
+        requiresExport: requiresExport,
+        reset: function() {
+            metadataObjects = [];
+            metadataResults = [];
+        },
+        get: function() {
+            if( metadataResults.length === 0 ) {
+                metadataResults = metadataObjects.map( function( bindObj ) {
+                    if( bindObj.overlay !== null ) {
+                        if(bindObj.parent !== null && bindObj.parent.overlay !== null ) {
+                            bindObj.parent.overlay.addOverlayByReference( bindObj.overlay.getOverlayId() );
+                        } else if( bindObj.parent.page !== null ) {
+                            bindObj.parent.page.addOverlayByReference( bindObj.overlay.getOverlayId() );
+                        }
+                        return {
+                            type: "overlay",
+                            overlay: bindObj.overlay,
+                            view: bindObj.view,
+                            exportFiles: bindObj.exportFiles
+                        };
+                    } else if( bindObj.page !== null ) {
+                        return {
+                            type: "page",
+                            page: bindObj.page,
+                            view: bindObj.view,
+                            exportFiles: bindObj.exportFiles
+                        };
+                    } else {
+                        Util.log( "Missing overlay and page for layer: <" + bindObj.view.name + ">" );
+                    }
+                } );
+            }
+            return metadataResults;
+        }
+    };
+} ( ViewData ) );
+
+function output( viewData ) {
+
+    var targetFolder = Config.targetFolder,
+        contentSpec = ContentSpec,
+        json = contentSpec.json(),
+        exportFiles = [],
+        contentSpecStr,
+        contentSpecSrc;
+
+    // 1. Create folders
+    if( Util.folderExists( Config.targetFolder ) ) {
+        Util.removeFolder( Config.targetFolder );
+    }
+
+    Util.createFolders( Config.targetFolder , CocoaBridge.arrayWithObjects( targetFolder ) );
+
+    // 2. Compile ContentSpec.json, collect export files
+    Util.forEach( viewData , function( data ) {
+        // Disable masks for later export
+        data.view.disableMask();
+        data.view.disableHidden();
+
+        if( data.type === "overlay" ) {
+            contentSpec.appendOverlay( data.overlay );
+        } else if( data.type === "page" ) {
+            contentSpec.appendPage( data.page );
+            json.pageSets.pageSet1.pages.push( data.page.getPageId() );
+        }
+
+        exportFiles = exportFiles.concat( data.exportFiles );
+    } );
+
+    // 3. Save ContentSpec.json
+    if( json ) {
+        contentSpecStr = JSON.stringify( json );
+        contentSpecSrc = Config.targetFolder + "/ContentSpec.json";
+        Util.saveFileFromString( targetFolder , contentSpecSrc , contentSpecStr );
+    }
+
+    // 4. Export images
+    if( exportFiles ) {
+        Util.forEach( exportFiles , function( fileObj ) {
+            exportAsImage( fileObj.view , fileObj.target );
+        } );
+    }
+    // Re-enable masks
+    Util.forEach( viewData , function( data ) {
+        data.view.enableMask();
+        data.view.enableHidden();
+    } );
+
+    // 5. Copy resources
+    if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/__studio__preferences.json" ) ) {
+        CocoaBridge.copyItemAtPath( Config.resourcesPath + "/__studio__preferences.json",
+            Config.targetFolder + "/__studio__preferences.json" );
+    }
+    if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/" + ContentSpec.getResetCSS() ) ) {
+        CocoaBridge.copyItemAtPath( Config.resourcesPath + "/" + ContentSpec.getResetCSS(),
+            Config.targetFolder + "/" + ContentSpec.getResetCSS() );
+    }
+}
+function main( context ) {
+    try {
+        log("#################################");
+        log("### Export ScrollMotion start ###");
+        log("#################################");
+
+        var layers = context.document.currentPage().layers(),
+            eligibleViews = [],
+            processResults;
+
+        // 1. Process Arboards and layers without [ignore] binding
+        layers = Util.forEach( layers , function( res ) {
+            var view = View.create( res );
+            if( view.isArtboard() ) {
+                if( !view.shouldBeIgnored() ) {
+                    eligibleViews.push( view );
+                }
+            }
+        } );
+
+        // 2. Apply Sketch layer and overlay bindings
+        Util.forEach( eligibleViews , function( view ) {
+            ViewData.applyBindings( view );
+        } );
+
+        processResults = ViewData.get();
+
+        Util.log( JSON.stringify( processResults ) );
+
+        // 3. Prepare outputs
+        output( processResults );
+
+        log("#################################");
+        log("#### Export ScrollMotion end ####");
+        log("#################################");
+
+    } catch( e ) {
+        log( "Uncaught " + e );
+    }
+}
+
+var onRun = function( context ) {
+
+    initVars( context );
+    Config.init( context );
+
+    // Register handlers for Sketch data models
+    ViewData.registerObjectGenerator( "default" , function( bindObj ) {
+        var view = bindObj.view,
+            overlay = handlerExport( view , bindObj );
+        overlay.setOverlayId();
+        overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+
+        bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+        bindObj.overlay = overlay;
+    } );
+    ViewData.registerObjectGenerator( "Artboard" , function( bindObj ) {
+        var view = bindObj.view,
+            page = ContentSpec.create( "page" );
+        page.setPageId();
+        page.setKeyValue( "displayName" , view.getSanitizedName() );
+
+        bindObj.page = page;
+    } );
+    ViewData.registerObjectGenerator( "Bitmap" , function( bindObj ) {
+        var view = bindObj.view,
+            overlay = handlerExport( view , bindObj );
+        overlay.setOverlayId();
+        overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+
+        bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+        bindObj.overlay = overlay;
+    } );
+    ViewData.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
+        var view = bindObj.view,
+            overlay = ContentSpec.create( "container" ),
+            frame = view.getAbsoluteLayout(),
+            scrollFrame = view.getInfluenceLayoutSansStyles(),
+            scrollHoriz = scrollFrame.width > frame.width,
+            scrollVert = scrollFrame.height > frame.height,
+            scrollDirection = "none";
+        overlay.setOverlayId();
+        overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+
+        if( scrollHoriz && scrollVert ) {
+            scrollDirection = "both";
+        } else if( scrollHoriz ) {
+            scrollDirection = "horizontal";
+        } else if( scrollVert ) {
+            scrollDirection = "vertical";
+        }
+
+        overlay.setKeyValue( "userScrolling" , scrollDirection );
+        overlay.setKeyValue( "contentHeight" , Util.toPx( scrollFrame.height ) );
+        overlay.setKeyValue( "contentWidth" , Util.toPx( scrollFrame.width ) );
+
+        bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+        bindObj.overlay = overlay;
+    } );
+    ViewData.registerObjectGenerator( "Text" , {
+        object: function( bindObj ) {
+            var view = bindObj.view,
+                overlay = ContentSpec.create( "text" );
+            overlay.setOverlayId();
+            overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+            overlay.setBasicText( String( view.layer.stringValue() ) );
+
+            bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+            bindObj.overlay = overlay;
+        },
+        alignment: function( layer ) {
+            var alignment = layer.textAlignment();
+
+            if( alignment == 1 ) {
+                return "right";
+            } else if( alignment == 2 ) {
+                return "center";
+            } else if( alignment == 3 ) {
+                return "justify";
+            } else {
+                return "left"; // ( 0 )
+            }
+        }
+    } );
+    ViewData.registerObjectGenerator( "Rect" , function( bindObj ) {} );
+
+    // Register handlers for Content Spec data model generation
+    ViewData.registry( "default" , function( bindObj , args ) {
+        //we do nothing!
+    } );
+    ViewData.registry( "ignore" , {
+        stopAutoApplyBindingForChildren: true
+    } );
+    // Binding.registry( "flatten" , function( view , args , outputRef ) {} );
+    ViewData.registry( "btn" , {
+        init: function() {
+            // This method will only be called when this binding first be used.
+        },
+        compose: function( bindObj , args ) {
+            var view = bindObj.view,
+                overlay = bindObj.overlay,
+                views,
+                needExport,
+
+                // Helpers for overlay properties
+                states = [],
+                pos,
+                textAlign,
+                textPos,
+                textColor,
+                border,
+                cornerRadiusFloat,
+                fill,
+                pressedFill;
+
+
+            // Exit if view is not a LayerGroup; view will be exported as an image
+            if( !view.hasSubviews ) {
+                return;
+            }
+
+            views = view.subviews();
+            needExport = ViewData.requiresExport( view );
+
+
+            // Doesn't currently support sub layer groups
+            function buttonRequiresExport( view ) {
+                var textLayers = [],
+                    stateLayers = [];
+
+                if( needExport ) { return true; }
+
+                Util.forEach( view.subviews() , function( subview ) {
+                    var kind = subview.getLayerKind();
+                    if( kind === "LayerGroup" ) {
+                        needExport = true;
+                    } else if( kind === "Text" ) {
+                        textLayers.push( subview );
+                    } else {
+                        stateLayers.push( subview );
+                    }
+                } );
+
+                Util.log( "button: " + view.name + ", has ",
+                    textLayers.length + " text layers and ",
+                    stateLayers.length + " state layers." );
+
+                // Export if more than 1 text element
+                if( textLayers.length <= 1 ) {
+                    if( textLayers[ 0 ] ) {
+                        needExport = ViewData.requiresExport( textLayers[ 0 ] );
+                    }
+                } else { 
+                    Util.log( view.name + " contains too many text layers" );
+                    return true;
+                }
+
+                // Export if more than 4 states: images, imagesDown, imagesOn, and imagesDownOn
+                if( !needExport && stateLayers.length <= 4 ) {
+                    Util.forEach( stateLayers , function( view ) {
+                        if( ViewData.requiresExport( view ) ) {
+                            needExport = true;
+                        }
+                    } );
+                } else {
+                    if( !needExport ) {
+                        Util.log( needExport , view.name + " contains too many state layers" );    
+                    }
+                    needExport = true;
+                }
+
+
+                return needExport;
+            }
+
+            // Determine if overlay must be exported as images
+            needExport = buttonRequiresExport( view );
+
+            // If requires images, flatten button states
+            // Else, capture button properties
+            if( needExport ) {
+                overlay.convertToOverlay( "button" , "layouts" , "displayName" );
+
+                Util.forEach( views , function( subview ) {
+                    var bindings = subview.getNameAttributes(),
+                        kind = subview.getLayerKind();
+
+                    if( kind === "Text" ) {
+                        // Not yet implemented
+                    } else if( kind === "Rectangle" || kind === "LayerGroup" ) {
+                        if( bindings.state ) {
+                            if( bindings.state.indexOf( "down" ) > -1 ) {
+                                overlay = handlerExportForProp( subview , bindObj , "imagesDown" );
+                                states.push( "down" );
+                            } else if( bindings.state.indexOf( "on" ) > -1 ) {
+                                overlay = handlerExportForProp( subview , bindObj , "imagesOn" );
+                                states.push( "on" );
+                            } else if( bindings.state.indexOf( "downOn" ) > -1 ) {
+                                overlay = handlerExportForProp( subview , bindObj , "imagesDownOn" );
+                                states.push( "downOn" );
+                            }
+                        } else {
+                            // Normal state
+                            overlay = handlerExport( subview , bindObj );
+                        }
+                    }
+                } );
+
+                // Enable toggle if conditions exist
+                if( view.getNameAttributes().btn.indexOf( "toggle" ) > -1 ||
+                    ( states.indexOf( "down" ) > -1 && states.indexOf( "on" ) > -1 && states.indexOf( "downOn" ) > -1 ) ) {
+                        overlay.setKeyValue( "toggle" , true );
+                }
+            } else {
+                overlay.convertToOverlay( "cgbutton" , "layouts" , "displayName" );
+
+                Util.forEach( views , function( subview ) {
+                    var bindings = subview.getNameAttributes(),
+                        kind = subview.getLayerKind();
+
+                    if( kind === "Text" ) {
+                        overlay.setKeyValue( "text" , String( subview.layer.stringValue() ) );
+                        textPos = subview.getLayoutRelativeTo( view );
+                        textAlign = ViewData.objectGenerators[ "Text" ].alignment( subview.layer );
+                        textColor = subview.layer.textColor();
+
+                    } else if( kind === "Rectangle" ) {
+
+                        if( bindings.state ) { 
+                            if( bindings.state.indexOf( "down" ) > -1 ) {
+                                // Tapped state
+                                if( !pressedFill ) { pressedFill = subview.layer.style().fills().array()[ 0 ]; }
+                                states.push( "down" );
+                            } else if( bindings.state.indexOf( "on" ) > -1 ) {
+                                // Toggled state
+                                if( !pressedFill ) { pressedFill = subview.layer.style().fills().array()[ 0 ]; }
+                                states.push( "on" );
+                            } else if( bindings.state.indexOf( "downOn" ) > -1 ) {
+                                // Not a valid CG button state; capture anyways
+                                states.push( "downOn" );
+                            }
+                        } else {
+                            // Normal state
+                            if( !border ) {
+                                border = subview.layer.style().borders().array()[ 0 ];
+
+                                // We know there are children layers since the layer kind is "Rectangle"
+                                cornerRadiusFloat = subview.layer.children()[0].cornerRadiusFloat();
+                            }
+                            if( !fill ) { fill = subview.layer.style().fills().array()[ 0 ]; }
+                            if( !pos ) {
+                                pos = subview.getLayoutRelativeTo( view );
+                            }
+                        }
+                    }
+                } );
+
+                if( states.indexOf( "on" ) > -1 ) {
+                    overlay.setKeyValue( "toggle" , true );
+                }
+
+                overlay.setKeyValue( "textAlign" , textAlign );
+                overlay.setKeyValue( "textPadding" , Util.toPx( textPos.x - pos.x ) );
+                overlay.setKeyValue( "cgBorderWidth" , Util.toPx( border.thickness() ) );
+                overlay.setKeyValue( "cgBorderColor" , Util.toHex( border.color() ) );
+                overlay.setKeyValue( "cgBorderAlpha" , Util.toRgba( border.color() ).split( "," ).pop() );
+                
+                overlay.setKeyValue( "cgButtonColor" , Util.toHex( fill.color() ) );
+                overlay.setKeyValue( "cgButtonAlpha" , Util.toRgba( fill.color() ).split( "," ).pop() );
+                
+                if( pressedFill !== undefined ) {
+                    overlay.setKeyValue( "cgButtonPressedAlpha" , Util.toRgba( pressedFill.color() ).split( "," ).pop() );
+                    overlay.setKeyValue( "cgButtonPressedColor" , Util.toHex( pressedFill.color() ) );
+                }
+                
+                overlay.setKeyValue( "fontColor" , Util.toHex( textColor ) );
+                overlay.setKeyValue( "fontPressedColor" , Util.toHex( textColor ) );
+                
+                // Ensure corner radius doesn't exceed half of smallest dimension
+                overlay.setKeyValue( "cgCornerRadius" , Util.toPx( 
+                    ( cornerRadiusFloat <= Math.min( pos.width , pos.height ) / 2 ) ? 
+                        cornerRadiusFloat : Math.min( pos.width , pos.height ) / 2
+                ) );
+            }
+
+            bindObj.overlay = overlay;
+        },
+        actions: function( bindObj , args ) {},
+        //we will take the children from here
+        stopAutoApplyBindingForChildren: true
+    } );
+    // Binding.registry( "container" , function( layer , args , outputRef ) {
+    //     // scroll
+    //     // paging
+    // } );
+    // Binding.registry( "text" , function( layer , args , outputRef ) {} );
+    // Binding.registry( "textfield" , function( layer , args , outputRef ) {} );
+    // Binding.registry( "proxy" , function( layer , args , outputRef ) {} );
+
+    main( context );
+    $doc.showMessage( "Project exported to \"" + Config.targetFolder + "\"" );
+};

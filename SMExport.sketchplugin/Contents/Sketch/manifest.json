@@ -1,0 +1,28 @@
+{
+    "author": "Jon May",
+    "commands": [
+        {
+            "script": "script.sketchscript",
+            "handler": "onRun",
+            "shortcut": "cmd r",
+            "name": "Export ScrollMotion",
+            "identifier": "SMExport"
+        }
+    ],
+    "menu": {
+        "isRoot": true,
+        "items": [
+            "SMExport"
+        ],
+        "//items": [
+            "//tagSelectedLayers",
+            "//showTaggedLayers",
+            "//hideTaggedLayers"
+        ]
+    },
+    "identifier": "com.scrollmotion.sketch.export-scrollmotion",
+    "version": "1.0",
+    "description": "Example Sketch Plugin using resources from within the bundle and a library script.",
+    "authorEmail": "support@scrollmotion.com",
+    "name": "Export ScrollMotion"
+}
