@@ -357,9 +357,47 @@ var ContentSpec = ContentSpec || ( function() {
 	}
 	extend( Overlay , SMText );
 
-	SMText.prototype.setBasicText = function( text ) {
-		// this.text = "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">" + text + "</span></div>";
-		this.text = "<div style=\"text-align:left;\"><span style=\"font-size:16px;font-family:ArialMT,'Arial';color:#000000;\">" + text + "</span></div>";
+	SMText.prototype.setTextWithOptions = function( text , options ) {
+		var defaultText = this.text || "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 3px;\"><span style=\"color:#000000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">" + text + "</span></span></span></div>",
+			key;
+
+		for( key in options ) {
+			if( key  === "textAlign" ) {
+				defaultText = defaultText.replace( new RegExp( "(text-align[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
+					match = match.replace( new RegExp( "left|center|right|justify" , "gi" ) , options[ key ] );
+					// log( "Setting text alignment to: " + options[ key ] );
+					return match;
+				} );
+			} else if( key  === "lineHeight" ) {
+				defaultText = defaultText.replace( new RegExp( "(line-height[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
+					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
+					// log( "Setting text line height to: " + options[ key ] );
+					return match;
+				} );
+			} else if( key  === "letterSpacing" ) {
+				defaultText = defaultText.replace( new RegExp( "(letter-spacing[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
+					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
+					// log( "Setting text letter spacing to: " + options[ key ] );
+					return match;
+				} );
+			} else if( key  === "textColor" ) {
+				defaultText = defaultText.replace( new RegExp( "(color[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
+					match = match.replace( new RegExp( "#\\d*" , "gi" ) , options[ key ] );
+					// log( "Setting text color to: " + options[ key ] );
+					return match;
+				} );
+
+			} else if( key  === "fontSize" ) {
+				defaultText = defaultText.replace( new RegExp( "(font-size[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
+					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
+					// log( "Setting text font size to: " + options[ key ] );
+					return match;
+				} );
+			}
+		}
+
+
+		this.text = defaultText;
 	};
 	
 	function init() {

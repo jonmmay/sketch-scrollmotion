@@ -23,6 +23,13 @@ var CocoaBridge = ( function( CocoaBridge ) {
   		}
   	};
 
+  	function objectTreeAsJSON( obj , prettyPrinted ) {
+        var tree = obj.treeAsDictionary(),
+            prettySetting = prettyPrinted ? NSJSONWritingPrettyPrinted : 0,
+            jsonData = [NSJSONSerialization dataWithJSONObject:tree options:prettySetting error:nil];
+        return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    }
+
 	function count( obj ) {
 		return [obj count];
 	}
@@ -99,6 +106,7 @@ var CocoaBridge = ( function( CocoaBridge ) {
 	CocoaBridge.dataWithJSONObject = dataWithJSONObject;
 	CocoaBridge.JSONObjectWithData = JSONObjectWithData;
 	CocoaBridge.initWithData = initWithData;
+	CocoaBridge.objectTreeAsJSON = objectTreeAsJSON;
 	
 	function rectWithRect( layer ) {
 		return [GKRect rectWithRect:[layer absoluteInfluenceRect]];

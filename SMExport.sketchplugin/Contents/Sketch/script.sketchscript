@@ -440,10 +440,21 @@ var onRun = function( context ) {
     ViewData.registerObjectGenerator( "Text" , {
         object: function( bindObj ) {
             var view = bindObj.view,
-                overlay = ContentSpec.create( "text" );
+                overlay = ContentSpec.create( "text" ),
+                textAlign = this.alignment( view.layer );
             overlay.setOverlayId();
             overlay.setKeyValue( "displayName" , view.getSanitizedName() );
-            overlay.setBasicText( String( view.layer.stringValue() ) );
+
+            Util.log( String( view.layer.fontPostscriptName() ) );
+
+            overlay.setTextWithOptions( String( view.layer.stringValue() ) , {
+                textAlign: textAlign,
+                lineHeight: Util.toPx( view.layer.lineSpacing() ),
+                letterSpacing: Util.toPx( view.layer.characterSpacing() ),
+                fontSize: Util.toPx( view.layer.fontSize() ),
+                textColor: Util.toHex( view.layer.textColor() )
+            } );
+            // overlay.setBasicText( String( view.layer.stringValue() ) );
 
             bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
             bindObj.overlay = overlay;
