@@ -40,19 +40,29 @@ function makeSlice( layer , rect , scaleFactor ) {
     return slice;
 }
 function exportAsImage( view, filename , scaleFactors ) {
-
     var slice,
         rect = view.layer.absoluteInfluenceRect(),
+        exportFileName,
+        exportFileExt = filename.slice( filename.lastIndexOf( "." ) ),
         imageData;
 
-    // Convert js string to Obj-C string
-    filename = CocoaBridge.stringByAppendingString( filename );
+    scaleFactors = scaleFactors || [ Config.exportScaleFactor ];
 
-    slice = makeSlice( view.layer , rect , Config.exportScaleFactor );
+    scaleFactors.forEach( function( scale ) {
+        if( typeof scale !== "number" ) {
+            return;
+        }
+        var scaleStr = ( scale !== 1 ) ? "@" + scale + "x" : "";
+        exportFileName = filename.slice( 0 , filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;
+        
+        slice = makeSlice( view.layer , rect , scale );
 
-    Util.log("Writing asset " + slice + " to disk: " + filename );
-    imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
-    CocoaBridge.writeToFile( imageData , filename );
+        Util.log("Writing asset " + slice + " to disk: " + exportFileName );
+        imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
+        
+        // Convert js string to Obj-C string
+        CocoaBridge.writeToFile( imageData , CocoaBridge.stringByAppendingString( exportFileName ) );
+    } );
 }
 function handlerExportForProp( view , bindObj, prop ) {
     var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "image" ),
@@ -73,7 +83,7 @@ function handlerFontExport( view , bindObj ) {
     var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "text" ),
         nsfont = view.layer.style().textStyle().attributes().NSFont,
         style = overlay.setText();
-        
+
     bindObj.exportFonts.push( { view: view , fontName: String( nsfont.fontName() ) , font: nsfont , revertToCommonText: style.setCommonText } );
 }
 
@@ -420,7 +430,7 @@ function output( viewData ) {
     // 4. Export images
     if( exportFiles ) {
         Util.forEach( exportFiles , function( fileObj ) {
-            exportAsImage( fileObj.view , fileObj.target );
+            exportAsImage( fileObj.view , fileObj.target , [ Config.exportScaleFactor , 2.0 ] );
         } );
     }
     // Re-enable masks

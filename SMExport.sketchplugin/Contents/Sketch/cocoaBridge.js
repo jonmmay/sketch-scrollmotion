@@ -146,7 +146,7 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 	};
 	CB.jsonWithContentsOfFile = function( path ) {
 		var data = CB.dataWithContentsOfFile( path );
-		return CB.JSON.JSONObjectWithData( data );
+		return CB.JSON.JSONObjectWithData( data , true );
 	};
 
 	/* ---------------------------------------- */
@@ -159,8 +159,9 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 		return [NSJSONSerialization dataWithJSONObject:mutableDictionary options:NSJSONWritingPrettyPrinted error:nil];
 	};
 	// Serialize JSON from string
-	CB.JSON.JSONObjectWithData = function( data ) {
-		return [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+	CB.JSON.JSONObjectWithData = function( data , mutable ) {
+		mutable = mutable ? NSJSONReadingMutableContainers : 0;
+		return [NSJSONSerialization JSONObjectWithData:data options:mutable error:nil];
 	};
 
     /* ---------------------------------------- */
