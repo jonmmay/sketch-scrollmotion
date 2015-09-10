@@ -1,299 +1,548 @@
 /* global log */
 
-var ContentSpec = ContentSpec || ( function() {
-	"use strict";
+var ContentSpec = ( function( _ContentSpec ) {
+    "use strict";
 
-	var resetTextCss = "reset3.11.css",
-		schema = "http://www.scrollmotion.com/contentspec/schema/3.12/",
-		JSON = {},
-		ObjectId = 1,
-		PageId = 1;
+    var resetTextCss = "reset3.11.css",
+        schema = "http://www.scrollmotion.com/contentspec/schema/3.12/",
+        defaultPageSetId = "pageSet1";
 
-	function extend( parent , child ) {
-		var origProto = child.prototype,
-			key;
-		child.prototype = Object.create( parent.prototype );
+    function extend( parent , child ) {
+        var origProto = child.prototype,
+            key;
+        child.prototype = Object.create( parent.prototype );
 
-		for( key in origProto ) {
-			child.prototype[ key ] = origProto[ key ];
-		}
-		child.prototype.constructor = child;
-		Object.defineProperty( child.prototype , "constructor" , { 
-		    enumerable: false, 
-		    value: child 
-	    } );
-	}
+        for( key in origProto ) {
+            child.prototype[ key ] = origProto[ key ];
+        }
+        child.prototype.constructor = child;
+        Object.defineProperty( child.prototype , "constructor" , { 
+            enumerable: false, 
+            value: child 
+        } );
+    }
+    function mixin( target , source , props ) {
+        if( !props ) {
+            return;
+        }
 
-	function generateId( type ) {
-		if( type === "overlay" ) {
-			return "object" + ObjectId++;
-		} else if( type === "page" ) {
-			return "page" + PageId++;
-		}
+        var i = 0,
+            len = props.length,
+            prop;
+
+        for( i ; i < len ; i++ ) {
+            prop = props[ i ];
+            
+            if( source.hasOwnProperty( prop ) ) {
+                target[ prop ] = source[ prop ];
+            }
+        }
+    }
+    function makeRegexWithCapture( attribute ) {
+        return new RegExp( attribute + ":\\s*([^;]*);" , "gi" );
+    }
+    function getRegexCapture( string , regex ) {
+        var capture;
+        string.replace( regex , function() {
+            capture = arguments;
+        } );
+        return capture;
     }
 
-	function newJSON() {
-		return {
-		   "metaData": {
-		        "applicationStartPage": "pageSet1",
-		        // "shortTitle": "sketch_plugin",
-		        "startPage": "pageSet1",
-		        // "title": "sketch_plugin",
-		        "_version": "",
-		        "_checkLogin": 1,
-		        "_applicationLoginPage": "",
-		        "resetTextCss": resetTextCss
-		    },
-		    "pageSets": {
-		        "pageSet1": {
-		            "pages": [],
-		            "transitionDuration": 0.4,
-		            "transitionTypeNext": "slide",
-		            "transitionTypePrevious": "slideBack",
-		            "pageSetId": "pageSet1",
-		            "displayName": "Page Set 1"
-		        }
-		    },
-		    "pages": {
-		        "page1": {
-		            "backgroundColor": "#FFFFFF",
-		            "overlays": [],
-		            "pageId": "page1",
-		            "title": "",
-		            "backgroundImageScaleMode": "center",
-		            "displayName": "Page 1"
-		        }
-		    },
-		    "overlays": {},
-		    "actions": {},
-		    "animations": {
-		        "fadeIn": {
-		            "displayName": "Fade In",
-		            "type": "Animation",
-		            "properties": [
-		                {
-		                    "animationFunction": "EaseInOut",
-		                    "autoreverses": false,
-		                    "duration": 0.5,
-		                    "property": "alpha",
-		                    "repeatCount": 0,
-		                    "toValue": 1
-		                }
-		            ]
-		        },
-		        "fadeOut": {
-		            "displayName": "Fade Out",
-		            "type": "Animation",
-		            "properties": [
-		                {
-		                    "animationFunction": "EaseInOut",
-		                    "duration": 0.5,
-		                    "property": "alpha",
-		                    "toValue": 0
-		                }
-		            ]
-		        }
-		    },
-		    "screenSupport": {
-		        "screens": [
-		            {
-		                "fonts": [
-		                    {
-		                        "fontName": "arial",
-		                        "fontSize": 14,
-		                        "name": "Normal"
-		                    }
-		                ],
-		                "height": 768,
-		                "orientation": "landscape",
-		                "suffix": "",
-		                "width": 1024
-		            }
-		        ],
-		        "useScreenRatio": true
-		    },
-		    "schema": schema
-		};
-	}
+    function appendOverlay( overlay ) {
+        var obj = this;
+        if( overlay !== undefined ) {
+            if( obj.overlays instanceof Array ) {
+                obj.overlays.push( overlay );
+            } else if( typeof obj.overlays === "object" && overlay.overlayId ) {
+                obj.overlays[ overlay.overlayId ] = overlay;
+            } else {
+                log( "Cannot append to <" + obj.constructor + "> types" );
+            }
+        }
+        return obj;
+    }
 
-	function Page() {
+    function CSExtensions() {
+        this.setKeyValue = function( key , value ) {
+            if( typeof key !== "string" && value === undefined ) {
+                return;
+            }
+            this[ key ] = value;
+            return this;
+        };
+        this.getKeyValue = function() {
+            var args = Array.prototype.slice.call( arguments );
+            return Overlay.prototype.getKeyValue.apply( this , args );
+        };
+        this.addOverlayByReference = function( overlayId ) {
+            if( overlayId !== undefined ) {
+                if( this.overlays instanceof Array ) {
+                    this.overlays.push( { "overlayId": overlayId } );   
+                } else {
+                    log( "Cannot append to <" + this.constructor + "> types" );
+                }
+            }
+            return this;
+        };
+        this.appendOverlay = appendOverlay;
+
+        return this;
+    }
+
+    var textAlignRegex = makeRegexWithCapture( "text-align" ),
+        lineHeightRegex = makeRegexWithCapture( "line-height" ),
+        letterSpacingRegex = makeRegexWithCapture( "letter-spacing" ),
+        textColorRegex = makeRegexWithCapture( "color" ),
+        fontSizeRegex = makeRegexWithCapture( "font-size" ),
+        customFontRegex = makeRegexWithCapture( "font-family" );
+
+    function HTMLText() {
+        this.setCommonText = function( text ) {
+            return "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 0px;\"><span style=\"color:#000000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">" + text + "</span></span></span></div>";
+        };
+        this.setCustomText = function( text ) {
+            return "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 0px;\"><span style=\"color:#000000;\"><span class=\"sm-font-family\" style=\"font-family:HelveticaNeue-Regular,'Helvetica Neue';font-style:normal;font-weight:normal;\"><span class=\"sm-font-style\"><span style=\"font-size:24px;\">" + text + "</span></span></span></span></span></div>";
+        };
+        this.getTextAlign = function() {
+            return getRegexCapture( this.text , textAlignRegex )[ 1 ];
+        };
+        this.getLineHeight = function() {
+            return getRegexCapture( this.text , lineHeightRegex )[ 1 ];
+        };
+        this.getLetterSpacing = function() {
+            return getRegexCapture( this.text , letterSpacingRegex )[ 1 ];
+        };
+        this.getColor = function() {
+            return getRegexCapture( this.text , textColorRegex )[ 1 ];
+        };
+        this.getFontSize = function() {
+            return getRegexCapture( this.text , fontSizeRegex )[ 1 ];
+        };
+        this.setText = function( text ) {
+            var textOverlay = this;
+            if( text ) {
+                this._text = text;
+                this.text = this.setCommonText( text );
+            }
+            
+
+            function setTextAlign( textAlign ) {
+                textOverlay.text = textOverlay.text.replace( textAlignRegex , function( match ) {
+                    match = match.replace( new RegExp( "left|center|right|justify" , "gi" ) , textAlign );
+                    // log( "Setting text alignment to: " + options[ key ] );
+                    return match;
+                } );
+
+                return textOverlay;
+            }
+            function setLineHeight( lineHeight ) {
+                textOverlay.text = textOverlay.text.replace( lineHeightRegex , function( match ) {
+                    match = match.replace( new RegExp( "\\d*px" , "gi" ) , lineHeight );
+                    // log( "Setting text line height to: " + options[ key ] );
+                    return match;
+                } );
+
+                return textOverlay;
+            }
+            function setLetterSpacing( letterSpacing ) {
+                textOverlay.text = textOverlay.text.replace( letterSpacingRegex , function( match ) {
+                    match = match.replace( new RegExp( "\\d*px" , "gi" ) , letterSpacing );
+                    // log( "Setting text letter spacing to: " + options[ key ] );
+                    return match;
+                } );
+
+                return textOverlay;
+            }
+            function setColor( hexColor ) {
+                textOverlay.text = textOverlay.text.replace( textColorRegex , function( match ) {
+                    match = match.replace( new RegExp( "#\\d*" , "gi" ) , hexColor );
+                    // log( "Setting text color to: " + options[ key ] );
+                    return match;
+                } );
+
+                return textOverlay;
+            }
+            function setFontSize( fontSize ) {
+                textOverlay.text = textOverlay.text.replace( fontSizeRegex , function( match ) {
+                    match = match.replace( new RegExp( "\\d*px" , "gi" ) , fontSize );
+                    // log( "Setting text font size to: " + options[ key ] );
+                    return match;
+                } );
+
+                return textOverlay;
+            }
+            function setCustomFont( customFont , customFontFamily ) {
+                var customText = textOverlay.setCustomText( text ),
+                    textAlign = textOverlay.getTextAlign(),
+                    lineHeight = textOverlay.getLineHeight(),
+                    letterSpacing = textOverlay.getLetterSpacing(),
+                    color = textOverlay.getColor(),
+                    fontSize = textOverlay.getFontSize();
+                
+                customText = customText.replace( customFontRegex , function( match ) {
+                    match = "font-family:" + customFont + ",'" + customFontFamily + "'";
+                    log( "Setting text font to: " + customFont + " with family: " + customFontFamily );
+                    return match;
+                } );
+
+                textOverlay.text = customText;
+
+                // Reapply styles
+                if( textAlign ) {
+                    setTextAlign.call( textOverlay , textAlign );
+                }
+                if( lineHeight ) {
+                    setLineHeight.call( textOverlay , lineHeight );
+                }
+                if( letterSpacing ) {
+                    setLetterSpacing.call( textOverlay , letterSpacing );
+                }
+                if( color ) {
+                    setColor.call( textOverlay , color );
+                }
+                if( fontSize ) {
+                    setFontSize.call( textOverlay , fontSize );
+                }
+
+                return textOverlay;
+            }
+            function setCommonText() {
+                var commonText = textOverlay.setCommonText( textOverlay._text || "" ),
+                    textAlign = textOverlay.getTextAlign(),
+                    lineHeight = textOverlay.getLineHeight(),
+                    letterSpacing = textOverlay.getLetterSpacing(),
+                    color = textOverlay.getColor(),
+                    fontSize = textOverlay.getFontSize();
+
+                textOverlay.text = commonText;
+
+                // Reapply styles
+                if( textAlign ) {
+                    setTextAlign.call( textOverlay , textAlign );
+                }
+                if( lineHeight ) {
+                    setLineHeight.call( textOverlay , lineHeight );
+                }
+                if( letterSpacing ) {
+                    setLetterSpacing.call( textOverlay , letterSpacing );
+                }
+                if( color ) {
+                    setColor.call( textOverlay , color );
+                }
+                if( fontSize ) {
+                    setFontSize.call( textOverlay , fontSize );
+                }
+
+                return textOverlay;
+            }
+
+            return {
+                setTextAlign: setTextAlign.bind( textOverlay ),
+                setLineHeight: setLineHeight.bind( textOverlay ),
+                setLetterSpacing: setLetterSpacing.bind( textOverlay ),
+                setColor: setColor.bind( textOverlay ),
+                setFontSize: setFontSize.bind( textOverlay ),
+                setCustomFont: setCustomFont.bind( textOverlay ),
+                setCommonText: setCommonText.bind( textOverlay )
+            };
+        };
+        
+        return this;
+    }
+
+    function Json() {
+        return {
+           "metaData": {
+                "applicationStartPage": "pageSet1",
+                // "shortTitle": "sketch_plugin",
+                "startPage": "pageSet1",
+                // "title": "sketch_plugin",
+                "_version": "",
+                "_checkLogin": 1,
+                "_applicationLoginPage": "",
+                "resetTextCss": resetTextCss
+            },
+            "pageSets": {
+                "pageSet1": {
+                    "pages": [],
+                    "transitionDuration": 0.4,
+                    "transitionTypeNext": "slide",
+                    "transitionTypePrevious": "slideBack",
+                    "pageSetId": "pageSet1",
+                    "displayName": "Page Set 1"
+                }
+            },
+            "pages": {
+                "page1": {
+                    "backgroundColor": "#FFFFFF",
+                    "overlays": [],
+                    "pageId": "page1",
+                    "title": "",
+                    "backgroundImageScaleMode": "center",
+                    "displayName": "Page 1"
+                }
+            },
+            "overlays": {},
+            "actions": {},
+            "animations": {
+                "fadeIn": {
+                    "displayName": "Fade In",
+                    "type": "Animation",
+                    "properties": [
+                        {
+                            "animationFunction": "EaseInOut",
+                            "autoreverses": false,
+                            "duration": 0.5,
+                            "property": "alpha",
+                            "repeatCount": 0,
+                            "toValue": 1
+                        }
+                    ]
+                },
+                "fadeOut": {
+                    "displayName": "Fade Out",
+                    "type": "Animation",
+                    "properties": [
+                        {
+                            "animationFunction": "EaseInOut",
+                            "duration": 0.5,
+                            "property": "alpha",
+                            "toValue": 0
+                        }
+                    ]
+                }
+            },
+            "screenSupport": {
+                "screens": [
+                    {
+                        "fonts": [
+                            {
+                                "fontName": "arial",
+                                "fontSize": 14,
+                                "name": "Normal"
+                            }
+                        ],
+                        "height": 768,
+                        "orientation": "landscape",
+                        "suffix": "",
+                        "width": 1024
+                    }
+                ],
+                "useScreenRatio": true
+            },
+            "schema": schema
+        };
+    }
+    
+    function embedContentSpecReference( target , contentSpec ) {
+        if( !target.contentSpec ) {
+            target.contentSpec = contentSpec;
+        }
+    }
+
+    function ContentSpec() {
+        var schema = schema;
+        this.objectId = 1;
+        this.pageId = 1;
+        this.resetTextCss = resetTextCss;
+        this.json = new Json();
+
+        return this;
+    }
+    // mixin( ContentSpec.prototype , new CSExtensions() , [ "appendOverlay"] );
+    ContentSpec.prototype.appendOverlay = function( overlay ) {
+        appendOverlay.call( this.json , overlay );
+    };
+    ContentSpec.prototype.generateId = function( type ) {
+        if( type === "overlay" ) {
+            return "object" + this.objectId++;
+        } else if( type === "page" ) {
+            return "page" + this.pageId++;
+        }
+    };
+    ContentSpec.prototype.getJson = function() {
+        return this.json;
+    };
+    ContentSpec.prototype.getResetCss = function() {
+        return this.resetTextCss;
+    };
+    ContentSpec.prototype.appendPage = function( page ) {
+        var pageId,
+            json = this.json;
+        if( page instanceof Page ) {
+            pageId = page.getPageId();
+            if( json.pages[ pageId ] ) {
+                log( "Overwriting page: <" + pageId + ">" );
+            }
+            json.pages[ pageId ] = page;
+        }
+    };
+    ContentSpec.prototype.create = function( type ) {
+        if( type === "page" ) {
+            embedContentSpecReference( Page.prototype , this );
+            return new Page();
+        } else if( type === "image" ) {
+            embedContentSpecReference( SMImage.prototype , this );
+            return new SMImage();
+        } else if( type === "cgbutton" ) {
+            embedContentSpecReference( SMCGButton.prototype , this );
+            return new SMCGButton();
+        } else if( type === "button" ) {
+            embedContentSpecReference( SMButton.prototype , this );
+            return new SMButton();
+        } else if( type === "container" ) {
+            embedContentSpecReference( SMContainer.prototype , this );
+            return new SMContainer();
+        } else if( type === "text" ) {
+            embedContentSpecReference( SMText.prototype , this );
+            return new SMText();
+        } else {
+            embedContentSpecReference( Overlay.prototype , this );
+            return new Overlay();
+        }
+    };
+
+    function Page() {
         this.backgroundColor = "#FFFFFF";
         this.overlays = [];
         this.pageId = null;
         this.title = "";
         this.backgroundImageScaleMode = "center";
         this.displayName = "";
-	}
 
-	Page.prototype.setPageId = function( pageId ) {
-		if( !this.pageId && pageId === undefined ) {
-			pageId = generateId( "page" );
-		}
+        return this;
+    }
+    mixin( Page.prototype , new CSExtensions() , [ "setKeyValue" , "getKeyValue" , "addOverlayByReference" ] );
+    Page.prototype.setPageId = function( pageId ) {
+        if( !this.pageId && pageId === undefined ) {
+            pageId = this.contentSpec.generateId( "page" );
+        }
 
-		this.pageId = pageId;
-	};
-	Page.prototype.getPageId = function() {
-		return this.pageId;
-	};
-	Page.prototype.addOverlayByReference = function() {
-		var args = Array.prototype.slice.call( arguments );
-		return Overlay.prototype.addOverlayByReference.apply( this , args );
-	};
-	Page.prototype.setKeyValue = function() {
-		var args = Array.prototype.slice.call( arguments );
-		return Overlay.prototype.setKeyValue.apply( this , args );
-	};
-	Page.prototype.getKeyValue = function() {
-		var args = Array.prototype.slice.call( arguments );
-		return Overlay.prototype.getKeyValue.apply( this , args );
-	};
-	Page.prototype.addToPageSet = function( pageSetId ) {
-		if( JSON.pageSets[ pageSetId ] ) {
-			JSON.pageSets[ pageSetId ].pages.push( this.getPageId() );
-		} else if( JSON.pageSets.pageSet1 ) {
-			JSON.pageSets.pageSet1.pages.push( this.getPageId() );
-		}
-	};
+        this.pageId = pageId;
+    };
+    Page.prototype.getPageId = function() {
+        return this.pageId;
+    };
+    Page.prototype.addToPageSet = function( pageSetId ) {
+        var json = this.contentSpec.json;
+        if( json.pageSets[ pageSetId ] ) {
+            json.pageSets[ pageSetId ].pages.push( this.getPageId() );
+        } else if( json.pageSets[ defaultPageSetId ] ) {
+            json.pageSets[ defaultPageSetId ].pages.push( this.getPageId() );
+        }
+    };
 
-	function Overlay( type ) {
-		this.overlayId = null;
-		this.displayName = "";
-		this.type = type || "";
-		this.widget = type || "";
-		this.relative = "parent";
-		this.borderAlpha = 1;
-		this.hidden = false;
-		this.scale = 1;
-		this.alpha = 1;
-		this.clickThrough = false;
-		this.draggable = false;
-		this.layouts = {
-			landscape: {
-				width: "50px",
-				height: "50px",
-				x: "512px",
-				y: "384px",
-				horizontalAlign: "left",
-				verticalAlign: "top"
-			}
-		};
-		this.actions = [];
-	}
+    function Overlay( type ) {
+        this.overlayId = null;
+        this.displayName = "";
+        this.type = type || "";
+        this.widget = type || "";
+        this.relative = "parent";
+        this.borderAlpha = 1;
+        this.hidden = false;
+        this.scale = 1;
+        this.alpha = 1;
+        this.clickThrough = false;
+        this.draggable = false;
+        this.layouts = {
+            landscape: {
+                width: "50px",
+                height: "50px",
+                x: "512px",
+                y: "384px",
+                horizontalAlign: "left",
+                verticalAlign: "top"
+            }
+        };
+        this.actions = [];
 
-	Overlay.prototype.setOverlayId = function( overlayId ) {
-		if( !this.overlayId && overlayId === undefined ) {
-			overlayId = generateId( "overlay" );
-		}
+        return this;
+    }
+    mixin( Overlay.prototype , new CSExtensions() , [ "setKeyValue" , "getKeyValue" , "appendOverlay" , "addOverlayByReference" ] );
 
-		this.overlayId = overlayId;
-	};
-	Overlay.prototype.getOverlayId = function() {
-		return this.overlayId;
-	};
-	Overlay.prototype.setKeyValue = function( key , value ) {
-		if( typeof key !== "string" && value === undefined ) {
-			return;
-		}
-		this[ key ] = value;
-	};
-	Overlay.prototype.getKeyValue = function( key ) {
-		if( this[ key ] !== undefined ) {
-			return this[ key ];
-		}
-	};
-	Overlay.prototype.setLayouts = function( orientation , data ) {
-		var key;
-		orientation = ( orientation === "landscape" || orientation === "portrait" ) ? orientation : "landscape";
+    Overlay.prototype.setOverlayId = function( overlayId ) {
+        if( !this.overlayId && overlayId === undefined ) {
 
-		if( typeof data === "object" ) {
-			for( key in data ) {
-				this.layouts[ orientation ][ key ] = data[ key ];
-			}	
-		}
-	};
+            overlayId = this.contentSpec.generateId( "overlay" );
+        }
+        this.overlayId = overlayId;
+    };
+    Overlay.prototype.getOverlayId = function() {
+        return this.overlayId;
+    };
+    Overlay.prototype.setLayouts = function( orientation , data ) {
+        var key;
+        orientation = ( orientation === "landscape" || orientation === "portrait" ) ? orientation : "landscape";
 
-	Overlay.prototype.appendOverlay = function( overlay ) {
-		if( overlay !== undefined ) {
-			if( this.overlays instanceof Array ) {
-				this.overlays.push( overlay );
-			} else if( typeof this.overlays === "object" && overlay.overlayId ) {
-				this.overlays[ overlay.overlayId ] = overlay;
-			} else {
-				log( "Cannot append to non-" + this.constructor + " types" );
-			}
-		}
-		return this;
-	};
-	Overlay.prototype.addOverlayByReference = function( overlayId ) {
-		if( overlayId !== undefined ) {
-			if( this.overlays instanceof Array ) {
-				this.overlays.push( { "overlayId": overlayId } );	
-			} else {
-				log( "Cannot append to non-Container overlay types" );
-			}
-		}
-		return this;
-	};
-
-	// @desc convert overlay to an alternative overlay type
+        if( typeof data === "object" ) {
+            for( key in data ) {
+                this.layouts[ orientation ][ key ] = data[ key ];
+            }   
+        }
+    };
+    // @desc convert overlay to an alternative overlay type
     // @param {string} newOverlay - type of alternative overlay
     // @param {...string} exemption - overlay properties that will not be
-	Overlay.prototype.convertToOverlay = function( newOverlay , exemption ) {
-		var key,
-			args = Array.prototype.slice.call( arguments ),
-			oldOverlayType = this.type,
-			newOverlayType = newOverlay,
-			messages = [];
-		newOverlay = create( newOverlay );
-		args.shift();
+    Overlay.prototype.convertToOverlay = function( newOverlay , exemption ) {
+        var key,
+            exemptions = Array.prototype.slice.call( arguments ),
+            oldOverlayType = this.type,
+            newOverlayType = newOverlay,
+            messages = [];
+        newOverlay = this.contentSpec.create( newOverlay );
+        exemptions.shift();
 
-		if( this.constructor !== newOverlay.constructor ) {
-			for( key in this ) {
+        if( this.constructor !== newOverlay.constructor ) {
+            for( key in this ) {
 
-				// Overlay property does not exist in alternative overlay type
-				if( this.hasOwnProperty( key ) && !newOverlay.hasOwnProperty( key ) ) {
-					if( args.indexOf( key ) < 0 ) {
-						messages.push( "Converting overlay to " + newOverlayType + ", deleting \"" + key + "\" from " + oldOverlayType );
-						delete this[ key ];	
-					}
-				}
-			}
-			for( key in newOverlay ) {
-				if( newOverlay.hasOwnProperty( key ) && 
-					newOverlay[ key ] !== undefined && newOverlay[ key ] !== null ) {
-					if( args.indexOf( key ) < 0 || this[ key ] === undefined || this[ key ] === null ) {
-						this[ key ] = newOverlay[ key ];
-					}
-						
-				}
-			}
-			this.constructor = newOverlay.constructor;
-		}
-		log( messages.join( "\n" ) );
-	};
+                // Overlay property does not exist in alternative overlay type
+                if( this.hasOwnProperty( key ) && !newOverlay.hasOwnProperty( key ) ) {
+                    if( exemptions.indexOf( key ) < 0 ) {
+                        messages.push( "Converting overlay to " + newOverlayType + ", deleting \"" + key + "\" from " + oldOverlayType );
+                        delete this[ key ]; 
+                    }
+                }
+            }
+            for( key in newOverlay ) {
+                if( newOverlay.hasOwnProperty( key ) && 
+                    newOverlay[ key ] !== undefined && newOverlay[ key ] !== null ) {
+                    if( exemptions.indexOf( key ) < 0 || this[ key ] === undefined || this[ key ] === null ) {
+                        this[ key ] = newOverlay[ key ];
+                    }   
+                }
+            }
+            this.constructor = newOverlay.constructor;
+        }
+        log( messages.join( "\n" ) );
+    };
 
-	function SMImage( overlayId , displayName ) {
-		Overlay.call( this , "image" );
+    function SMImage( overlayId , displayName ) {
+        Overlay.call( this , "image" );
 
-		if( overlayId ) { this.overlayId = overlayId; }
-		if( displayName ) { this.displayName = displayName; }
-	}
-	extend( Overlay , SMImage );
-	function SMButton( overlayId , displayName ) {
-		Overlay.call( this , "button" );
+        if( overlayId ) { this.overlayId = overlayId; }
+        if( displayName ) { this.displayName = displayName; }
 
-		this.images = [ "" ];
-		this.imagesDown = [ "" ];
+        return this;
+    }
+    extend( Overlay , SMImage );
+    function SMButton( overlayId , displayName ) {
+        Overlay.call( this , "button" );
 
-		if( overlayId ) { this.overlayId = overlayId; }
-		if( displayName ) { this.displayName = displayName; }
-	}
-	extend( Overlay , SMButton );
-	function SMCGButton( overlayId , displayName ) {
-		Overlay.call( this , "button" );
+        this.images = [ "" ];
+        this.imagesDown = [ "" ];
 
-		this.cgBorderColor = "#0099BB";
-		this.cgBorderAlpha = 1;
+        if( overlayId ) { this.overlayId = overlayId; }
+        if( displayName ) { this.displayName = displayName; }
+
+        return this;
+    }
+    extend( Overlay , SMButton );
+    function SMCGButton( overlayId , displayName ) {
+        Overlay.call( this , "button" );
+
+        this.cgBorderColor = "#0099BB";
+        this.cgBorderAlpha = 1;
         this.cgBorderWidth = "2px";
         this.cgButtonColor = "#FFFFFF";
         this.cgButtonAlpha = 1;
@@ -312,15 +561,17 @@ var ContentSpec = ContentSpec || ( function() {
         this.textPadding = "10px";
         this.toggle = false;
 
-		if( overlayId ) { this.overlayId = overlayId; }
-		if( displayName ) { this.displayName = displayName; }
-	}
-	extend( Overlay , SMCGButton );
-	function SMContainer( overlayId , displayName ) {
-		Overlay.call( this , "container" );
-		this.overlays = [];
+        if( overlayId ) { this.overlayId = overlayId; }
+        if( displayName ) { this.displayName = displayName; }
 
-		this.backgroundAlpha = 0.1;
+        return this;
+    }
+    extend( Overlay , SMCGButton );
+    function SMContainer( overlayId , displayName ) {
+        Overlay.call( this , "container" );
+        this.overlays = [];
+
+        this.backgroundAlpha = 0.1;
         this.backgroundColor = "#FFFFFF";
         this.backgroundPosition = "center-center";
         this.backgroundRepeat = "repeat-none";
@@ -337,121 +588,33 @@ var ContentSpec = ContentSpec || ( function() {
         this.userScrolling = "none";
         this.userScrollingBounces = true;
 
-		if( overlayId ) { this.overlayId = overlayId; }
-		if( displayName ) { this.displayName = displayName; }
-	}
-	extend( Overlay , SMContainer );
-	function SMText( overlayId , displayName ) {
-		Overlay.call( this , "text" );
+        if( overlayId ) { this.overlayId = overlayId; }
+        if( displayName ) { this.displayName = displayName; }
 
-		this.widget = "text_complex";
-		this.plugin = "text_complex.smp";
-		this.text = "";
-		this.html = true;
-		this.bounces = false;
-		this.size = "0em";
-		this.userScrolling = "none";
+        return this;
+    }
+    extend( Overlay , SMContainer );
+    function SMText( overlayId , displayName ) {
+        Overlay.call( this , "text" );
 
-		if( overlayId ) { this.overlayId = overlayId; }
-		if( displayName ) { this.displayName = displayName; }
-	}
-	extend( Overlay , SMText );
+        this.widget = "text_complex";
+        this.plugin = "text_complex.smp";
+        this.text = "";
+        this.html = true;
+        this.bounces = false;
+        this.size = "0em";
+        this.userScrolling = "none";
 
-	SMText.prototype.setTextWithOptions = function( text , options ) {
-		var defaultText = this.text || "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 3px;\"><span style=\"color:#000000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">" + text + "</span></span></span></div>",
-			key;
+        if( overlayId ) { this.overlayId = overlayId; }
+        if( displayName ) { this.displayName = displayName; }
 
-		for( key in options ) {
-			if( key  === "textAlign" ) {
-				defaultText = defaultText.replace( new RegExp( "(text-align[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
-					match = match.replace( new RegExp( "left|center|right|justify" , "gi" ) , options[ key ] );
-					// log( "Setting text alignment to: " + options[ key ] );
-					return match;
-				} );
-			} else if( key  === "lineHeight" ) {
-				defaultText = defaultText.replace( new RegExp( "(line-height[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
-					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
-					// log( "Setting text line height to: " + options[ key ] );
-					return match;
-				} );
-			} else if( key  === "letterSpacing" ) {
-				defaultText = defaultText.replace( new RegExp( "(letter-spacing[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
-					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
-					// log( "Setting text letter spacing to: " + options[ key ] );
-					return match;
-				} );
-			} else if( key  === "textColor" ) {
-				defaultText = defaultText.replace( new RegExp( "(color[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
-					match = match.replace( new RegExp( "#\\d*" , "gi" ) , options[ key ] );
-					// log( "Setting text color to: " + options[ key ] );
-					return match;
-				} );
+        return this;
+    }
+    extend( Overlay , SMText );
+    SMText.prototype.setText = function( text ) {
+        this.text = text;
+    };
+    HTMLText.call( SMText.prototype );
 
-			} else if( key  === "fontSize" ) {
-				defaultText = defaultText.replace( new RegExp( "(font-size[^;]*;)" , "gi" ) , function( match , p1 , offset , string ) {
-					match = match.replace( new RegExp( "\\d*px" , "gi" ) , options[ key ] );
-					// log( "Setting text font size to: " + options[ key ] );
-					return match;
-				} );
-			}
-		}
-
-
-		this.text = defaultText;
-	};
-	
-	function init() {
-		JSON = newJSON();
-	}
-
-	function create( type ) {
-		if( type === "page" ) {
-			return new Page();
-		} else if( type === "image" ) {
-			return new SMImage();
-		} else if( type === "cgbutton" ) {
-			return new SMCGButton();
-		} else if( type === "button" ) {
-			return new SMButton();
-		} else if( type === "container" ) {
-			return new SMContainer();
-		} else if( type === "text" ) {
-			return new SMText();
-		} else {
-			return new Overlay();
-		}
-	}
-
-	init();
-	return {
-		json: function() {
-			return JSON;
-		},
-		appendOverlay: function() {
-			var args = Array.prototype.slice.call( arguments );
-			return Overlay.prototype.appendOverlay.apply( JSON , args );
-		},
-		appendPage: function( page ) {
-			if( page !== undefined ) {
-				if( page.pageId ) {
-					JSON.pages[ page.pageId ] = page;
-				}
-			}
-		},
-		getResetCSS: function() {
-			return resetTextCss;
-		},
-		create: create,
-		addPage: function( page ) {
-			var pageId;
-			if( page instanceof Page ) {
-				pageId = page.getPageId();
-				if( JSON.pages[ pageId ] ) {
-					log( "Overwriting page: <" + pageId + ">" );
-				}
-				JSON.pages[ pageId ] = page;
-			}
-		}
-
-	};
-} () );
+    return ContentSpec;
+} ( ContentSpec ) );

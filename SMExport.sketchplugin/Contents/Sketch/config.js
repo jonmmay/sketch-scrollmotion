@@ -11,7 +11,7 @@
 // TO DO: Combo box for user prompts
 
 
-var Util = ( function( Util , _cb ) {
+var Util = ( function( Util , CB ) {
     "use strict";
 
     var u = {};
@@ -36,10 +36,10 @@ var Util = ( function( Util , _cb ) {
         if( obj.count && obj.className ) {
             // Cocoa array
             i = 0;
-            len = _cb.count( obj );
+            len = CB.Array.count( obj );
 
             for( i ; i < len ; i++ ) {
-                iterator( _cb.objectAtIndex( obj , i ) , i );
+                iterator( CB.Array.objectAtIndex( obj , i ) , i );
             }
 
         } else if( Object.prototype.toString.call( obj ) === "[object Array]" ) {
@@ -69,27 +69,27 @@ var Util = ( function( Util , _cb ) {
         return layerCopy;
     };
     u.folderExists = function( path ) {
-        return _cb.fileExistsAtPath( path );
+        return CB.fileExistsAtPath( path );
     };
     u.removeFolder = function( path ) {
         u.log("Removing file at: " + path );
-        _cb.removeItemAtPath( path );
+        CB.removeItemAtPath( path );
     };
     u.createFolders = function( path , folders ) {
         new AppSandbox().authorize( path , function() {
-            var i = _cb.count( folders ) - 1;
+            var i = CB.Array.count( folders ) - 1;
 
             for( i ; i > -1 ; i-- ) {
-                _cb.createDirectoryAtPath( _cb.objectAtIndex( folders , i ) );
+                CB.createDirectoryAtPath( CB.Array.objectAtIndex( folders , i ) );
             }
         } );
     };
     u.saveFileFromString = function( path , filename , filestring ) {
         new AppSandbox().authorize( path , function() {
-            var localPath = _cb.stringByAppendingString( filename ),
-                str = _cb.stringByAppendingString( filestring );
+            var localPath = CB.stringByAppendingString( filename ),
+                str = CB.stringByAppendingString( filestring );
 
-            _cb.writeToFile( str , localPath , "UTF8" );
+            CB.writeToFile( str , localPath , "UTF8" );
         } );
     };
     u.unique = function( str ) {
@@ -147,7 +147,7 @@ var Util = ( function( Util , _cb ) {
     return Util;
 } ( Util || {} , CocoaBridge ) );
 
-var Config = ( function( Config , _cb ) {
+var Config = ( function( Config , CB ) {
     "use strict";
 
     var context,
@@ -185,7 +185,7 @@ var Config = ( function( Config , _cb ) {
 
             // Not yet implemented
             settingsFilePath = targetFolder + "/smsketch.json";
-            settingsExist = _cb.fileExistsAtPath( settingsFilePath );
+            settingsExist = CB.fileExistsAtPath( settingsFilePath );
 
             Util.log( "Config inited" );
         }

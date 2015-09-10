@@ -6,7 +6,7 @@
 // TO DO: Change "Artboard" to "masterGroup" to align with "parentGroup"
 // TO DO: Identify hidden layers
 
-var View = ( function( _View ) {
+var View = ( function( _View , CB ) {
 	"use strict";
 	if( _View ) { Util.log( "Sorry! We're overwriting View: " + _View ); }
 	
@@ -238,7 +238,7 @@ var View = ( function( _View ) {
 			len = subviews.count();
 
 			for( i ; i < len ; i++ ) {
-				subview = new View( CocoaBridge.objectAtIndex( subviews , i ) , this );
+				subview = new View( CB.Array.objectAtIndex( subviews , i ) , this );
 				if( subview.shouldBeExtracted() ) {
 					return true;
 				}
@@ -382,7 +382,7 @@ var View = ( function( _View ) {
 	};
 	View.prototype.getInfluenceLayout = function() {
 		var frame = this.layer.frame(),
-			gkrect = CocoaBridge.GKRect.rectWithRect( this.layer ),
+			gkrect = CB.GKRect.rectWithRect( this.layer ),
 	        absrect = this.layer.absoluteRect(),
 	        rulerDeltaX,
 			rulerDeltaY,
@@ -410,4 +410,4 @@ var View = ( function( _View ) {
 	ret.prototype = View.prototype;
 
 	return ret;
-} ( View ) );
+} ( View , CocoaBridge ) );

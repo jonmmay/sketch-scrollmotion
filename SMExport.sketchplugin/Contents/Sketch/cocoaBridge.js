@@ -1,7 +1,4 @@
-
-// TO DO: Change CocoaBridge to SketchBridge
-
-var CocoaBridge = ( function( CocoaBridge ) {
+var CocoaBridge = ( function( _CocoaBridge ) {
 	var fileManager = NSFileManager.defaultManager(); // [NSFileManager defaultManager]
 
 	// Get JS files from Github
@@ -12,121 +9,241 @@ var CocoaBridge = ( function( CocoaBridge ) {
   // [task setArguments:argsArray];
   // [task launch];
 
-  // TO DO: clean up this mess!
+  	var CB = {};
 
-  	CocoaBridge.MSRect = {
-  		setX: function( rect , x ) {
-  			[rect setX:x];
-  		},
-  		setY: function( rect , y ) {
-  			[rect setY:y];
-  		}
+  	/* ---------------------------------------- */
+	/*  User interaction						*/
+	/* ---------------------------------------- */
+
+  	CB.showDialog = function( title , message , OKHandler ) {
+  		var alert = [COSAlertWindow new],
+  			responseCode;
+		[alert setMessageText: title];
+		[alert setInformativeText: message];
+
+		responseCode = [alert runModal];	
+		if( OKHandler != nil && responseCode == 0 ) {
+			OKHandler();
+		}
   	};
 
-  	function objectTreeAsJSON( obj , prettyPrinted ) {
-        var tree = obj.treeAsDictionary(),
-            prettySetting = prettyPrinted ? NSJSONWritingPrettyPrinted : 0,
-            jsonData = [NSJSONSerialization dataWithJSONObject:tree options:prettySetting error:nil];
-        return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-    }
+  	CB.showDialogWithOptions = function( title , message ) {
+  		var alert = [COSAlertWindow new],
+  			responseCode;
+  		[alert setMessageText: title];
+		[alert setInformativeText: message];
 
-	function count( obj ) {
-		return [obj count];
-	}
-	function arrayWithObjects( objs ) {
-		return [NSArray arrayWithObjects:objs , nil];
-	}
-	function objectAtIndex( obj , i ) {
-		return [obj objectAtIndex:i];
-	}
-	function fileExistsAtPath( path ) {
+  		return {
+  			addButtonWithTitle: function( title ) {
+  				[alert addButtonWithTitle: title];
+  				return this;
+  			},
+  			run: function( actionHandler ) {
+  				responseCode = [alert runModal];
+  				if( actionHandler ) {
+  					// 1000 = rightmost button
+  					// 1001 = second button from right
+  					// 1002 = third button from right
+  					// 100 + n
+  					actionHandler( responseCode );
+  				}
+  			}
+  		};
+  	};
+
+  	/* ---------------------------------------- */
+	/*  Remembering settings and values 		*/
+	/* ---------------------------------------- */
+
+	/*
+		CB.initDefaults = function( initialValues ) {
+			var defVal,
+				key;
+			for ( key in initialValues ) {
+				defVal = CB.getDefault( key );
+				if ( defVal == nil ) {
+					setDefault( key , initialValues[ key ] );
+				}
+			}
+		};
+
+		CB.getDefault = function( key ) {
+			var defaults = [NSUserDefaults standardUserDefaults],
+				defaultValue = [defaults objectForKey: '-' + kPluginDomain + '-' + key];
+			
+			if ( defaultValue != nil && defaultValue.class() === NSDictionary ) ) {
+				return [NSMutableDictionary dictionaryWithDictionary:defaultValue];
+			}
+			return defaultValue;
+		};
+
+		CB.setDefault = function( key , value ) {
+			var defaults = [NSUserDefaults standardUserDefaults], 
+				configs  = [NSMutableDictionary dictionary];
+
+			[configs setObject:value forKey: '-' + kPluginDomain + '-' + key];
+			return [defaults registerDefaults:configs];
+		};
+
+		CB.syncDefaults = function() {
+			var defaults = [NSUserDefaults standardUserDefaults];
+			[defaults synchronize];
+		};
+	*/
+
+  	/* ---------------------------------------- */
+	/*  Working with files and directories		*/
+	/* ---------------------------------------- */
+
+  	CB.browseForDirectory = function( title ) {
+		var openDialog = [NSOpenPanel openPanel];
+		[openDialog setCanChooseFiles:false];
+		[openDialog setCanChooseDirectories:true];
+		[openDialog setAllowsMultipleSelection:false];
+		[openDialog setCanCreateDirectories:true];
+		[openDialog setTitle:title];
+		if( [openDialog runModal] == NSOKButton ) {
+			return [[openDialog URLs] firstObject];
+		}
+		return ""
+	};
+	CB.browseForFile = function( title ) {
+		var openDialog = [NSOpenPanel openPanel];
+		[openDialog setCanChooseFiles:true];
+		[openDialog setCanChooseDirectories:false];
+		[openDialog setAllowsMultipleSelection:false];
+		[openDialog setCanCreateDirectories:false];
+		[openDialog setTitle:title];
+		if( [openDialog runModal] == NSOKButton ) {
+			return [[openDialog URLs] firstObject];
+		}
+		return ""
+	};
+	CB.fileExistsAtPath = function( path ) {
 		return [fileManager fileExistsAtPath:path];
-	}
-	function removeItemAtPath( path ) {
+	};
+	CB.removeItemAtPath = function( path ) {
 		[fileManager removeItemAtPath:path error:nil];
-	}
-	function createDirectoryAtPath( path ) {
+	};
+	CB.createDirectoryAtPath = function( path ) {
 		[fileManager createDirectoryAtPath:path withIntermediateDirectories:true attributes:nil error:nil];
-	}
-
-	function copyItemAtPath( srcPath , dstPath ) {
+	};
+	CB.copyItemAtPath = function( srcPath , dstPath ) {
 		[fileManager copyItemAtPath:srcPath toPath:dstPath error:nil];
-	}
-	function writeToFile( data , path , encoding ) {
+	};
+	CB.writeToFile = function( data , path , encoding ) {
 		if( encoding && encoding === "UTF8" ) {
 			[data writeToFile:path atomically:true encoding:NSUTF8StringEncoding error:null];
 		} else {
 			[data writeToFile:path atomically:true]
-		}
-		
-	}
-	function stringWithContentsOfFile( path ) {
+		}	
+	};
+	CB.stringWithContentsOfFile = function( path ) {
 		return [[NSString stringWithContentsOfFile:path] dataUsingEncoding:NSUTF8StringEncoding];
-	}
+	};
+	CB.dataWithContentsOfFile = function( path ) {
+		return [NSData dataWithContentsOfFile:path];
+	};
+	CB.jsonWithContentsOfFile = function( path ) {
+		var data = CB.dataWithContentsOfFile( path );
+		return CB.JSON.JSONObjectWithData( data );
+	};
 
-	// Can be used to type cast a JS string
-	function stringByAppendingString( string ) {
-		return [@"" stringByAppendingString:string];
-	}
-	function valueForKeyPath( obj , key ) {
-		key = stringByAppendingString( key );
-		return [settings_old valueForKeyPath:key];
-	}
-	function setValue( mutableDictionary , key , value ) {
-		value = stringByAppendingString( value );
-		[mutableDictionary setValue:value forKey:value];
-	}
+	/* ---------------------------------------- */
+	/*  Working with json 				        */
+	/* ---------------------------------------- */
 
+	CB.JSON = {};
 	// Serialize mutable dictionary
-	function dataWithJSONObject( mutableDictionary ) {
+	CB.JSON.dataWithJSONObject = function( mutableDictionary ) {
 		return [NSJSONSerialization dataWithJSONObject:mutableDictionary options:NSJSONWritingPrettyPrinted error:nil];
-	}
+	};
 	// Serialize JSON from string
-	function JSONObjectWithData( data ) {
-		return [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-	}
+	CB.JSON.JSONObjectWithData = function( data ) {
+		return [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+	};
 
-	// Stringifying JSON
-	function initWithData( json ) {
-		return [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];	
-	}
+    /* ---------------------------------------- */
+	/*  Helpers									*/
+	/* ---------------------------------------- */
+
+	// Stringifying data
+	CB.initWithData = function( data ) {
+		return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];	
+	};
+	CB.stringify = function( obj , prettyPrinted ) {
+		var prettySetting = prettyPrinted ? NSJSONWritingPrettyPrinted : 0,
+			jsonData = [NSJSONSerialization dataWithJSONObject:obj options:prettySetting error:nil],
+			data = CB.initWithData( jsonData );
+
+		// Removes escape forward slashes
+		return [data stringByReplacingOccurrencesOfString:@"\\/" withString:@"/"];
+	};
+	CB.objectTreeAsJSON = function( obj , prettyPrinted ) {
+        var tree = obj.treeAsDictionary();
+        return CB.stringify( tree , prettyPrinted );
+    };
+	// Can be used to type cast a JS string
+	CB.stringByAppendingString = function( string ) {
+		return [@"" stringByAppendingString:string];
+	};
+
+	/* ---------------------------------------- */
+	/*  Array helpers							*/
+	/* ---------------------------------------- */
+
+	CB.Array = {};
+	CB.Array.count = function( obj ) {
+		return [obj count];
+	};
+	CB.Array.arrayWithObjects = function( objs ) {
+		return [NSArray arrayWithObjects:objs , nil];
+	};
+	CB.Array.objectAtIndex = function( obj , i ) {
+		return [obj objectAtIndex:i];
+	};
+
+	/* ---------------------------------------- */
+	/*  Dictionary helpers						*/
+	/* ---------------------------------------- */
+
+	CB.Dict = {};
+	CB.Dict.valueForKeyPath = function( obj , key ) {
+		key = CB.stringByAppendingString( key );
+		return [obj valueForKeyPath:key];
+	};
+	CB.Dict.setValue = function( mutableDictionary , key , value ) {
+		value = CB.stringByAppendingString( value );
+		[mutableDictionary setValue:value forKey:key];
+	};
 	
-	CocoaBridge.count = count;
-	CocoaBridge.arrayWithObjects = arrayWithObjects;
-	CocoaBridge.objectAtIndex = objectAtIndex;
-	CocoaBridge.fileExistsAtPath = fileExistsAtPath;
-	CocoaBridge.removeItemAtPath = removeItemAtPath;
-	CocoaBridge.createDirectoryAtPath = createDirectoryAtPath;
-	CocoaBridge.copyItemAtPath = copyItemAtPath;
-	CocoaBridge.writeToFile = writeToFile;
-	CocoaBridge.stringWithContentsOfFile = stringWithContentsOfFile;
-	CocoaBridge.stringByAppendingString = stringByAppendingString;
-	CocoaBridge.valueForKeyPath = valueForKeyPath;
-	CocoaBridge.setValue = setValue;
-	CocoaBridge.dataWithJSONObject = dataWithJSONObject;
-	CocoaBridge.JSONObjectWithData = JSONObjectWithData;
-	CocoaBridge.initWithData = initWithData;
-	CocoaBridge.objectTreeAsJSON = objectTreeAsJSON;
 	
-	function rectWithRect( layer ) {
+	/* ---------------------------------------- */
+	/*  Sketch helpers 							*/
+	/* ---------------------------------------- */
+
+	CB.MSRect = {};
+	CB.MSRect.setX = function( rect , x ) {
+		[rect setX:x];
+	};
+  	CB.MSRect.setY = function( rect , y ) {
+		[rect setY:y];
+	};
+
+  	CB.GKRect = {};
+  	CB.GKRect.rectWithRect = function( layer ) {
 		return [GKRect rectWithRect:[layer absoluteInfluenceRect]];
-	}
-	CocoaBridge.GKRect = {};
-	CocoaBridge.GKRect.rectWithRect = rectWithRect;
-
-	function slicesFromExportableLayer( layer , rect ) {
-		return [MSSliceMaker slicesFromExportableLayer:layer inRect:rect];
-	}
+  	};
 	
-	CocoaBridge.MSSliceMaker = {};
-	CocoaBridge.MSSliceMaker.slicesFromExportableLayer = slicesFromExportableLayer;
+	CB.MSSliceMaker = {};
+	CB.MSSliceMaker.slicesFromExportableLayer = function( layer , rect ) {
+		return [MSSliceMaker slicesFromExportableLayer:layer inRect:rect];
+	};
 
-	function dataForRequest( slice ) {
+	CB.MSSliceExporter = {};
+	CB.MSSliceExporter.dataForRequest = function( slice ) {
 		return [MSSliceExporter dataForRequest:slice];	
-	}
+	};
 
-	CocoaBridge.MSSliceExporter = {};
-	CocoaBridge.MSSliceExporter.dataForRequest = dataForRequest;	
-
-	return CocoaBridge;
+	return CB;
 } ( CocoaBridge || {} ) );

@@ -23,7 +23,8 @@
 
 // Global variables for accessing Sketch object model
 var $doc,
-    $selection;
+    $selection,
+    contentSpec = new ContentSpec();
 
 function initVars( context ) {
     $doc = context.document;
@@ -54,8 +55,7 @@ function exportAsImage( view, filename , scaleFactors ) {
     CocoaBridge.writeToFile( imageData , filename );
 }
 function handlerExportForProp( view , bindObj, prop ) {
-
-    var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : ContentSpec.create( "image" ),
+    var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "image" ),
         layerName = Util.unique( view.getSanitizedName() ),
         filename = Config.targetFolder + "/" + layerName,
         ext = Config.exportImgExt,
@@ -67,6 +67,80 @@ function handlerExportForProp( view , bindObj, prop ) {
 }
 function handlerExport( view , bindObj ) {
     return handlerExportForProp( view , bindObj , "images" );
+}
+
+function handlerFontExport( view , bindObj ) {
+    var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "text" ),
+        nsfont = view.layer.style().textStyle().attributes().NSFont,
+        style = overlay.setText();
+        
+    bindObj.exportFonts.push( { view: view , fontName: String( nsfont.fontName() ) , font: nsfont , revertToCommonText: style.setCommonText } );
+}
+
+function getFontManifest() {
+    var resourcesPath = Config.resourcesPath,
+        manifestPath = resourcesPath + "/.fontmanifest";
+
+    if( !CocoaBridge.fileExistsAtPath( manifestPath ) ) {
+        saveFontManifest();
+    }
+    return CocoaBridge.jsonWithContentsOfFile( manifestPath );
+}
+function saveFontManifest( manifest ) {
+    manifest = manifest || {};
+    var resourcesPath = Config.resourcesPath,
+        manifestPath = resourcesPath + "/.fontmanifest";
+
+    Util.saveFileFromString( resourcesPath , manifestPath , CocoaBridge.stringify( manifest , true ) );
+}
+function getFontsDelta( manifest , fonts ) {
+    return fonts.filter( function( font ) {
+        if( !manifest[ font.fontName() ] ) {
+            return true;
+        }
+    } );
+}
+function checkManifestForFonts( fonts ) {
+    var manifest = getFontManifest(),
+        unregisteredFonts = getFontsDelta( manifest , fonts ),
+        shouldPromptUser = true,
+        newFonts = {},
+        key;
+
+    // Prompt user with missing fonts
+    CocoaBridge.showDialogWithOptions( "Fonts Found" , "Please identify the following font files to add to your ScrollMotion:\n" +
+        unregisteredFonts.map( function( font ) {
+            return font.displayName();
+        } ).join("\n") ).addButtonWithTitle( "OK!" )
+                        .addButtonWithTitle( "Not Now" )
+                        .run( function( res ) {
+                            shouldPromptUser = ( res == 1001 ) ? false : true;
+                        } );
+
+    // Prompt user with finder window to locate font paths
+    if( shouldPromptUser ) {
+        unregisteredFonts.forEach( function( font ) {
+            var path = promptUserForFontPath( font );
+            
+            if( path ) {
+                newFonts[ font.fontName() ] = path.fileSystemRepresentation();
+            }
+        } );
+    }
+
+    // Save new font paths to manifest
+    if( Util.values( newFonts ).length > 0 ) {
+        for( key in newFonts ) {
+            manifest[ key ] = newFonts[ key ];
+        }
+        saveFontManifest( manifest );    
+    }
+    return manifest;
+}
+
+function promptUserForFontPath( font ) {
+    var path = CocoaBridge.browseForFile( "Please locate font \"" + font.displayName() + "\"" );
+    return path;
 }
 
 var ViewData = ( function( _ViewData ) {
@@ -220,6 +294,7 @@ var ViewData = ( function( _ViewData ) {
         this.parent = ( parentView instanceof this.constructor ) ? parentView : null;
         this.overlay = null;
         this.page = null;
+        this.exportFonts = [];
         this.exportFiles = [];
     }
 
@@ -258,14 +333,16 @@ var ViewData = ( function( _ViewData ) {
                             type: "overlay",
                             overlay: bindObj.overlay,
                             view: bindObj.view,
-                            exportFiles: bindObj.exportFiles
+                            exportFiles: bindObj.exportFiles,
+                            exportFonts: bindObj.exportFonts
                         };
                     } else if( bindObj.page !== null ) {
                         return {
                             type: "page",
                             page: bindObj.page,
                             view: bindObj.view,
-                            exportFiles: bindObj.exportFiles
+                            exportFiles: bindObj.exportFiles,
+                            exportFonts: bindObj.exportFonts
                         };
                     } else {
                         Util.log( "Missing overlay and page for layer: <" + bindObj.view.name + ">" );
@@ -280,9 +357,11 @@ var ViewData = ( function( _ViewData ) {
 function output( viewData ) {
 
     var targetFolder = Config.targetFolder,
-        contentSpec = ContentSpec,
-        json = contentSpec.json(),
+        json = contentSpec.getJson(),
         exportFiles = [],
+        exportFonts = [],
+        userFonts = {},
+        fontManifest,
         contentSpecStr,
         contentSpecSrc;
 
@@ -291,7 +370,7 @@ function output( viewData ) {
         Util.removeFolder( Config.targetFolder );
     }
 
-    Util.createFolders( Config.targetFolder , CocoaBridge.arrayWithObjects( targetFolder ) );
+    Util.createFolders( Config.targetFolder , CocoaBridge.Array.arrayWithObjects( targetFolder ) );
 
     // 2. Compile ContentSpec.json, collect export files
     Util.forEach( viewData , function( data ) {
@@ -307,7 +386,29 @@ function output( viewData ) {
         }
 
         exportFiles = exportFiles.concat( data.exportFiles );
+        exportFonts = exportFonts.concat( data.exportFonts );
     } );
+
+    // Get unique fonts used in project
+    exportFonts.forEach( function( font ) {
+        if( !userFonts[ font.fontName ] ) {
+            userFonts[ font.fontName ] = font.font;
+        }
+    } );
+    fontManifest = checkManifestForFonts( Util.values( userFonts ) );
+
+    exportFonts.forEach( function( fontObj ) {
+        var path = fontManifest[ fontObj.fontName ];
+        
+        if( !path ) {
+            fontObj.revertToCommonText();
+        } else {
+            if( CocoaBridge.fileExistsAtPath( path ) ) {
+                CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + path.split( "/" ).slice( -1 ) );
+            }
+        }
+    } );
+
 
     // 3. Save ContentSpec.json
     if( json ) {
@@ -333,9 +434,9 @@ function output( viewData ) {
         CocoaBridge.copyItemAtPath( Config.resourcesPath + "/__studio__preferences.json",
             Config.targetFolder + "/__studio__preferences.json" );
     }
-    if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/" + ContentSpec.getResetCSS() ) ) {
-        CocoaBridge.copyItemAtPath( Config.resourcesPath + "/" + ContentSpec.getResetCSS(),
-            Config.targetFolder + "/" + ContentSpec.getResetCSS() );
+    if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/" + contentSpec.getResetCss() ) ) {
+        CocoaBridge.copyItemAtPath( Config.resourcesPath + "/" + contentSpec.getResetCss(),
+            Config.targetFolder + "/" + contentSpec.getResetCss() );
     }
 }
 function main( context ) {
@@ -396,7 +497,7 @@ var onRun = function( context ) {
     } );
     ViewData.registerObjectGenerator( "Artboard" , function( bindObj ) {
         var view = bindObj.view,
-            page = ContentSpec.create( "page" );
+            page = contentSpec.create( "page" );
         page.setPageId();
         page.setKeyValue( "displayName" , view.getSanitizedName() );
 
@@ -413,7 +514,7 @@ var onRun = function( context ) {
     } );
     ViewData.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
         var view = bindObj.view,
-            overlay = ContentSpec.create( "container" ),
+            overlay = contentSpec.create( "container" ),
             frame = view.getAbsoluteLayout(),
             scrollFrame = view.getInfluenceLayoutSansStyles(),
             scrollHoriz = scrollFrame.width > frame.width,
@@ -440,24 +541,28 @@ var onRun = function( context ) {
     ViewData.registerObjectGenerator( "Text" , {
         object: function( bindObj ) {
             var view = bindObj.view,
-                overlay = ContentSpec.create( "text" ),
+                overlay = contentSpec.create( "text" ),
                 textAlign = this.alignment( view.layer );
             overlay.setOverlayId();
             overlay.setKeyValue( "displayName" , view.getSanitizedName() );
 
-            Util.log( String( view.layer.fontPostscriptName() ) );
+            // Not officially exposed
+            // Util.log( view.layer.style().textStyle().attributes().NSFont.displayName() );
+            // Util.log( view.layer.style().textStyle().attributes().NSFont.familyName() );
+            // Util.log( String( view.layer.fontPostscriptName() ) );
 
-            overlay.setTextWithOptions( String( view.layer.stringValue() ) , {
-                textAlign: textAlign,
-                lineHeight: Util.toPx( view.layer.lineSpacing() ),
-                letterSpacing: Util.toPx( view.layer.characterSpacing() ),
-                fontSize: Util.toPx( view.layer.fontSize() ),
-                textColor: Util.toHex( view.layer.textColor() )
-            } );
-            // overlay.setBasicText( String( view.layer.stringValue() ) );
+            var text = overlay.setText( String( view.layer.stringValue() ) );
+            text.setTextAlign( textAlign );
+            text.setLineHeight( Util.toPx( view.layer.lineSpacing() ) );
+            text.setLetterSpacing( Util.toPx( view.layer.characterSpacing() ) );
+            text.setColor( Util.toHex( view.layer.textColor() ) );
+            text.setFontSize( Util.toPx( view.layer.fontSize() ) );
+            text.setCustomFont( String( view.layer.fontPostscriptName() ) , String( view.layer.style().textStyle().attributes().NSFont.familyName() ) );
 
             bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
             bindObj.overlay = overlay;
+
+            handlerFontExport( view , bindObj );
         },
         alignment: function( layer ) {
             var alignment = layer.textAlignment();
