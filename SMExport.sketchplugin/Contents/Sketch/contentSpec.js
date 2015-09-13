@@ -4,7 +4,7 @@ var ContentSpec = ( function( _ContentSpec ) {
     "use strict";
 
     var resetTextCss = "reset3.11.css",
-        schema = "http://www.scrollmotion.com/contentspec/schema/3.12/",
+        schema = "http://www.scrollmotion.com/contentspec/schema/3.11/",
         defaultPageSetId = "pageSet1";
 
     function extend( parent , child ) {
@@ -121,6 +121,8 @@ var ContentSpec = ( function( _ContentSpec ) {
         };
         this.setText = function( text ) {
             var textOverlay = this;
+            
+            // Html text is really difficult with the DOM
             if( text ) {
                 this._text = text;
                 this.text = this.setCommonText( text );
@@ -236,6 +238,9 @@ var ContentSpec = ( function( _ContentSpec ) {
 
                 return textOverlay;
             }
+            function removeTempValues() {
+                delete textOverlay._text;
+            }
 
             return {
                 setTextAlign: setTextAlign.bind( textOverlay ),
@@ -244,7 +249,8 @@ var ContentSpec = ( function( _ContentSpec ) {
                 setColor: setColor.bind( textOverlay ),
                 setFontSize: setFontSize.bind( textOverlay ),
                 setCustomFont: setCustomFont.bind( textOverlay ),
-                setCommonText: setCommonText.bind( textOverlay )
+                setCommonText: setCommonText.bind( textOverlay ),
+                removeTempValues: removeTempValues.bind( textOverlay )
             };
         };
         
@@ -402,6 +408,38 @@ var ContentSpec = ( function( _ContentSpec ) {
             return new Overlay();
         }
     };
+    ContentSpec.prototype.addFontMetaData = function( font ) {
+        var fileName = font.fileName,
+            postScriptName = font.postScriptName,
+            fullName = font.fullName,
+            familyName = font.familyName,
+            style = font.style;
+
+        if( !fileName || !postScriptName || !fullName || !familyName || !style ) {
+            return;
+        }
+
+        if( !this.json.metaData.customFonts ) {
+            this.json.metaData.customFonts = [];
+        }
+        if( !this.json.metaData.fonts ) {
+            this.json.metaData.fonts = [];
+        }
+
+        if( this.json.metaData.customFonts.indexOf( fileName ) > -1 ) {
+            return;
+        }
+
+        this.json.metaData.customFonts.push( fileName );
+        this.json.metaData.fonts.push( {
+            familyName: familyName,
+            file: {},
+            fileName: fileName,
+            fullName: fullName,
+            postScriptName: postScriptName,
+            style: style
+        } );
+    };
 
     function Page() {
         this.backgroundColor = "#FFFFFF";
@@ -443,8 +481,6 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.hidden = false;
         this.scale = 1;
         this.alpha = 1;
-        this.clickThrough = false;
-        this.draggable = false;
         this.layouts = {
             landscape: {
                 width: "50px",
@@ -560,6 +596,7 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.textAlign = "center";
         this.textPadding = "10px";
         this.toggle = false;
+        this.clipToBounds = true;
 
         if( overlayId ) { this.overlayId = overlayId; }
         if( displayName ) { this.displayName = displayName; }
@@ -587,6 +624,8 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.scrollerStyle = "black";
         this.userScrolling = "none";
         this.userScrollingBounces = true;
+        this.clickThrough = false;
+        this.draggable = false;
 
         if( overlayId ) { this.overlayId = overlayId; }
         if( displayName ) { this.displayName = displayName; }

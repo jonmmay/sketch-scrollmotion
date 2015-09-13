@@ -107,6 +107,33 @@ var Util = ( function( Util , CB ) {
             return str + "-" + u.unique.cache[ lowerCaseStr ];
         }
     };
+    u.slugify = function( str ) {
+        var replaceVal = "_",
+            
+            // \u0022 = Double quotation mark
+            // \u005C = Backslash
+            invalidVals = [
+                "!" , "+" , "#" , "$" , "%" ,
+                "&" , "%" , "'" , "(" , ")" ,
+                "*" , "-" , "/" , "<" , "=" ,
+                ">" , "?" , "@" , "[" , "]" ,
+                "^" , "_" , "`" , "{" , "|" ,
+                "}" , "," , "." , ":" ,
+                "\s" , "\u0022" , "\u005C"
+            ].map( function( val ) {
+                // Prepend all special characters with "\" for RegExp
+                return "\\" + val;
+            } );
+
+        // Replace invalid values with replacement value
+        return str.replace( new RegExp( invalidVals.join( "|" ) , "g" ) , replaceVal )
+                  
+                // Remove adjacent duplicate replacement values
+                  .replace( new RegExp( replaceVal + "+" , "g" ) , replaceVal )
+
+                // Remove replacement values at start and end of string
+                  .replace( new RegExp( "^" + replaceVal + "|" + replaceVal + "$" ) , "" );
+    };
         
     u.compToHex = function( c ) {
         var hex = c.toString( 16 );

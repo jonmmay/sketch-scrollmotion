@@ -66,7 +66,7 @@ function exportAsImage( view, filename , scaleFactors ) {
 }
 function handlerExportForProp( view , bindObj, prop ) {
     var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "image" ),
-        layerName = Util.unique( view.getSanitizedName() ),
+        layerName = Util.unique( Util.slugify( view.getSanitizedName() ) ),
         filename = Config.targetFolder + "/" + layerName,
         ext = Config.exportImgExt,
         src = filename.replace( Config.targetFolder + "/" , "" ) + ext;
@@ -84,7 +84,7 @@ function handlerFontExport( view , bindObj ) {
         nsfont = view.layer.style().textStyle().attributes().NSFont,
         style = overlay.setText();
 
-    bindObj.exportFonts.push( { view: view , fontName: String( nsfont.fontName() ) , font: nsfont , revertToCommonText: style.setCommonText } );
+    bindObj.exportFonts.push( { view: view , fontName: String( nsfont.fontName() ) , font: nsfont , fontStyle: style } );
 }
 
 function getFontManifest() {
@@ -149,7 +149,7 @@ function checkManifestForFonts( fonts ) {
 }
 
 function promptUserForFontPath( font ) {
-    var path = CocoaBridge.browseForFile( "Please locate font \"" + font.displayName() + "\"" );
+    var path = CocoaBridge.browseForFile( "Please locate font \"" + font.displayName() + "\"" , [ "otf" , "ttf" ] );
     return path;
 }
 
@@ -399,7 +399,7 @@ function output( viewData ) {
         exportFonts = exportFonts.concat( data.exportFonts );
     } );
 
-    // Get unique fonts used in project
+    // 3. Get unique fonts used in project
     exportFonts.forEach( function( font ) {
         if( !userFonts[ font.fontName ] ) {
             userFonts[ font.fontName ] = font.font;
@@ -408,26 +408,41 @@ function output( viewData ) {
     fontManifest = checkManifestForFonts( Util.values( userFonts ) );
 
     exportFonts.forEach( function( fontObj ) {
-        var path = fontManifest[ fontObj.fontName ];
+        var path = fontManifest[ fontObj.fontName ],
+            fileName,
+            style;
         
         if( !path ) {
-            fontObj.revertToCommonText();
+            fontObj.fontStyle.setCommonText();
         } else {
             if( CocoaBridge.fileExistsAtPath( path ) ) {
-                CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + path.split( "/" ).slice( -1 ) );
+                fileName = path.split( "/" ).slice( -1 )[ 0 ];
+                style = fontObj.fontName.split( "-" ).slice( -1 )[ 0 ];
+                style = ( fontObj.fontName !== style ) ? style : "Regular";
+
+                contentSpec.addFontMetaData( {
+                    fileName: fileName,
+                    postScriptName: fontObj.fontName,
+                    fullName: String( fontObj.font.displayName() ),
+                    familyName: String( fontObj.font.familyName() ),
+                    style: style
+                } );
+                CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + fileName );
             }
         }
+
+        fontObj.fontStyle.removeTempValues();
     } );
 
 
-    // 3. Save ContentSpec.json
+    // 4. Save ContentSpec.json
     if( json ) {
         contentSpecStr = JSON.stringify( json );
         contentSpecSrc = Config.targetFolder + "/ContentSpec.json";
         Util.saveFileFromString( targetFolder , contentSpecSrc , contentSpecStr );
     }
 
-    // 4. Export images
+    // 5. Export images
     if( exportFiles ) {
         Util.forEach( exportFiles , function( fileObj ) {
             exportAsImage( fileObj.view , fileObj.target , [ Config.exportScaleFactor , 2.0 ] );
@@ -439,7 +454,7 @@ function output( viewData ) {
         data.view.enableHidden();
     } );
 
-    // 5. Copy resources
+    // 6. Copy resources
     if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/__studio__preferences.json" ) ) {
         CocoaBridge.copyItemAtPath( Config.resourcesPath + "/__studio__preferences.json",
             Config.targetFolder + "/__studio__preferences.json" );
@@ -597,7 +612,11 @@ var onRun = function( context ) {
     ViewData.registry( "ignore" , {
         stopAutoApplyBindingForChildren: true
     } );
-    // Binding.registry( "flatten" , function( view , args , outputRef ) {} );
+    // ViewData.registry( "flat" , {
+    //     compose: function( bindObj , args ) {
+    //     },
+    //     stopAutoApplyBindingForChildren: true
+    // } );
     ViewData.registry( "btn" , {
         init: function() {
             // This method will only be called when this binding first be used.
@@ -769,13 +788,13 @@ var onRun = function( context ) {
                 overlay.setKeyValue( "textPadding" , Util.toPx( textPos.x - pos.x ) );
                 overlay.setKeyValue( "cgBorderWidth" , Util.toPx( border.thickness() ) );
                 overlay.setKeyValue( "cgBorderColor" , Util.toHex( border.color() ) );
-                overlay.setKeyValue( "cgBorderAlpha" , Util.toRgba( border.color() ).split( "," ).pop() );
+                overlay.setKeyValue( "cgBorderAlpha" , Number( Util.toRgba( border.color() ).split( "," ).pop() ) );
                 
                 overlay.setKeyValue( "cgButtonColor" , Util.toHex( fill.color() ) );
-                overlay.setKeyValue( "cgButtonAlpha" , Util.toRgba( fill.color() ).split( "," ).pop() );
+                overlay.setKeyValue( "cgButtonAlpha" , Number( Util.toRgba( fill.color() ).split( "," ).pop() ) );
                 
                 if( pressedFill !== undefined ) {
-                    overlay.setKeyValue( "cgButtonPressedAlpha" , Util.toRgba( pressedFill.color() ).split( "," ).pop() );
+                    overlay.setKeyValue( "cgButtonPressedAlpha" , Number( Util.toRgba( pressedFill.color() ).split( "," ).pop() ) );
                     overlay.setKeyValue( "cgButtonPressedColor" , Util.toHex( pressedFill.color() ) );
                 }
                 

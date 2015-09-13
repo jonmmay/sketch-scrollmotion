@@ -107,13 +107,25 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 		}
 		return ""
 	};
-	CB.browseForFile = function( title ) {
+	CB.browseForFile = function( title , filetype ) {
 		var openDialog = [NSOpenPanel openPanel];
 		[openDialog setCanChooseFiles:true];
 		[openDialog setCanChooseDirectories:false];
 		[openDialog setAllowsMultipleSelection:false];
 		[openDialog setCanCreateDirectories:false];
 		[openDialog setTitle:title];
+
+		if( filetype ) {
+			if( filetype instanceof Array ) {
+				filetype = filetype.map( function( type ) {
+					return CB.stringByAppendingString( type );
+				} );
+				[openDialog setAllowedFileTypes: filetype];
+			} else {
+				[openDialog setAllowedFileTypes: CB.Array.arrayWithObjects( CB.stringByAppendingString( filetype ) )];
+			}
+		}
+
 		if( [openDialog runModal] == NSOKButton ) {
 			return [[openDialog URLs] firstObject];
 		}

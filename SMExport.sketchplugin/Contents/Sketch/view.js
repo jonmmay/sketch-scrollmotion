@@ -42,7 +42,7 @@ var View = ( function( _View , CB ) {
 		this.name = String( layer.name() );
 		this.className = String( layer.className() );
 		this.hasSubviews = this.hasSubviews();
-		// this.exportFiles = [];
+		this.hasClippingMask = this.hasClippingMask();
 
 		ViewCache.add( this );
 	}
@@ -81,7 +81,6 @@ var View = ( function( _View , CB ) {
 		Util.forEach( sublayers , function( sublayer ) {
 			var name = String( sublayer.name() );
 			if( name.indexOf( "@@mask" ) !== -1 ) {
-				Util.log( name );
 				name = name.replace( new RegExp( "@@mask" , "g" ) , "" );
 				sublayer.setName( name );
 				sublayer.setHasClippingMask( true );
@@ -223,73 +222,6 @@ var View = ( function( _View , CB ) {
 	View.prototype.nameEndsWith = function( str ) {
 		return String( this.name ).trim().slice( str.length ) === str;
 	};
-	View.prototype.hasSubviews = function() {
-		if( this.shouldBeIgnored() ) {
-			return false;
-		}
-
-		var subviews,
-			subview,
-			len,
-			i = 0;
-
-		if( this.isFolder() ) {
-			subviews = this.layer.layers();
-			len = subviews.count();
-
-			for( i ; i < len ; i++ ) {
-				subview = new View( CB.Array.objectAtIndex( subviews , i ) , this );
-				if( subview.shouldBeExtracted() ) {
-					return true;
-				}
-			}
-		}
-		return false;
-	};
-	View.prototype.subviews = function() {
-		var subviews = [],
-			that = this;
-
-		Util.forEach( this.layer.layers() , function( subview ) {
-			var view = new View( subview , that );
-			if( view.shouldBeExtracted() ) {
-				subviews.push( view );
-			}
-		} );
-
-		return subviews;
-	};
-	View.prototype.parentArtboard = function() {
-		var view = this.parentGroup;
-
-		if( view === null ) {
-			return false;
-		}
-
-		while( view.parentGroup !== undefined ) {
-			view = view.parentGroup;
-			if( view === null ) {
-				return false;
-			} else if( view.isArtboard() ) {
-				return view;
-			}
-		}
-	};
-	
-	View.prototype.getArboardDimensions = function() {
-		var dim,
-			view = this.parentArtboard();
-		if( this.isArtboard() || !view ) {
-			dim = this.getAbsoluteLayout();
-		} else {
-			dim = view.getAbsoluteLayout();
-		}
-
-		return {
-			width: dim.width,
-			height: dim.height
-		};
-	};
 	View.prototype.getSanitizedName = function() {
 		var name = this.name.replace( /(:|\/)/g , "_" )
 							.replace( /__/g , "_" )
@@ -323,6 +255,112 @@ var View = ( function( _View , CB ) {
 
 	    return attrs;
 	};
+
+	View.prototype.parentArtboard = function() {
+		var view = this.parentGroup;
+
+		if( view === null ) {
+			return false;
+		}
+
+		while( view.parentGroup !== undefined ) {
+			view = view.parentGroup;
+			if( view === null ) {
+				return false;
+			} else if( view.isArtboard() ) {
+				return view;
+			}
+		}
+	};
+	View.prototype.getArboardDimensions = function() {
+		var dim,
+			view = this.parentArtboard();
+		if( this.isArtboard() || !view ) {
+			dim = this.getAbsoluteLayout();
+		} else {
+			dim = view.getAbsoluteLayout();
+		}
+
+		return {
+			width: dim.width,
+			height: dim.height
+		};
+	};
+	View.prototype.hasSubviews = function() {
+		if( this.shouldBeIgnored() ) {
+			return false;
+		}
+
+		var sublayers,
+			subview,
+			len,
+			i = 0;
+
+		if( this.isFolder() ) {
+			sublayers = this.layer.layers();
+			len = sublayers.count();
+
+			for( i ; i < len ; i++ ) {
+				subview = new View( CB.Array.objectAtIndex( sublayers , i ) , this );
+				if( subview.shouldBeExtracted() ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+	View.prototype.subviews = function() {
+		var subviews = [],
+			that = this;
+
+		Util.forEach( this.layer.layers() , function( subview ) {
+			var view = new View( subview , that );
+			if( view.shouldBeExtracted() ) {
+				subviews.push( view );
+			}
+		} );
+
+		return subviews;
+	};
+	View.prototype.hasClippingMask = function() {
+		if( this.shouldBeIgnored() ) {
+			return false;
+		}
+
+		var sublayers,
+			subview,
+			len,
+			i = 0;
+
+		if( this.isFolder() ) {
+			sublayers = this.layer.layers();
+			len = sublayers.count();
+
+			for( i ; i < len ; i++ ) {
+				subview = new View( CB.Array.objectAtIndex( sublayers , i ) , this );
+				if( !subview.shouldBeIgnored() && subview.layer.hasClippingMask() ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+	View.prototype.getClippingMask = function() {
+		if( !this.hasClippingMask ) {
+			return null;
+		}
+		var clippingMask;
+
+
+		Util.forEach( this.subviews() , function( subview ) {
+			if( subview.layer.hasClippingMask() ) {
+				clippingMask = subview;
+			}
+		} );
+
+		return clippingMask ? clippingMask.getAbsoluteLayout() : null;
+	};
+	
 	View.prototype.getLayoutRelativeTo = function( view ) {
 		var layout = this.getAbsoluteLayout(),
 			relLayout,
@@ -400,6 +438,19 @@ var View = ( function( _View , CB ) {
 			width: frame.width(),
 			height: frame.height()
 		};
+	};
+
+	View.prototype.duplicate = function() {
+		var viewCopy = new View( this.layer.duplicate() , this.parentGroup );
+
+		viewCopy.isDuplicate = true;
+		viewCopy.removeFromParent = function() {
+			Util.log( "Removing duplicate: " + viewCopy.name );
+			viewCopy.parentGroup = null;
+			viewCopy.layer.removeFromParent();
+		};
+
+		return viewCopy;
 	};
 
 	var ret = {
