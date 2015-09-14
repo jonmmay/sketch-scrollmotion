@@ -14,7 +14,45 @@
 var Util = ( function( Util , CB ) {
     "use strict";
 
-    var u = {};
+    var u = {},
+        logLevel = 5,
+        logMethods = [ "error", "warn", "info", "debug", "log" ],
+        idx = logMethods.length,
+        debug = {};
+
+    // http://benalman.com/projects/javascript-debug-console-log/
+    // log (1) < debug (2) < info (3) < warn (4) < error (5)
+    function is_level( level ) {
+        return ( logLevel > 0 ) ? logLevel > level : logMethods.length + logLevel <= level;
+    }
+    debug.setLevel = function( level ) {
+        if( typeof level === "number" ) {
+            logLevel = level;
+        }
+    };
+
+    while( --idx >= 0 ) {
+        ( function( idx , level ) {
+                
+            debug[ level ] = function() {
+                var args = Array.prototype.slice.call( arguments ),
+                    window = window || {};
+
+                if( !is_level( idx ) ) { return; }
+                if( window.console ) {
+                    if( window.console[ level ] ) {
+                        window.console[ level ]( args );
+                    } else if( window.console.log ) {
+                        window.console.log( args );
+                    }    
+                } else {
+                    u.log.apply( null , args );
+                }
+            };
+        } ( idx , logMethods[ idx ] ) );
+    }
+
+    u.debug = debug;
 
     u.log = function() {
         log( Array.prototype.slice.call( arguments ).join( "\n" ) );        

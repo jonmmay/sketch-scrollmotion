@@ -116,16 +116,18 @@ function checkManifestForFonts( fonts ) {
         shouldPromptUser = true,
         newFonts = {},
         key;
-
-    // Prompt user with missing fonts
-    CocoaBridge.showDialogWithOptions( "Fonts Found" , "Please identify the following font files to add to your ScrollMotion:\n" +
-        unregisteredFonts.map( function( font ) {
-            return font.displayName();
-        } ).join("\n") ).addButtonWithTitle( "OK!" )
-                        .addButtonWithTitle( "Not Now" )
-                        .run( function( res ) {
-                            shouldPromptUser = ( res == 1001 ) ? false : true;
-                        } );
+    
+    if( unregisteredFonts.length > 0 ) {
+        // Prompt user with missing fonts
+        CocoaBridge.showDialogWithOptions( "Fonts Found" , "Please identify the following font files to add to your ScrollMotion:\n" +
+            unregisteredFonts.map( function( font ) {
+                return font.displayName();
+            } ).join("\n") ).addButtonWithTitle( "OK!" )
+                            .addButtonWithTitle( "Not Now" )
+                            .run( function( res ) {
+                                shouldPromptUser = ( res == 1001 ) ? false : true;
+                            } );
+    }
 
     // Prompt user with finder window to locate font paths
     if( shouldPromptUser ) {
@@ -232,8 +234,6 @@ var ViewData = ( function( _ViewData ) {
             binding.compose( bindObj , bindingArgs );
         } );
 
-        // log( "Get bindings " + JSON.stringify( bindings ) );
-
         if( view.isFolder() && view.hasSubviews && !stopAutoApplyBindingForChildren ) {
             views = getEligibleSubviews( view.subviews() );
 
@@ -264,7 +264,7 @@ var ViewData = ( function( _ViewData ) {
                 if( !Util.values( bindings ).length ) {
                     // Look for next eligible subviews
                     isEligible = false;
-                    Util.log( "<" + subview.name + "> isn't an eligible layer" );
+                    Util.debug.info( "<" + subview.name + "> isn't an eligible layer" );
                     subsubviews = getEligibleSubviews( subview.subviews() );
 
                     eligibleViews = eligibleViews.concat( subsubviews );
@@ -355,7 +355,7 @@ var ViewData = ( function( _ViewData ) {
                             exportFonts: bindObj.exportFonts
                         };
                     } else {
-                        Util.log( "Missing overlay and page for layer: <" + bindObj.view.name + ">" );
+                        Util.debug.warn( "Missing overlay and page for layer: <" + bindObj.view.name + ">" );
                     }
                 } );
             }
@@ -491,7 +491,7 @@ function main( context ) {
 
         processResults = ViewData.get();
 
-        Util.log( JSON.stringify( processResults ) );
+        Util.debug.debug( JSON.stringify( processResults ) );
 
         // 3. Prepare outputs
         output( processResults );
@@ -534,8 +534,10 @@ var onRun = function( context ) {
         overlay.setOverlayId();
         overlay.setKeyValue( "displayName" , view.getSanitizedName() );
 
+
         bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
         bindObj.overlay = overlay;
+
     } );
     ViewData.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
         var view = bindObj.view,
@@ -612,11 +614,16 @@ var onRun = function( context ) {
     ViewData.registry( "ignore" , {
         stopAutoApplyBindingForChildren: true
     } );
-    // ViewData.registry( "flat" , {
-    //     compose: function( bindObj , args ) {
-    //     },
-    //     stopAutoApplyBindingForChildren: true
-    // } );
+    ViewData.registry( "flat" , {
+        compose: function( bindObj , args ) {
+            var overlay = bindObj.overlay;
+            overlay.convertToOverlay( "image" , "overlayId" , "layouts" , "displayName" );
+            bindObj.overlay = overlay;
+
+            ViewData.objectGenerators[ "Bitmap" ].object( bindObj );
+        },
+        stopAutoApplyBindingForChildren: true
+    } );
     ViewData.registry( "btn" , {
         init: function() {
             // This method will only be called when this binding first be used.

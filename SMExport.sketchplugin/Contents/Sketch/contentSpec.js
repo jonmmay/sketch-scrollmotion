@@ -1,5 +1,7 @@
 /* global log */
 
+@import "config.js";
+
 var ContentSpec = ( function( _ContentSpec ) {
     "use strict";
 
@@ -51,13 +53,16 @@ var ContentSpec = ( function( _ContentSpec ) {
 
     function appendOverlay( overlay ) {
         var obj = this;
+
+        log( JSON.stringify( this ) );
+        log( JSON.stringify( overlay ) );
         if( overlay !== undefined ) {
             if( obj.overlays instanceof Array ) {
                 obj.overlays.push( overlay );
             } else if( typeof obj.overlays === "object" && overlay.overlayId ) {
                 obj.overlays[ overlay.overlayId ] = overlay;
             } else {
-                log( "Cannot append to <" + obj.constructor + "> types" );
+                Util.debug.error( "Cannot append \"" + overlay.overlayId  + "\" to <" + this.constructor + "> types" );
             }
         }
         return obj;
@@ -80,7 +85,7 @@ var ContentSpec = ( function( _ContentSpec ) {
                 if( this.overlays instanceof Array ) {
                     this.overlays.push( { "overlayId": overlayId } );   
                 } else {
-                    log( "Cannot append to <" + this.constructor + "> types" );
+                    Util.debug.error( "Cannot append \"" + overlayId  + "\" to <" + this.constructor + "> types" );
                 }
             }
             return this;
@@ -498,8 +503,9 @@ var ContentSpec = ( function( _ContentSpec ) {
     mixin( Overlay.prototype , new CSExtensions() , [ "setKeyValue" , "getKeyValue" , "appendOverlay" , "addOverlayByReference" ] );
 
     Overlay.prototype.setOverlayId = function( overlayId ) {
-        if( !this.overlayId && overlayId === undefined ) {
-
+        if( this.overlayId && overlayId === undefined ) {
+            overlayId = this.overlayId;
+        } else if( !this.overlayId && overlayId === undefined ) {
             overlayId = this.contentSpec.generateId( "overlay" );
         }
         this.overlayId = overlayId;

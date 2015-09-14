@@ -21,6 +21,11 @@ var View = ( function( _View , CB ) {
 			add: function( view ) {
 				var id = String( view.layer.objectID() );
 				this.views[ id ] = view;
+			},
+			remove: function( id ) {
+				if( this.views[ id ] ) {
+					delete this.views[ id ];
+				}
 			}
 		},
 		defaultName = "untitled";
@@ -192,9 +197,13 @@ var View = ( function( _View , CB ) {
 	    return layerClass === "MSLayerGroup" || layerClass === "MSArtboardGroup";
 	};
 	View.prototype.shouldBeIgnored = function() {
-		return this.getNameAttributes().ignore ? true : false;
+		return this.getNameAttributes().ignore ? true :
+			   this.nameEndsWith( "-" ) ? true : false;
 	};
-	View.prototype.shouldBeFlattened = function() {};
+	View.prototype.shouldBeFlattened = function() {
+		return this.getNameAttributes().flat ? true :
+			   this.nameEndsWith( "*" ) ? true : false;
+	};
 	View.prototype.shouldBeExtracted = function() {
 		if( this.shouldBeIgnored() ) {
 			return false;
@@ -220,12 +229,13 @@ var View = ( function( _View , CB ) {
 		return false;
 	};
 	View.prototype.nameEndsWith = function( str ) {
-		return String( this.name ).trim().slice( str.length ) === str;
+		return String( this.name ).trim().slice( str.length * -1 ) === str;
 	};
 	View.prototype.getSanitizedName = function() {
 		var name = this.name.replace( /(:|\/)/g , "_" )
 							.replace( /__/g , "_" )
 							.replace( /\[.*?\]/g , "" )
+							.replace( /(\*|\-)$/g , "" )
 							.replace( new RegExp( "@@mask" , "g" ) , "" )
 							.replace( new RegExp( "@@hidden" , "g" ) , "" );
 		if( name.length === 0 ) {
@@ -442,15 +452,14 @@ var View = ( function( _View , CB ) {
 
 	View.prototype.duplicate = function() {
 		var viewCopy = new View( this.layer.duplicate() , this.parentGroup );
-
 		viewCopy.isDuplicate = true;
-		viewCopy.removeFromParent = function() {
-			Util.log( "Removing duplicate: " + viewCopy.name );
-			viewCopy.parentGroup = null;
-			viewCopy.layer.removeFromParent();
-		};
 
 		return viewCopy;
+	};
+	View.prototype.removeFromParent = function() {
+		Util.debug.debug( "Removing view: " + this.name );
+		ViewCache.remove( this.id );
+		this.layer.removeFromParent();
 	};
 
 	var ret = {

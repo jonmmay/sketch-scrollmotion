@@ -4,20 +4,23 @@
         {
             "script": "script.sketchscript",
             "handler": "onRun",
-            "shortcut": "cmd r",
+            "shortcut": "",
             "name": "Export ScrollMotion",
             "identifier": "SMExport"
+        },
+        {
+            "script": "issue.sketchscript",
+            "handler": "onRun",
+            "shortcut": "",
+            "name": "Report Issue",
+            "identifier": "ReportIssue"
         }
     ],
     "menu": {
-        "isRoot": true,
+        "isRoot": false,
         "items": [
-            "SMExport"
-        ],
-        "//items": [
-            "//tagSelectedLayers",
-            "//showTaggedLayers",
-            "//hideTaggedLayers"
+            "SMExport",
+            "ReportIssue"
         ]
     },
     "identifier": "com.scrollmotion.sketch.export-scrollmotion",

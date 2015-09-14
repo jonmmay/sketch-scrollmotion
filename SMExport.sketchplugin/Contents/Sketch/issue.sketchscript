@@ -1,0 +1,114 @@
+// https://github.com/getflourish/Sketch-Export-Text-Styles/blob/master/persistence.js
+
+var persist = {
+	dict: NSThread.mainThread().threadDictionary(),
+
+	/**
+	* Check if the returned value is a CocoaScript string, if so
+	* it is a JSON object and will be parsed.
+	*
+	* @param  {string} key The name of the element to get.
+	* @return {mixed}      The saved element or null
+	*/
+	get: function( key ) {
+		var val = this.dict[ key ] );
+
+		if( val !== null && val.className() == "__NSCFString" ) {
+			val = JSON.parse(val);
+		}
+
+		return val;
+	},
+
+	/**
+	* Check if the given value is not a CocoaScript MOBoxedObject -
+	* it is a JavaScript type and must be JSON stringified.
+	*
+	* @param {string} key The name of the element to save
+	* @param {mixed} val  The element to save
+	*/
+	set: function( key , val ) {
+		if ( Object.prototype.toString.call(val) !== "[object MOBoxedObject]" ) {
+			val = JSON.stringify( val );
+		}
+
+		this.dict[key] = val;
+	}
+};
+
+function createWebview( URL ) {
+	// Include additionl frameworks.
+	framework( "WebKit" );
+	framework( "AppKit" );
+
+	log( URL );
+	setupWebViewPanel();
+
+	// Define a WebViewLoad delegate function - should be converted to an ObjC class.
+	// See https://github.com/logancollins/Mocha
+	function WebViewLoadDelegate() {
+		return this;
+	}
+
+	// Add the initiating delegate (callback) function.
+	WebViewLoadDelegate.prototype.webView_didClearWindowObject_forFrame = function( sender , scriptObject , frame ) {
+		var jswrapper = "try {[[js]]} catch (e) {e.toString();}",
+			jscode = "document.body.innerHTML;",
+			js = jswrapper.replace( "[[js]]" , jscode ) ;
+
+		var result = scriptObject.evaluateWebScript( js );
+		log( result );
+	};
+
+	// Add the delegate (callback) function which is called when the page has loaded.
+	WebViewLoadDelegate.prototype.webView_didFinishLoadForFrame = function( sender , frame ) {
+		var jswrapper = "try {[[js]]} catch (e) {e.toString();}",
+			jscode = "document.body.innerHTML;",
+			js = jswrapper.replace( "[[js]]" , jscode );
+
+		var scriptObject = sender.windowScriptObject();
+
+		var result = scriptObject.evaluateWebScript( js );
+		log( result );
+	};
+
+	function setupWebViewPanel() {
+        // Prepare the panel:
+        // Set the panel size and
+        // initialize the webview and load the URL
+        var frame = NSMakeRect( 0 , 0 , 1024 , 768 ),
+        	webView = WebView.alloc().initWithFrame( frame ),
+        	webViewFrame = webView.mainFrame();
+
+        // The FrameLoadDelegate offers the webView_didFinishLoadForFrame
+        // method which is called when the web page is loaded.
+        // !!! The methods never fire because:
+        // - it is implemented wrong?
+        // - the delegate's method never is called because the script ends before the
+        //   page is loaded?
+        var loadDelegate = new WebViewLoadDelegate();
+        webView.setFrameLoadDelegate(loadDelegate);
+
+        webViewFrame.loadRequest( NSURLRequest.requestWithURL( NSURL.URLWithString( URL ) ) );
+
+        // Set up the panel window
+        var mask = NSTitledWindowMask + NSClosableWindowMask + NSMiniaturizableWindowMask + NSUtilityWindowMask;
+        var panel = NSPanel.alloc().initWithContentRect_styleMask_backing_defer( frame , mask , NSBackingStoreBuffered , true );
+
+        // Add the webView to the prepared panel
+        panel.contentView().addSubview( webView );
+
+        // Show the panel
+        panel.makeKeyAndOrderFront( panel );
+
+        // persist the panel and the webView.
+        persist.set( "panel" , panel );
+        persist.set( "webView" , webView );
+	}
+}
+
+function onRun( context ) {
+	// https://github.com/jonmmay/sketch-scrollmotion/issues
+	createWebview( "https://github.com/jonmmay/sketch-scrollmotion/issues" );
+
+}
