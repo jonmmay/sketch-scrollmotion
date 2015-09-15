@@ -384,7 +384,7 @@ var ContentSpec = ( function( _ContentSpec ) {
         if( page instanceof Page ) {
             pageId = page.getPageId();
             if( json.pages[ pageId ] ) {
-                log( "Overwriting page: <" + pageId + ">" );
+                log( "Overwriting page <" + pageId + ">" );
             }
             json.pages[ pageId ] = page;
         }
@@ -496,7 +496,6 @@ var ContentSpec = ( function( _ContentSpec ) {
                 verticalAlign: "top"
             }
         };
-        this.actions = [];
 
         return this;
     }
@@ -571,8 +570,15 @@ var ContentSpec = ( function( _ContentSpec ) {
     function SMButton( overlayId , displayName ) {
         Overlay.call( this , "button" );
 
+        this.widget = "image_button";
+        this.scaleMode = "fill";
+        this.cornerRadius = "0px";
+        this.borderWidth = "0px";
+        this.borderColor = "#999999";
+        this.toggle = false;
         this.images = [ "" ];
         this.imagesDown = [ "" ];
+        this.actions = [];
 
         if( overlayId ) { this.overlayId = overlayId; }
         if( displayName ) { this.displayName = displayName; }
@@ -583,11 +589,12 @@ var ContentSpec = ( function( _ContentSpec ) {
     function SMCGButton( overlayId , displayName ) {
         Overlay.call( this , "button" );
 
+        this.borderAlpha = 1;
         this.cgBorderColor = "#0099BB";
-        this.cgBorderAlpha = 1;
+        // this.cgBorderAlpha = 1; // Not supported in Studio
         this.cgBorderWidth = "2px";
         this.cgButtonColor = "#FFFFFF";
-        this.cgButtonAlpha = 1;
+        // this.cgButtonAlpha = 1; // Not supported in Studio
         this.cgButtonPressedAlpha = 1;
         this.cgButtonPressedColor = "#0099BB";
         this.cgButtonShineEffect = false;
@@ -603,6 +610,7 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.textPadding = "10px";
         this.toggle = false;
         this.clipToBounds = true;
+        this.actions = [];
 
         if( overlayId ) { this.overlayId = overlayId; }
         if( displayName ) { this.displayName = displayName; }
