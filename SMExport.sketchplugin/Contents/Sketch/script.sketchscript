@@ -338,7 +338,7 @@ var onRun = function( context ) {
     viewBinding.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
         var view = bindObj.view,
             overlay = contentSpec.create( "container" ),
-            frame = view.getAbsoluteLayout(),
+            frame = view.getClippingMask(),
             scrollFrame = view.getInfluenceLayoutSansStyles(),
             scrollHoriz = scrollFrame.width > frame.width,
             scrollVert = scrollFrame.height > frame.height,
@@ -359,6 +359,11 @@ var onRun = function( context ) {
         overlay.setKeyValue( "contentWidth" , Util.toPx( scrollFrame.width ) );
 
         bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+
+        // Set width and height with clipping mask
+        overlay.layouts.landscape.width = Util.toPx( frame.width );
+        overlay.layouts.landscape.height = Util.toPx( frame.height );
+
         bindObj.overlay = overlay;
     } );
     viewBinding.registerObjectGenerator( "Text" , {

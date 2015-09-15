@@ -100,7 +100,7 @@ var ViewBinding = ( function( _ViewBinding , options ) {
             var binding = registryContext.bindingObjects[ bindingName ];
 
             if( !binding ) {
-                Util.debug.debug( "Unknown bindging: " + bindingName );
+                Util.debug.debug( "Unknown binding: " + bindingName );
                 return;
             }
 

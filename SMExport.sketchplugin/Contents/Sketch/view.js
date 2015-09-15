@@ -348,8 +348,9 @@ var View = ( function( _View , CB ) {
 
 			for( i ; i < len ; i++ ) {
 				subview = new View( CB.Array.objectAtIndex( sublayers , i ) , this );
-				if( !subview.shouldBeIgnored() && subview.layer.hasClippingMask() ) {
-					return true;
+				if( !subview.shouldBeIgnored() && 
+					( subview.layer.hasClippingMask() || subview.nameEndsWith( "@@mask" ) ) ) {
+						return true;
 				}
 			}
 		}
@@ -357,13 +358,12 @@ var View = ( function( _View , CB ) {
 	};
 	View.prototype.getClippingMask = function() {
 		if( !this.hasClippingMask ) {
-			return null;
+			return this.getAbsoluteLayout();
 		}
 		var clippingMask;
 
-
 		Util.forEach( this.subviews() , function( subview ) {
-			if( subview.layer.hasClippingMask() ) {
+			if( subview.layer.hasClippingMask() || subview.nameEndsWith( "@@mask" ) ) {
 				clippingMask = subview;
 			}
 		} );
@@ -410,7 +410,11 @@ var View = ( function( _View , CB ) {
 		};
 	};
 	View.prototype.getInfluenceLayoutSansStyles = function() {
-		var frame = this.getAbsoluteLayout(),
+		if( !this.hasClippingMask ) {
+			return this.getAbsoluteLayout();
+		}
+
+		var frame = this.getClippingMask(),
 			thisView = this,
 			maxWidth = frame.width,
 			maxHeight = frame.height;
