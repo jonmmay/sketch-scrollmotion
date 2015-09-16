@@ -8,7 +8,7 @@
 
 var View = ( function( _View , CB ) {
 	"use strict";
-	if( _View ) { Util.log( "Sorry! We're overwriting View: " + _View ); }
+	if( _View ) { Util.debug.debug( "Sorry! We're overwriting View: " + _View ); }
 	
 	var ViewCache = {
 			views: [],
@@ -66,7 +66,7 @@ var View = ( function( _View , CB ) {
 			if( sublayer.hasClippingMask() ) {
 				// If native mask is found, disable mask for export 
 				// And tag the layer for later re-enabling
-				Util.log( "Disabling mask for layer <" + sublayer.name + ">" );
+				Util.debug.debug( "Disabling mask for layer <" + sublayer.name + ">" );
 				sublayer.setName( name );
 				sublayer.setHasClippingMask( false );
 			}
@@ -106,7 +106,7 @@ var View = ( function( _View , CB ) {
 			if( !sublayer.isVisible() ) {
 				// If native hidden is found, disable hidden for export 
 				// And tag the layer for later re-enabling
-				Util.log( "Disabling hidden for layer <" + sublayer.name + ">" );
+				Util.debug.debug( "Disabling hidden for layer <" + sublayer.name + ">" );
 				sublayer.setName( name );
 				sublayer.setIsVisible( true );
 			}
@@ -123,7 +123,7 @@ var View = ( function( _View , CB ) {
 		Util.forEach( sublayers , function( sublayer ) {
 			var name = String( sublayer.name() );
 			if( name.indexOf( "@@hidden" ) !== -1 ) {
-				Util.log( name );
+				Util.debug.debug( name );
 				name = name.replace( new RegExp( "@@hidden" , "g" ) , "" );
 				sublayer.setName( name );
 				sublayer.setIsVisible( false );
@@ -397,7 +397,7 @@ var View = ( function( _View , CB ) {
 			y = this.layer.absoluteRect().rulerY();
 
 		if( this.isArtboard() ) {
-			Util.log( "Zeroing Artboard x and y for <" + this.name + ">" );
+			Util.debug.info( "Zeroing Artboard x and y for <" + this.name + ">" );
 			x = 0;
 			y = 0;
 		}

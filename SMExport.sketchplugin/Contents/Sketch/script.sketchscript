@@ -27,6 +27,9 @@ var $doc,
     $selection,
     contentSpec = new ContentSpec();
 
+// log (1) < debug (2) < info (3) < warn (4) < error (5)
+Util.debug.setLevel( 5 );
+
 function initVars( context ) {
     $doc = context.document;
     $selection = context.selection;
@@ -34,9 +37,12 @@ function initVars( context ) {
 
 /* Font functions  */
 function getFontManifest() {
-    var resourcesPath = Config.resourcesPath,
-        manifestPath = resourcesPath + "/.fontmanifest";
+    var userFolder = Config.userFolder,
+        manifestPath = userFolder + "/.fontmanifest";
 
+    if( !Util.folderExists( userFolder ) ) {
+        Util.createFolders( userFolder , CocoaBridge.Array.arrayWithObjects( userFolder ) );
+    }
     if( !CocoaBridge.fileExistsAtPath( manifestPath ) ) {
         saveFontManifest();
     }
@@ -44,10 +50,10 @@ function getFontManifest() {
 }
 function saveFontManifest( manifest ) {
     manifest = manifest || {};
-    var resourcesPath = Config.resourcesPath,
-        manifestPath = resourcesPath + "/.fontmanifest";
+    var userFolder = Config.userFolder,
+        manifestPath = userFolder + "/.fontmanifest";
 
-    Util.saveFileFromString( resourcesPath , manifestPath , CocoaBridge.stringify( manifest , true ) );
+    Util.saveFileFromString( userFolder , manifestPath , CocoaBridge.stringify( manifest , true ) );
 }
 function getFontsDelta( manifest , fonts ) {
     return fonts.filter( function( font ) {
@@ -128,7 +134,7 @@ function exportAsImage( view, filename , scaleFactors ) {
         
         slice = makeSlice( view.layer , rect , scale );
 
-        Util.log("Writing asset " + slice + " to disk: " + exportFileName );
+        Util.debug.debug("Writing asset " + slice + " to disk: " + exportFileName );
         imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
         
         // Convert js string to Obj-C string
@@ -201,32 +207,67 @@ function output( viewData ) {
     } );
     fontManifest = checkManifestForFonts( Util.values( userFonts ) );
 
-    exportFonts.forEach( function( fontObj ) {
-        var path = fontManifest[ fontObj.fontName ],
+    // 3.1. Copy font from manifest or revert overlay to use common font
+    Util.forEach( userFonts , function( nsfont , fontName ) {
+        var path = fontManifest[ fontName ],
+            fontFound = ( path ) ? CocoaBridge.fileExistsAtPath( path ) : false,
             fileName,
             style;
-        
-        if( !path ) {
-            fontObj.fontStyle.setCommonText();
+
+        if( !fontFound ) {
+            // Revert all custom font overlays to common font/text
+            exportFonts.filter( function( fontObj ) {
+                return fontName === fontObj.fontName;
+            } ).forEach( function( fontObj ) {
+                fontObj.fontStyle.setCommonText();
+            } );
         } else {
-            if( CocoaBridge.fileExistsAtPath( path ) ) {
-                fileName = path.split( "/" ).slice( -1 )[ 0 ];
-                style = fontObj.fontName.split( "-" ).slice( -1 )[ 0 ];
-                style = ( fontObj.fontName !== style ) ? style : "Regular";
+            fileName = path.split( "/" ).slice( -1 )[ 0 ];
+            style = fontName.split( "-" ).slice( -1 )[ 0 ];
+            style = ( fontName !== style ) ? style : "Regular";
 
-                contentSpec.addFontMetaData( {
-                    fileName: fileName,
-                    postScriptName: fontObj.fontName,
-                    fullName: String( fontObj.font.displayName() ),
-                    familyName: String( fontObj.font.familyName() ),
-                    style: style
-                } );
-                CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + fileName );
-            }
+            contentSpec.addFontMetaData( {
+                fileName: fileName,
+                postScriptName: String( nsfont.fontName() ),
+                fullName: String( nsfont.displayName() ),
+                familyName: String( nsfont.familyName() ),
+                style: style
+            } );
+            CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + fileName );
         }
+    } );
 
+    // Remove unfortunate temporary property _text from text overlay
+    exportFonts.forEach( function( fontObj ) {
         fontObj.fontStyle.removeTempValues();
     } );
+
+    // exportFonts.forEach( function( fontObj ) {
+    //     var path = fontManifest[ fontObj.fontName ],
+    //         fileName,
+    //         style;
+        
+    //     if( !path ) {
+    //         fontObj.fontStyle.setCommonText();
+    //     } else {
+    //         if( CocoaBridge.fileExistsAtPath( path ) ) {
+    //             fileName = path.split( "/" ).slice( -1 )[ 0 ];
+    //             style = fontObj.fontName.split( "-" ).slice( -1 )[ 0 ];
+    //             style = ( fontObj.fontName !== style ) ? style : "Regular";
+
+    //             contentSpec.addFontMetaData( {
+    //                 fileName: fileName,
+    //                 postScriptName: fontObj.fontName,
+    //                 fullName: String( fontObj.font.displayName() ),
+    //                 familyName: String( fontObj.font.familyName() ),
+    //                 style: style
+    //             } );
+    //             CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + fileName );
+    //         }
+    //     }
+
+    //     fontObj.fontStyle.removeTempValues();
+    // } );
 
 
     // 4. Save ContentSpec.json

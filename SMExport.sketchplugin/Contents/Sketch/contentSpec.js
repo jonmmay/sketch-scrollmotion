@@ -54,8 +54,6 @@ var ContentSpec = ( function( _ContentSpec ) {
     function appendOverlay( overlay ) {
         var obj = this;
 
-        log( JSON.stringify( this ) );
-        log( JSON.stringify( overlay ) );
         if( overlay !== undefined ) {
             if( obj.overlays instanceof Array ) {
                 obj.overlays.push( overlay );
@@ -189,7 +187,7 @@ var ContentSpec = ( function( _ContentSpec ) {
                 
                 customText = customText.replace( customFontRegex , function( match ) {
                     match = "font-family:" + customFont + ",'" + customFontFamily + "'";
-                    log( "Setting text font to: " + customFont + " with family: " + customFontFamily );
+                    // log( "Setting text font to: " + customFont + " with family: " + customFontFamily );
                     return match;
                 } );
 

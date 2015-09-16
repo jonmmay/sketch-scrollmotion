@@ -219,6 +219,7 @@ var Config = ( function( Config , CB ) {
         pluginPath,
         pluginExt = ".sketchplugin",
         resourcesPath,
+        userFolder,
         documentPath,
         documentName,
         targetFolder,
@@ -247,6 +248,7 @@ var Config = ( function( Config , CB ) {
 
             pluginPath = pluginPath.substring( 0 , pluginPath.indexOf( pluginExt ) + pluginExt.length );
             resourcesPath = pluginPath + "/Contents/Resources";
+            userFolder = pluginPath + "/Contents/User";
 
             // Not yet implemented
             settingsFilePath = targetFolder + "/smsketch.json";
@@ -276,6 +278,9 @@ var Config = ( function( Config , CB ) {
         },
         "resourcesPath": {
             get: function() { return resourcesPath; }
+        },
+        "userFolder": {
+            get: function() { return userFolder; }
         }
     } );
 
