@@ -237,37 +237,10 @@ function output( viewData ) {
         }
     } );
 
-    // Remove unfortunate temporary property _text from text overlay
+    // 3.2. Remove unfortunate temporary property _text from text overlay
     exportFonts.forEach( function( fontObj ) {
         fontObj.fontStyle.removeTempValues();
     } );
-
-    // exportFonts.forEach( function( fontObj ) {
-    //     var path = fontManifest[ fontObj.fontName ],
-    //         fileName,
-    //         style;
-        
-    //     if( !path ) {
-    //         fontObj.fontStyle.setCommonText();
-    //     } else {
-    //         if( CocoaBridge.fileExistsAtPath( path ) ) {
-    //             fileName = path.split( "/" ).slice( -1 )[ 0 ];
-    //             style = fontObj.fontName.split( "-" ).slice( -1 )[ 0 ];
-    //             style = ( fontObj.fontName !== style ) ? style : "Regular";
-
-    //             contentSpec.addFontMetaData( {
-    //                 fileName: fileName,
-    //                 postScriptName: fontObj.fontName,
-    //                 fullName: String( fontObj.font.displayName() ),
-    //                 familyName: String( fontObj.font.familyName() ),
-    //                 style: style
-    //             } );
-    //             CocoaBridge.copyItemAtPath( path , Config.targetFolder + "/" + fileName );
-    //         }
-    //     }
-
-    //     fontObj.fontStyle.removeTempValues();
-    // } );
 
 
     // 4. Save ContentSpec.json

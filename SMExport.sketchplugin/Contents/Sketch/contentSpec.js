@@ -186,7 +186,7 @@ var ContentSpec = ( function( _ContentSpec ) {
                     fontSize = textOverlay.getFontSize();
                 
                 customText = customText.replace( customFontRegex , function( match ) {
-                    match = "font-family:" + customFont + ",'" + customFontFamily + "'";
+                    match = "font-family:" + customFont + ",'" + customFontFamily + "';";
                     // log( "Setting text font to: " + customFont + " with family: " + customFontFamily );
                     return match;
                 } );
