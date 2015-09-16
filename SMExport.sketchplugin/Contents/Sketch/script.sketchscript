@@ -158,7 +158,18 @@ function handlerExport( view , bindObj ) {
 function handlerFontExport( view , bindObj ) {
     var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "text" ),
         nsfont = view.layer.style().textStyle().attributes().NSFont,
-        style = overlay.setText();
+        style;
+
+        if( overlay.type === "button" ) {
+            style = { 
+                setCommonText: function() {
+                    overlay.setKeyValue( "font" , "Arial-BoldMT" );
+                },
+                removeTempValues: Util.noop
+            };
+        } else {
+            style = overlay.setText();
+        }
 
     bindObj.exportFonts.push( { view: view , fontName: String( nsfont.fontName() ) , font: nsfont , fontStyle: style } );
 }
@@ -403,7 +414,6 @@ var onRun = function( context ) {
 
             bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
             bindObj.overlay = overlay;
-
             handlerFontExport( view , bindObj );
         },
         alignment: function( layer ) {
@@ -452,6 +462,7 @@ var onRun = function( context ) {
                 // Helpers for overlay properties
                 states = [],
                 pos,
+                textView = null,
                 textAlign,
                 textPos,
                 textColor,
@@ -570,6 +581,7 @@ var onRun = function( context ) {
                         textPos = subview.getLayoutRelativeTo( view );
                         textAlign = viewBinding.objectGenerators[ "Text" ].alignment( subview.layer );
                         textColor = subview.layer.textColor();
+                        textView = subview;
 
                     } else if( kind === "Rectangle" ) {
 
@@ -606,6 +618,7 @@ var onRun = function( context ) {
                     overlay.setKeyValue( "toggle" , true );
                 }
 
+                overlay.setKeyValue( "font" , String( textView.layer.fontPostscriptName() ) );
                 overlay.setKeyValue( "textAlign" , textAlign );
                 overlay.setKeyValue( "textPadding" , Util.toPx( textPos.x - pos.x ) );
                 overlay.setKeyValue( "cgBorderWidth" , Util.toPx( border.thickness() ) );
@@ -631,6 +644,7 @@ var onRun = function( context ) {
             }
 
             bindObj.overlay = overlay;
+            if( textView !== null ) { handlerFontExport( textView , bindObj ); }
         },
         actions: function( bindObj , args ) {},
         //we will take the children from here
