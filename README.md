@@ -7,8 +7,8 @@ A plugin for Sketch to export designs as a ScrollMotion applet.
 You can [Download Zip](https://github.com/jonmmay/sketch-scrollmotion/archive/master.zip) to the right and double-click on the .sketchplugin file to install.
 
 ## How to use it
-* Run this plugin from the Plugins menu or by using the `Control + S` hotkey to export your layers overlays in an applet
-  * Layers are exported as image or text overlay. Additional overlay types are supported using a set of specific identifier
+* Run this plugin from the Plugins menu or by using the `Control + S` hotkey to export your layers as overlays in an applet
+  * All layers are exported as image or text overlay. Additional overlay types are supported using a set of specific identifier
   * Artboards are exported as pages within a single pageset
   * Images will be named based on the layer name and will be exported at @1x and @2x for retina devices
   * The plugin will request the location of custom fonts but will default to "Arial" for missing fonts
