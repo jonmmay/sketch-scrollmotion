@@ -18,6 +18,10 @@ You can [Download Zip]() to the right and double-click on the .sketchplugin file
 
 ## Get interactive
 * Identify a layer as a button with touch states by appending `[btn]` to the layer name
+![](https://github.com/jonmmay/sketch-scrollmotion/blob/master/cgbutton_example.png)
+![](https://github.com/jonmmay/sketch-scrollmotion/blob/master/cgbutton_example2.png)
+![](https://github.com/jonmmay/sketch-scrollmotion/blob/master/imagebutton_example.png)
+
 * Identify a layer as a container that scrolls by appending `[]` to the layer name
 
 ## Ignore me please
