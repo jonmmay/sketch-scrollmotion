@@ -358,7 +358,6 @@ var onRun = function( context ) {
 
         bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
         bindObj.overlay = overlay;
-
     } );
     viewBinding.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
         var view = bindObj.view,
@@ -430,7 +429,6 @@ var onRun = function( context ) {
             }
         }
     } );
-    viewBinding.registerObjectGenerator( "Rect" , function( bindObj ) {} );
 
     // Register handlers for Content Spec data model generation
     viewBinding.registry( "default" , function( bindObj , args ) {
@@ -499,17 +497,17 @@ var onRun = function( context ) {
                     }
                 } );
 
-                Util.log( "button: " + view.name + ", has ",
+                Util.debug.info( "button: " + view.name + ", has ",
                     textLayers.length + " text layers and ",
                     stateLayers.length + " state layers." );
 
-                // Export if more than 1 text element
-                if( textLayers.length <= 1 ) {
+                // Export if <> 1 text element
+                if( textLayers.length === 1 ) {
                     if( textLayers[ 0 ] ) {
                         needExport = bindObj.requiresExport( textLayers[ 0 ] );
                     }
                 } else { 
-                    Util.log( view.name + " contains too many text layers" );
+                    Util.debug.debug( view.name + " contains " + textLayers.length + " text layers" );
                     return true;
                 }
 
@@ -526,7 +524,6 @@ var onRun = function( context ) {
                     }
                     needExport = true;
                 }
-
 
                 return needExport;
             }

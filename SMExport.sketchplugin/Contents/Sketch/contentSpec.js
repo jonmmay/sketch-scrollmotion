@@ -575,7 +575,6 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.borderColor = "#999999";
         this.toggle = false;
         this.images = [ "" ];
-        this.imagesDown = [ "" ];
         this.actions = [];
 
         if( overlayId ) { this.overlayId = overlayId; }

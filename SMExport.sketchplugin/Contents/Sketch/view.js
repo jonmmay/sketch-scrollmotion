@@ -91,6 +91,9 @@ var View = ( function( _View , CB ) {
 				sublayer.setHasClippingMask( true );
 			}
 		} );
+
+		// Force redraw
+		this.layer.resizeRoot( true );
 	};
 	View.prototype.disableHidden = function() {
 		if( this.doNotTraverse() ) {
@@ -331,6 +334,9 @@ var View = ( function( _View , CB ) {
 		} );
 
 		return subviews;
+	};
+	View.prototype.isClippingMask = function() {
+		return this.layer.hasClippingMask();
 	};
 	View.prototype.hasClippingMask = function() {
 		if( this.shouldBeIgnored() ) {

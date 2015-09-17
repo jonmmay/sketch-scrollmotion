@@ -22,8 +22,11 @@ var ViewBinding = ( function( _ViewBinding , options ) {
                 // Always add artboards; Do nothing
             } else if( subview.isFolder() && subview.hasSubviews ) {
                 bindings = subview.getNameAttributes();
+
+                // Eligible if bindings exist or layer should be flattened
+                isEligible = ( Util.values( bindings ).length ) ? true : subview.shouldBeFlattened();
                 
-                if( !Util.values( bindings ).length ) {
+                if( !isEligible ) {
                     // Look for next eligible subviews
                     isEligible = false;
                     Util.debug.debug( "<" + subview.name + "> isn't an eligible layer" );
