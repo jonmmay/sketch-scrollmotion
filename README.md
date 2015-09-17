@@ -22,12 +22,12 @@ You can [Download Zip](https://github.com/jonmmay/sketch-scrollmotion/archive/ma
 ![](https://github.com/jonmmay/sketch-scrollmotion/blob/master/cgbutton_example2.png)
 ![](https://github.com/jonmmay/sketch-scrollmotion/blob/master/imagebutton_example.png)
 
-* Identify a layer as a container that scrolls by appending `[]` to the layer name
+* Identify a layer as a container that scrolls by appending `[]` to a Group layer name
 
 ## Ignore me please
 * Ignore a layer by appending `-` to the layer name. The plugin will work around the layer so you don't have to delete your art
   * Ignoring a layer will ignore all layers in the layer group
-* Flatten a layer by appending `[flat]` to the layer name. The plugin will export the layer and sublayers as a flat bitmap. I'm working on supporting `*` as an alternative.
+* Flatten a layer by appending `[flat]` to the layer name. The plugin will export all layers in the layer group as a flat bitmap. I'm working on supporting `*` as an alternative.
   * You cannot flatten an Artboard
 
 ## Known issues and shortcomings :(
