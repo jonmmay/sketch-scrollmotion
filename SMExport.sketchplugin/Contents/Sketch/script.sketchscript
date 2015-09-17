@@ -321,6 +321,7 @@ function main( context , viewBinding ) {
 
     } catch( e ) {
         log( "Uncaught " + e );
+        CocoaBridge.showDialog( "Export ScrollMotion Failed" , "An error occurred preventing this project from exporting. Check your layers and try again. If the issue persists, please log a report." );
     }
 }
 
