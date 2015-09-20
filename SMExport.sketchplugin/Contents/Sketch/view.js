@@ -52,87 +52,6 @@ var View = ( function( _View , CB ) {
 		ViewCache.add( this );
 	}
 
-	View.prototype.disableMask = function() {
-		if( this.doNotTraverse() ) {
-			return;
-		}
-
-		// This should apply to all sublayers, not just those defined for export
-		var sublayers = this.layer.layers();
-
-		Util.forEach( sublayers , function( sublayer ) {
-			var name = sublayer.name() + "@@mask";
-
-			if( sublayer.hasClippingMask() ) {
-				// If native mask is found, disable mask for export 
-				// And tag the layer for later re-enabling
-				Util.debug.debug( "Disabling mask for layer <" + sublayer.name + ">" );
-				sublayer.setName( name );
-				sublayer.setHasClippingMask( false );
-			}
-		} );
-
-		// Force redraw
-		this.layer.resizeRoot( true );
-	};
-	View.prototype.enableMask = function() {
-		if( this.doNotTraverse() ) {
-			return;
-		}
-
-		// This should apply to all sublayers, not just those defined for export
-		var sublayers = this.layer.layers();
-
-		Util.forEach( sublayers , function( sublayer ) {
-			var name = String( sublayer.name() );
-			if( name.indexOf( "@@mask" ) !== -1 ) {
-				name = name.replace( new RegExp( "@@mask" , "g" ) , "" );
-				sublayer.setName( name );
-				sublayer.setHasClippingMask( true );
-			}
-		} );
-
-		// Force redraw
-		this.layer.resizeRoot( true );
-	};
-	View.prototype.disableHidden = function() {
-		if( this.doNotTraverse() ) {
-			return;
-		}
-
-		// This should apply to all sublayers, not just those defined for export
-		var sublayers = this.layer.layers();
-
-		Util.forEach( sublayers , function( sublayer ) {
-			var name = sublayer.name() + "@@hidden";
-
-			if( !sublayer.isVisible() ) {
-				// If native hidden is found, disable hidden for export 
-				// And tag the layer for later re-enabling
-				Util.debug.debug( "Disabling hidden for layer <" + sublayer.name + ">" );
-				sublayer.setName( name );
-				sublayer.setIsVisible( true );
-			}
-		} );
-	};
-	View.prototype.enableHidden = function() {
-		if( this.doNotTraverse() ) {
-			return;
-		}
-
-		// This should apply to all sublayers, not just those defined for export
-		var sublayers = this.layer.layers();
-
-		Util.forEach( sublayers , function( sublayer ) {
-			var name = String( sublayer.name() );
-			if( name.indexOf( "@@hidden" ) !== -1 ) {
-				Util.debug.debug( name );
-				name = name.replace( new RegExp( "@@hidden" , "g" ) , "" );
-				sublayer.setName( name );
-				sublayer.setIsVisible( false );
-			}
-		} );
-	};
 	View.prototype.getLayerKind = function() {
 		var kind = "Other",
 	        className = this.className,
@@ -209,7 +128,7 @@ var View = ( function( _View , CB ) {
 	};
 	View.prototype.shouldBeExtracted = function() {
 		if( this.shouldBeIgnored() ) {
-			return false;
+			return this.nameEndsWith( "+" );
 		}
 		return this.isLayer();
 	};
@@ -273,13 +192,13 @@ var View = ( function( _View , CB ) {
 		var view = this.parentGroup;
 
 		if( view === null ) {
-			return false;
+			return null;
 		}
 
 		while( view.parentGroup !== undefined ) {
 			view = view.parentGroup;
 			if( view === null ) {
-				return false;
+				return null;
 			} else if( view.isArtboard() ) {
 				return view;
 			}
@@ -288,7 +207,7 @@ var View = ( function( _View , CB ) {
 	View.prototype.getArboardDimensions = function() {
 		var dim,
 			view = this.parentArtboard();
-		if( this.isArtboard() || !view ) {
+		if( this.isArtboard() || view !== null ) {
 			dim = this.getAbsoluteLayout();
 		} else {
 			dim = view.getAbsoluteLayout();
@@ -334,6 +253,116 @@ var View = ( function( _View , CB ) {
 		} );
 
 		return subviews;
+	};
+
+	View.prototype.disableHidden = function() {
+		if( this.doNotTraverse() ) {
+			return;
+		}
+
+		// This should apply to all sublayers, not just those defined for export
+		var sublayers = this.layer.layers();
+
+		Util.forEach( sublayers , function( sublayer ) {
+			var name = sublayer.name() + "@@hidden";
+
+			if( !sublayer.isVisible() ) {
+				// If native hidden is found, disable hidden for export 
+				// And tag the layer for later re-enabling
+				Util.debug.debug( "Disabling hidden for layer <" + sublayer.name + ">" );
+				sublayer.setName( name );
+				sublayer.setIsVisible( true );
+
+			}
+		} );
+	};
+	View.prototype.enableHidden = function() {
+		if( this.doNotTraverse() ) {
+			return;
+		}
+
+		// This should apply to all sublayers, not just those defined for export
+		var sublayers = this.layer.layers();
+
+		Util.forEach( sublayers , function( sublayer ) {
+			var name = String( sublayer.name() );
+			if( name.indexOf( "@@hidden" ) !== -1 ) {
+				Util.debug.debug( name );
+				name = name.replace( new RegExp( "@@hidden" , "g" ) , "" );
+				sublayer.setName( name );
+				sublayer.setIsVisible( false );
+			}
+		} );
+	};
+	View.prototype.isHidden = function() {
+		return !this.layer.isVisible() || this.nameEndsWith( "@@hidden" );
+	};
+	View.prototype.hasHiddenSubviews = function() {
+		if( this.shouldBeIgnored() ) {
+			return false;
+		}
+
+		var sublayers,
+			subview,
+			len,
+			i = 0;
+
+		if( this.isFolder() ) {
+			sublayers = this.layer.layers();
+			len = sublayers.count();
+
+			for( i ; i < len ; i++ ) {
+				subview = new View( CB.Array.objectAtIndex( sublayers , i ) , this );
+				if( !subview.shouldBeIgnored() && subview.isHidden() ) {
+						return true;
+				}
+			}
+		}
+		return false;
+	};
+
+	View.prototype.disableMask = function() {
+		if( this.doNotTraverse() ) {
+			return;
+		}
+
+		// This should apply to all sublayers, not just those defined for export
+		var sublayers = this.layer.layers();
+
+		Util.forEach( sublayers , function( sublayer ) {
+			var name = sublayer.name() + "@@mask";
+
+			if( sublayer.hasClippingMask() ) {
+				// If native mask is found, disable mask for export 
+				// And tag the layer for later re-enabling
+				Util.debug.debug( "Disabling mask for layer <" + sublayer.name + ">" );
+				sublayer.setName( name );
+				sublayer.setHasClippingMask( false );
+			}
+		} );
+
+		// Force redraw
+		this.layer.resizeRoot( true );
+	};
+	View.prototype.enableMask = function() {
+		if( this.doNotTraverse() ) {
+			return;
+		}
+
+		// This should apply to all sublayers, not just those defined for export
+		var sublayers = this.layer.layers();
+
+		Util.forEach( sublayers , function( sublayer ) {
+			var name = String( sublayer.name() );
+			if( name.indexOf( "@@mask" ) !== -1 ) {
+				name = name.replace( new RegExp( "@@mask" , "g" ) , "" );
+				sublayer.setName( name );
+				sublayer.setHasClippingMask( true );
+			}
+		} );
+
+		// Force redraw
+		this.layer.resizeRoot( true );
 	};
 	View.prototype.isClippingMask = function() {
 		return this.layer.hasClippingMask();

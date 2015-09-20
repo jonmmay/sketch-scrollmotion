@@ -24,7 +24,8 @@ var ViewBinding = ( function( _ViewBinding , options ) {
                 bindings = subview.getNameAttributes();
 
                 // Eligible if bindings exist or layer should be flattened
-                isEligible = ( Util.values( bindings ).length ) ? true : subview.shouldBeFlattened();
+                isEligible = ( Util.values( bindings ).length ) ? true : 
+                             ( subview.shouldBeFlattened() ) ? true : subview.hasClippingMask;
                 
                 if( !isEligible ) {
                     // Look for next eligible subviews

@@ -108,6 +108,51 @@ function promptUserForFontPath( font ) {
 /* End Font functions */
 
 /* Export functions */
+
+function disableMaskForExport( view ) {
+    var parentView = view.parentGroup,
+        maskLayer = null;
+
+    if( view.hasClippingMask ) {
+        maskLayer = view;
+    }
+
+    if( maskLayer === null ) {
+        while( parentView !== null && !parentView.hasClippingMask && !parentView.isArtboard() ) {
+            parentView = parentView.parentGroup;
+        }
+        if( parentView.hasClippingMask ) {
+            maskLayer = parentView;
+        }
+    }
+
+    if( maskLayer !== null ) {
+        maskLayer.disableMask();
+    }
+    return maskLayer;
+}
+function disableHiddenForExport( view ) {
+    var parentView = view.parentGroup,
+        hiddenLayer = null;
+
+    if( view.hasHiddenSubviews() ) {
+        hiddenLayer = view;
+    }
+
+    if( hiddenLayer === null ) {
+        while( parentView !== null && !parentView.hasHiddenSubviews() && !parentView.isArtboard() ) {
+            parentView = parentView.parentGroup;
+        }
+        if( parentView.hasHiddenSubviews() ) {
+            hiddenLayer = parentView;
+        }
+    }
+
+    if( hiddenLayer !== null ) {
+        hiddenLayer.disableHidden();
+    }
+    return hiddenLayer;
+}
 function makeSlice( layer , rect , scaleFactor ) {
     var slice = CocoaBridge.MSSliceMaker.slicesFromExportableLayer( layer , rect ).firstObject();
     slice.page = $doc.currentPage().copyLightweight();
@@ -118,6 +163,8 @@ function makeSlice( layer , rect , scaleFactor ) {
 }
 function exportAsImage( view, filename , scaleFactors ) {
     var slice,
+        maskLayer = disableMaskForExport( view ),
+        hiddenLayer = disableHiddenForExport( view ),
         rect = view.layer.absoluteInfluenceRect(),
         exportFileName,
         exportFileExt = filename.slice( filename.lastIndexOf( "." ) ),
@@ -140,6 +187,12 @@ function exportAsImage( view, filename , scaleFactors ) {
         // Convert js string to Obj-C string
         CocoaBridge.writeToFile( imageData , CocoaBridge.stringByAppendingString( exportFileName ) );
     } );
+    if( maskLayer ) {
+        maskLayer.enableMask();
+    }
+    if( hiddenLayer ) {
+        hiddenLayer.enableHidden();
+    }
 }
 function handlerExportForProp( view , bindObj, prop ) {
     var overlay = ( bindObj.overlay && bindObj.overlay.type ) ? bindObj.overlay : contentSpec.create( "image" ),
@@ -195,10 +248,6 @@ function output( viewData ) {
 
     // 2. Compile ContentSpec.json, collect export files
     Util.forEach( viewData , function( data ) {
-        // Disable masks for later export
-        data.view.disableMask();
-        data.view.disableHidden();
-
         if( data.type === "overlay" ) {
             contentSpec.appendOverlay( data.overlay );
         } else if( data.type === "page" ) {
@@ -267,11 +316,6 @@ function output( viewData ) {
             exportAsImage( fileObj.view , fileObj.target , [ Config.exportScaleFactor , 2.0 ] );
         } );
     }
-    // Re-enable masks
-    Util.forEach( viewData , function( data ) {
-        data.view.enableMask();
-        data.view.enableHidden();
-    } );
 
     // 6. Copy resources
     if( CocoaBridge.fileExistsAtPath( Config.resourcesPath + "/__studio__preferences.json" ) ) {
@@ -362,34 +406,49 @@ var onRun = function( context ) {
     } );
     viewBinding.registerObjectGenerator( "LayerGroup" , function( bindObj ) {
         var view = bindObj.view,
-            overlay = contentSpec.create( "container" ),
-            frame = view.getClippingMask(),
-            scrollFrame = view.getInfluenceLayoutSansStyles(),
-            scrollHoriz = scrollFrame.width > frame.width,
-            scrollVert = scrollFrame.height > frame.height,
+            overlay,
+            frame,
+            scrollFrame,
+            scrollHoriz,
+            scrollVert,
             scrollDirection = "none";
-        overlay.setOverlayId();
-        overlay.setKeyValue( "displayName" , view.getSanitizedName() );
 
-        if( scrollHoriz && scrollVert ) {
-            scrollDirection = "both";
-        } else if( scrollHoriz ) {
-            scrollDirection = "horizontal";
-        } else if( scrollVert ) {
-            scrollDirection = "vertical";
+        // If Layer Group has clipping mask and no bindings, export Layer Group as a flattened Bitmap
+        // Else, export Layer Group and continue on to sub views
+        if( view.hasClippingMask && Util.values( view.getNameAttributes() ).length === 0 ) {
+            viewBinding.objectGenerators[ "Bitmap" ].object( bindObj );
+            bindObj.isProcessed = true;
+        } else {
+
+            overlay = contentSpec.create( "container" );
+            frame = view.getClippingMask();
+            scrollFrame = view.getInfluenceLayoutSansStyles();
+            scrollHoriz = scrollFrame.width > frame.width;
+            scrollVert = scrollFrame.height > frame.height;
+
+            overlay.setOverlayId();
+            overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+
+            if( scrollHoriz && scrollVert ) {
+                scrollDirection = "both";
+            } else if( scrollHoriz ) {
+                scrollDirection = "horizontal";
+            } else if( scrollVert ) {
+                scrollDirection = "vertical";
+            }
+
+            overlay.setKeyValue( "userScrolling" , scrollDirection );
+            overlay.setKeyValue( "contentHeight" , Util.toPx( scrollFrame.height ) );
+            overlay.setKeyValue( "contentWidth" , Util.toPx( scrollFrame.width ) );
+
+            bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+
+            // Set width and height with clipping mask
+            overlay.layouts.landscape.width = Util.toPx( frame.width );
+            overlay.layouts.landscape.height = Util.toPx( frame.height );
+
+            bindObj.overlay = overlay;
         }
-
-        overlay.setKeyValue( "userScrolling" , scrollDirection );
-        overlay.setKeyValue( "contentHeight" , Util.toPx( scrollFrame.height ) );
-        overlay.setKeyValue( "contentWidth" , Util.toPx( scrollFrame.width ) );
-
-        bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
-
-        // Set width and height with clipping mask
-        overlay.layouts.landscape.width = Util.toPx( frame.width );
-        overlay.layouts.landscape.height = Util.toPx( frame.height );
-
-        bindObj.overlay = overlay;
     } );
     viewBinding.registerObjectGenerator( "Text" , {
         object: function( bindObj ) {
@@ -521,7 +580,7 @@ var onRun = function( context ) {
                     } );
                 } else {
                     if( !needExport ) {
-                        Util.log( needExport , view.name + " contains too many state layers" );    
+                        Util.debug.debug( needExport , view.name + " contains too many state layers" );
                     }
                     needExport = true;
                 }
