@@ -181,10 +181,13 @@ var ViewBinding = ( function( _ViewBinding , options ) {
         var pos;
         pos = view.getLayoutRelativeTo( parentView );
 
-        overlay.layouts.landscape.width = Util.toPx( pos.width );
-        overlay.layouts.landscape.height = Util.toPx( pos.height );
-        overlay.layouts.landscape.x = Util.toPx( pos.x );
-        overlay.layouts.landscape.y = Util.toPx( pos.y );
+        // Null orientation will use the default orientation
+        overlay.setLayouts( null , {
+            width: Util.toPx( pos.width ),
+            height: Util.toPx( pos.height ),
+            x: Util.toPx( pos.x ),
+            y: Util.toPx( pos.y )
+        } );
 
         overlay.hidden = !view.layer.isVisible();
     };

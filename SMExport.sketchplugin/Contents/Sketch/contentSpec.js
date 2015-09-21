@@ -1,4 +1,4 @@
-/* global log */
+/* global log , Util */
 
 @import "config.js";
 
@@ -64,6 +64,9 @@ var ContentSpec = ( function( _ContentSpec ) {
             }
         }
         return obj;
+    }
+    function isValidLayoutOrientation( orientation ) {
+        return orientation === "landscape" || orientation === "portrait";
     }
 
     function CSExtensions() {
@@ -324,19 +327,6 @@ var ContentSpec = ( function( _ContentSpec ) {
             },
             "screenSupport": {
                 "screens": [
-                    {
-                        "fonts": [
-                            {
-                                "fontName": "arial",
-                                "fontSize": 14,
-                                "name": "Normal"
-                            }
-                        ],
-                        "height": 768,
-                        "orientation": "landscape",
-                        "suffix": "",
-                        "width": 1024
-                    }
                 ],
                 "useScreenRatio": true
             },
@@ -356,6 +346,8 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.pageId = 1;
         this.resetTextCss = resetTextCss;
         this.json = new Json();
+
+        this.addScreen( "landscape", 1024, 768 );
 
         return this;
     }
@@ -443,6 +435,44 @@ var ContentSpec = ( function( _ContentSpec ) {
             style: style
         } );
     };
+    ContentSpec.prototype.getScreens = function() {
+        var screens = this.json.screenSupport.screens.map( function( scr ) {
+            return {
+                orientation: scr.orientation,
+                width: scr.width,
+                height: scr.height
+            };
+        } );
+
+        return screens;
+    };
+
+    // Currently only permits one screen
+    ContentSpec.prototype.addScreen = function( orientation , width , height ) {
+        var numRegex = new RegExp( "\\d+" , "g" ),
+            screenData;
+
+        width = ( typeof width === "number" ) ? width : Number( width.match( numRegex ) ) || 1024;
+        height = ( typeof height === "number" ) ? height : Number( height.match( numRegex ) ) || 768;
+
+        screenData = {
+            "fonts": [
+                {
+                    "fontName": "arial",
+                    "fontSize": 14,
+                    "name": "Normal"
+                }
+            ],
+            "height": height,
+            "orientation": orientation || "landscape",
+            "suffix": "",
+            "width": width
+        };
+
+        if( this.json.screenSupport.screens.length === 0 ) {
+            this.json.screenSupport.screens.push( screenData );
+        }
+    };
 
     function Page() {
         this.backgroundColor = "#FFFFFF";
@@ -511,10 +541,18 @@ var ContentSpec = ( function( _ContentSpec ) {
         return this.overlayId;
     };
     Overlay.prototype.setLayouts = function( orientation , data ) {
-        var key;
-        orientation = ( orientation === "landscape" || orientation === "portrait" ) ? orientation : "landscape";
+        var key,
+            screens = this.contentSpec.getScreens(),
+            defOrientation = screens[ 0 ] && isValidLayoutOrientation( screens[ 0 ].orientation ) ?
+                defOrientation = screens[ 0 ].orientation : "landscape";
+
+        orientation = isValidLayoutOrientation( orientation ) ? orientation : defOrientation;
 
         if( typeof data === "object" ) {
+            if( !this.layouts[ orientation ] ) {
+                this.layouts[ orientation ] = {};
+            }
+
             for( key in data ) {
                 this.layouts[ orientation ][ key ] = data[ key ];
             }   

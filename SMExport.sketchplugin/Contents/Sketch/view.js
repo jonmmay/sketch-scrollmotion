@@ -9,7 +9,7 @@
 var View = ( function( _View , CB ) {
 	"use strict";
 	if( _View ) { Util.debug.debug( "Sorry! We're overwriting View: " + _View ); }
-	
+
 	var ViewCache = {
 			views: [],
 			get: function( id ) {
@@ -144,7 +144,7 @@ var View = ( function( _View , CB ) {
 		}
 
 		// Do not traverse Symbols
-		if( this.layer.sharedObjectID() != null ){
+		if( this.layer.sharedObjectID() != null ) {
 		    return true;
 		}
 
@@ -295,7 +295,7 @@ var View = ( function( _View , CB ) {
 			}
 		} );
 	};
-	
+
 	View.prototype.isHidden = function() {
 		return !this.layer.isVisible() || this.nameEndsWith( "@@hidden" );
 	};

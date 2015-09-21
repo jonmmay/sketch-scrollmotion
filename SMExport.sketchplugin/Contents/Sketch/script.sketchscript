@@ -457,8 +457,11 @@ var onRun = function( context ) {
             bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
 
             // Set width and height with clipping mask
-            overlay.layouts.landscape.width = Util.toPx( frame.width );
-            overlay.layouts.landscape.height = Util.toPx( frame.height );
+            // Null orientation will use the default orientation
+            overlay.setLayouts( null , {
+                width: Util.toPx( frame.width ),
+                height: Util.toPx( frame.height )
+            } );
 
             bindObj.overlay = overlay;
         }
