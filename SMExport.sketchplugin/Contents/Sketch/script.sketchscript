@@ -163,15 +163,20 @@ function makeSlice( layer , rect , scaleFactor ) {
 }
 function exportAsImage( view, filename , scaleFactors ) {
     var slice,
-        maskLayer = disableMaskForExport( view ),
-        hiddenLayer = disableHiddenForExport( view ),
-        rect = view.layer.absoluteInfluenceRect(),
+        hasClippingMask = ( view.isFolder() && view.hasClippingMask ) ? true : false,
+        // Get absolute rect - width and height without subviews or style - if layer has clipping mask
+        // Else, get rect including styles
+        rect = hasClippingMask ? view.layer.absoluteRect().rect() : view.layer.absoluteInfluenceRect(),
+        // Get parent layer and disable mask layers
+        maskLayer = !hasClippingMask ? disableMaskForExport( view ) : null,
+        // Get parent layer and disable hidden layers 
+        hiddenLayer = !hasClippingMask ? disableHiddenForExport( view ) : null,
         exportFileName,
         exportFileExt = filename.slice( filename.lastIndexOf( "." ) ),
         imageData;
 
     scaleFactors = scaleFactors || [ Config.exportScaleFactor ];
-
+    
     scaleFactors.forEach( function( scale ) {
         if( typeof scale !== "number" ) {
             return;
@@ -187,6 +192,7 @@ function exportAsImage( view, filename , scaleFactors ) {
         // Convert js string to Obj-C string
         CocoaBridge.writeToFile( imageData , CocoaBridge.stringByAppendingString( exportFileName ) );
     } );
+
     if( maskLayer ) {
         maskLayer.enableMask();
     }
@@ -377,14 +383,22 @@ var onRun = function( context ) {
     var viewBinding = new ViewBinding();
 
     // Register handlers for Sketch data models
+
+    // Clipping Mask layers will not be exported with "+" exception,
+    // All other layers should be exported
     viewBinding.registerObjectGenerator( "default" , function( bindObj ) {
         var view = bindObj.view,
-            overlay = handlerExport( view , bindObj );
-        overlay.setOverlayId();
-        overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+            shouldBeExtracted = view.shouldExportClippingMask(),
+            overlay;
 
-        bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
-        bindObj.overlay = overlay;
+        if( shouldBeExtracted ) {
+            overlay = handlerExport( view , bindObj );
+            overlay.setOverlayId();
+            overlay.setKeyValue( "displayName" , view.getSanitizedName() );
+
+            bindObj.setupRectforOverlay( overlay , bindObj.view , bindObj.parent.view );
+            bindObj.overlay = overlay;
+        }
     } );
     viewBinding.registerObjectGenerator( "Artboard" , function( bindObj ) {
         var view = bindObj.view,
@@ -417,7 +431,6 @@ var onRun = function( context ) {
         // Else, export Layer Group and continue on to sub views
         if( view.hasClippingMask && Util.values( view.getNameAttributes() ).length === 0 ) {
             viewBinding.objectGenerators[ "Bitmap" ].object( bindObj );
-            bindObj.isProcessed = true;
         } else {
 
             overlay = contentSpec.create( "container" );

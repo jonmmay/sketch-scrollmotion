@@ -128,7 +128,7 @@ var View = ( function( _View , CB ) {
 	};
 	View.prototype.shouldBeExtracted = function() {
 		if( this.shouldBeIgnored() ) {
-			return this.nameEndsWith( "+" );
+			return false;
 		}
 		return this.isLayer();
 	};
@@ -255,6 +255,7 @@ var View = ( function( _View , CB ) {
 		return subviews;
 	};
 
+	// Applies to subviews
 	View.prototype.disableHidden = function() {
 		if( this.doNotTraverse() ) {
 			return;
@@ -276,6 +277,7 @@ var View = ( function( _View , CB ) {
 			}
 		} );
 	};
+	// Applies to subviews
 	View.prototype.enableHidden = function() {
 		if( this.doNotTraverse() ) {
 			return;
@@ -287,13 +289,13 @@ var View = ( function( _View , CB ) {
 		Util.forEach( sublayers , function( sublayer ) {
 			var name = String( sublayer.name() );
 			if( name.indexOf( "@@hidden" ) !== -1 ) {
-				Util.debug.debug( name );
 				name = name.replace( new RegExp( "@@hidden" , "g" ) , "" );
 				sublayer.setName( name );
 				sublayer.setIsVisible( false );
 			}
 		} );
 	};
+	
 	View.prototype.isHidden = function() {
 		return !this.layer.isVisible() || this.nameEndsWith( "@@hidden" );
 	};
@@ -321,6 +323,7 @@ var View = ( function( _View , CB ) {
 		return false;
 	};
 
+	// Applies to subviews
 	View.prototype.disableMask = function() {
 		if( this.doNotTraverse() ) {
 			return;
@@ -344,6 +347,7 @@ var View = ( function( _View , CB ) {
 		// Force redraw
 		this.layer.resizeRoot( true );
 	};
+	// Applies to subviews
 	View.prototype.enableMask = function() {
 		if( this.doNotTraverse() ) {
 			return;
@@ -364,8 +368,12 @@ var View = ( function( _View , CB ) {
 		// Force redraw
 		this.layer.resizeRoot( true );
 	};
+
 	View.prototype.isClippingMask = function() {
 		return this.layer.hasClippingMask();
+	};
+	View.prototype.shouldExportClippingMask = function() {
+		return ( !this.isFolder() && this.isClippingMask() ) ? this.nameEndsWith( "+" ) : true;
 	};
 	View.prototype.hasClippingMask = function() {
 		if( this.shouldBeIgnored() ) {
@@ -384,7 +392,7 @@ var View = ( function( _View , CB ) {
 			for( i ; i < len ; i++ ) {
 				subview = new View( CB.Array.objectAtIndex( sublayers , i ) , this );
 				if( !subview.shouldBeIgnored() && 
-					( subview.layer.hasClippingMask() || subview.nameEndsWith( "@@mask" ) ) ) {
+					( subview.isClippingMask() || subview.nameEndsWith( "@@mask" ) ) ) {
 						return true;
 				}
 			}
@@ -398,7 +406,7 @@ var View = ( function( _View , CB ) {
 		var clippingMask;
 
 		Util.forEach( this.subviews() , function( subview ) {
-			if( subview.layer.hasClippingMask() || subview.nameEndsWith( "@@mask" ) ) {
+			if( subview.isClippingMask() || subview.nameEndsWith( "@@mask" ) ) {
 				clippingMask = subview;
 			}
 		} );

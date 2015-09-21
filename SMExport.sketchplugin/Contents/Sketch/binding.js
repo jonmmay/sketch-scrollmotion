@@ -160,6 +160,8 @@ var ViewBinding = ( function( _ViewBinding , options ) {
                 } else {
                     Util.debug.warn( "Missing overlay and page for layer: <" + bindingObj.view.name + ">" );
                 }
+            } ).filter( function( output ) {
+                return ( output && output.type ) ? true : false;
             } );
         }
 
