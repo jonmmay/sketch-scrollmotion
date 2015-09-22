@@ -347,8 +347,6 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.resetTextCss = resetTextCss;
         this.json = new Json();
 
-        this.addScreen( "landscape", 1024, 768 );
-
         return this;
     }
     // mixin( ContentSpec.prototype , new CSExtensions() , [ "appendOverlay"] );
@@ -514,16 +512,7 @@ var ContentSpec = ( function( _ContentSpec ) {
         this.hidden = false;
         this.scale = 1;
         this.alpha = 1;
-        this.layouts = {
-            landscape: {
-                width: "50px",
-                height: "50px",
-                x: "512px",
-                y: "384px",
-                horizontalAlign: "left",
-                verticalAlign: "top"
-            }
-        };
+        this.layouts = {};
 
         return this;
     }
@@ -543,14 +532,21 @@ var ContentSpec = ( function( _ContentSpec ) {
     Overlay.prototype.setLayouts = function( orientation , data ) {
         var key,
             screens = this.contentSpec.getScreens(),
-            defOrientation = screens[ 0 ] && isValidLayoutOrientation( screens[ 0 ].orientation ) ?
+            defOrientation = ( screens[ 0 ] && isValidLayoutOrientation( screens[ 0 ].orientation ) ) ?
                 defOrientation = screens[ 0 ].orientation : "landscape";
 
         orientation = isValidLayoutOrientation( orientation ) ? orientation : defOrientation;
 
         if( typeof data === "object" ) {
             if( !this.layouts[ orientation ] ) {
-                this.layouts[ orientation ] = {};
+                this.layouts[ orientation ] = {
+                    width: "50px",
+                    height: "50px",
+                    x: "512px",
+                    y: "384px",
+                    horizontalAlign: "left",
+                    verticalAlign: "top"
+                };
             }
 
             for( key in data ) {

@@ -341,6 +341,10 @@ function main( context , viewBinding ) {
 
         var layers = context.document.currentPage().layers(),
             eligibleViews = [],
+            contentSpecScreenSize,
+            csOrientation,
+            csWidth,
+            csHeight,
             processResults;
 
         // 1. Process Arboards and layers without [ignore] binding
@@ -349,9 +353,17 @@ function main( context , viewBinding ) {
             if( view.isArtboard() ) {
                 if( !view.shouldBeIgnored() ) {
                     eligibleViews.push( view );
+                    if( !contentSpecScreenSize ) {
+                        contentSpecScreenSize = view.getAbsoluteLayout();
+                    }
                 }
             }
         } );
+
+        csOrientation = ( contentSpecScreenSize.width < contentSpecScreenSize.height ) ? "portrait" : "landscape";
+        csWidth = Number( contentSpecScreenSize.width );
+        csHeight = Number( contentSpecScreenSize.height );
+        contentSpec.addScreen( csOrientation, csWidth, csHeight );
 
         // 2. Apply Sketch layer and overlay bindings
         Util.forEach( eligibleViews , function( view ) {
