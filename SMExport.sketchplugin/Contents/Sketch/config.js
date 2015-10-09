@@ -214,73 +214,270 @@ var Util = ( function( Util , CB ) {
 
 var Config = ( function( Config , CB ) {
     "use strict";
-
+    
     var context,
         pluginPath,
-        pluginExt = ".sketchplugin",
         resourcesPath,
-        userFolder,
         documentPath,
         documentName,
         targetFolder,
-        
-        settings = NSMutableDictionary.alloc().init(),
-        settingsFilePath,
-    	settingsExist,
-        
+        tempFolder,
+        inited = false,
+
         exportImgExt = ".png",
         exportFactors = [ 0.5 , 1.0 , 1.5 , 2.0 , 3.0 ],
         exportScaleFactor = 1;
 
+
+    ////////////////////////////////////////////////////
+    // Helper functions for dealing with path strings //
+    ////////////////////////////////////////////////////
+    
+    function getSubstringAfterLastIndexOf( strI , str ) {
+        return str.substring( str.lastIndexOf( strI ) + 1 );
+    }
+    function getSubstringBeforeLastIndexOf( strI , str ) {
+        return str.substring( 0 , str.lastIndexOf( strI ) );
+    }
+    function getLastPathComponent( pathStr ) {
+        return  getSubstringAfterLastIndexOf( "/" , pathStr );
+    }
+    function getPathByDeletingLastPathComponent( pathStr ) {
+        return getSubstringBeforeLastIndexOf( "/" , pathStr );
+    }
+    function getPathExtension( pathStr ) {
+        return getSubstringAfterLastIndexOf( "." , pathStr );
+    }
+    function getPathByDeletingPathExtension( pathStr ) {
+        return getSubstringBeforeLastIndexOf( "." , pathStr );
+    }
+
+    
+    ////////////////////////////////////////////////////
+    ///////////// Plugin Accessor functions ////////////
+    ////////////////////////////////////////////////////
+
+    function getPluginPathRoot() {
+        var pluginExt = ".sketchplugin",
+            pluginPath = String( context.scriptPath );
+
+        return pluginPath.substring( 0 , pluginPath.indexOf( pluginExt ) + pluginExt.length );
+    }
+    function getResourcesSettingsURL() {
+        var pluginPath = getPluginPathRoot(),
+            pluginName = getLastPathComponent( pluginPath ),
+            pluginSettings = pluginName + "-settings";
+
+            // Should get resources folder from config
+            return NSURL.fileURLWithPath( pluginPath + "/Contents/Resources/" + pluginSettings );
+    }
+    function getResourcesSettingsManifest() {
+        var manifestPath = getResourcesSettingsURL().fileSystemRepresentation();
+        if( CB.fileExistsAtPath( manifestPath ) ) {
+            return CB.jsonWithContentsOfFile( manifestPath );
+        }
+        return {};
+    }
+    function getPluginManifest() {
+        var pluginPath = getPluginPathRoot(),
+            sketchFolder = pluginPath + "/Contents/Sketch",
+            manifestPath = sketchFolder + "/manifest.json";
+
+        if( CB.fileExistsAtPath( manifestPath ) ) {
+            return CB.jsonWithContentsOfFile( manifestPath );
+        }
+        return {};
+    }
+    function getPluginIdentifier() {
+        var identifier = getPluginManifest().identifier;
+        return String( identifier );
+    }
+
+
+    ////////////////////////////////////////////////////
+    ///////// User Settings Accessor functions /////////
+    ////////////////////////////////////////////////////
+
+    function useUserSettings() {
+        return CB.fileExistsAtPath( getUserSettingsURL().fileSystemRepresentation() );
+    }
+    function getUserSettingsURL() {
+        var fileManager = NSFileManager.defaultManager(),
+            documentsURL = fileManager.URLsForDirectory_inDomains( NSDocumentDirectory , NSUserDomainMask )[ 0 ],
+            pluginName = getLastPathComponent( getPluginPathRoot() ),
+            pluginSettings = pluginName + "-settings",
+            // manifest identifier, com.company.sketch.export-awesomeness
+            pluginIdentifier = getPluginIdentifier(),
+            userSettingsURL;
+
+        userSettingsURL = documentsURL.URLByAppendingPathComponent_isDirectory( pluginIdentifier , true );
+        userSettingsURL = userSettingsURL.URLByAppendingPathComponent( getPathByDeletingPathExtension( pluginSettings ) );
+        userSettingsURL = userSettingsURL.URLByAppendingPathExtension( getPathExtension( pluginSettings ) );
+
+        return userSettingsURL;
+    }
+    function getTempSettingsURL() {
+        var tempPathURL = NSURL.fileURLWithPath_isDirectory( getPathByDeletingLastPathComponent( tempFolder ) , true ),
+            pluginName = getLastPathComponent( getPluginPathRoot() ),
+            pluginSettings = pluginName + "-settings",
+            tempSettingsURL;
+
+        tempSettingsURL = tempPathURL.URLByAppendingPathComponent( getPathByDeletingPathExtension( pluginSettings ) );
+        tempSettingsURL = tempSettingsURL.URLByAppendingPathExtension( getPathExtension( pluginSettings ) );
+
+        return tempSettingsURL;
+    }
+    function getSettingsManifest() {
+        var url;
+        if( useUserSettings() ) {
+            url = getUserSettingsURL();
+        } else {
+            if( !CB.fileExistsAtPath( getTempSettingsURL().fileSystemRepresentation() ) ) {
+                saveTempSettings( getResourcesSettingsManifest() );
+            }
+            url = getTempSettingsURL();
+        }
+
+        return CB.jsonWithContentsOfFile( url.fileSystemRepresentation() );
+    }
+
+
+    ////////////////////////////////////////////////////
+    /////////// User Settings Save functions ///////////
+    ////////////////////////////////////////////////////
+
+    function saveUserSettings( json ) {
+        var fullPathStr = getUserSettingsURL().fileSystemRepresentation(),
+            settingsPath = getPathByDeletingLastPathComponent( fullPathStr );
+
+        // var revealInFinder = function( path ) {
+        //     // Open folder in Finder
+        //     var workspace = NSWorkspace.alloc().init();
+        //     [workspace selectFile:path inFileViewerRootedAtPath:@""];
+        // }
+        
+        // Reveal folder in finder
+        // var userSettingURL = [NSURL fileURLWithPath:settingsPath isDirectory:true];
+        // revealInFinder( userSettingURL.fileSystemRepresentation() );
+
+        if( !Util.folderExists( settingsPath ) ) {
+            Util.createFolders( getPathByDeletingLastPathComponent( settingsPath ) , CocoaBridge.Array.arrayWithObjects( settingsPath ) );
+        }
+        
+        // Save 
+        Util.saveFileFromString( settingsPath , fullPathStr , CocoaBridge.stringify( json , true ) );
+    }
+    function saveTempSettings( json ) {
+        var tempPathStr = getTempSettingsURL().fileSystemRepresentation();
+        
+        // Reveal folder in finder  
+        // var settingsPath = getPathByDeletingLastPathComponent( tempPathStr ),
+        //  tempSettingURL = [NSURL fileURLWithPath:settingsPath isDirectory:true];
+        // revealInFinder( tempSettingURL.fileSystemRepresentation() );
+
+        // Save
+        // Temp folder does not require sandbox authorization
+        CocoaBridge.writeToFile( CocoaBridge.stringify( json , true ) , CocoaBridge.stringByAppendingString( tempPathStr ) , "UTF8" );
+    }
+    function saveSettingsManifest( json ) {
+        var fn = useUserSettings() ? saveUserSettings : saveTempSettings;
+        fn( json );
+    }
+
+    function documentIsSaved() {
+        // Should coerse comparison between OSX and JS
+        return context.document.fileURL() != null; // jshint ignore:line
+    }
+    function getTargetFolderPath() {
+        return useUserSettings() ? documentPath + "/" + documentName : tempFolder;
+    }
+    function createTempFolder() {
+        var fileManager = NSFileManager.defaultManager(),
+            // Name of project file, demo.sketch
+            displayName = context.document.displayName(),
+            // manifest identifier, com.company.sketch.export-awesomeness
+            pluginIdentifier = getPluginIdentifier(),
+            tempDirPath = NSTemporaryDirectory(),
+            tempDirURL;
+
+        tempDirPath = tempDirPath.stringByAppendingPathComponent( pluginIdentifier );
+        tempDirPath = tempDirPath.stringByAppendingPathComponent( displayName.replace( ".sketch" , ".scrollmotion" ) );
+
+        if( CB.fileExistsAtPath( tempDirPath ) ) {
+            CB.removeItemAtPath( tempDirPath );
+        }
+
+        tempDirURL = NSURL.fileURLWithPath_isDirectory( tempDirPath , true );
+        fileManager.createDirectoryAtURL_withIntermediateDirectories_attributes_error( tempDirURL , true , nil , nil );
+
+        return tempDirPath;
+    }
+
     function init( _context ) {
-        init.inited = init.inited || false;
-        var doc = _context.document;
+        var doc = _context.document,
+            messages = [
+                {
+                    title: "Hey Now",
+                    body: "Save your Sketch project and try again!"
+                },
+                {
+                    title: "Wait",
+                    body: "Where's your file? Please save and try again."
+                },
+                {
+                    title: "Come on " + String( NSFullUserName() ),
+                    body: "You should know you need to save to export."
+                }
+            ],
+            index = Math.floor( Math.random() * messages.length ) ;
 
         context = _context;
         
-        if( !init.inited ) {
-            init.inited = true;
+        if( !documentIsSaved() ) {
+            CB.showDialog( messages[ index ].title , messages[ index ].body );
+            return;
+        }
 
-            documentPath = doc.fileURL().path().replace( /\/[^\/]+\.sketch$/ , "\/" );
-            documentName = doc.displayName().replace( ".sketch" , "" );
-            targetFolder = documentPath + documentName + ".scrollmotion";
-            pluginPath = String( context.scriptPath );
+        if( !inited ) {
+            inited = true;
 
-            pluginPath = pluginPath.substring( 0 , pluginPath.indexOf( pluginExt ) + pluginExt.length );
+            pluginPath = getPluginPathRoot();
             resourcesPath = pluginPath + "/Contents/Resources";
-            userFolder = pluginPath + "/Contents/User";
-
-            // Not yet implemented
-            settingsFilePath = targetFolder + "/smsketch.json";
-            settingsExist = CB.fileExistsAtPath( settingsFilePath );
-
-            Util.log( "Config inited" );
+            documentPath = getPathByDeletingLastPathComponent( doc.fileURL().path() );
+            documentName = doc.displayName().replace( ".sketch" , ".scrollmotion" );
+            targetFolder = getTargetFolderPath();
+            tempFolder = createTempFolder();
         }
     }
-
 
     Config.init = init;
     Config.exportImgExt = exportImgExt;
     Config.exportScaleFactor = exportScaleFactor;
 
+    Config.settingsManifest = {
+        getManifest: getSettingsManifest,
+        saveManifest: saveSettingsManifest
+    };
+    Config.pluginManifest = getPluginManifest;
+
     Object.defineProperties( Config , {
-    	"documentPath": {
-	    	get: function() { return documentPath; }
-	    },
-	    "documentName": {
-	    	get: function() { return documentName; }
-	    },
-	    "targetFolder": {
-	    	get: function() { return targetFolder; }
-	    },
+        "documentPath": {
+            get: function() { return documentPath; }
+        },
+        "documentName": {
+            get: function() { return documentName; }
+        },
+        "targetFolder": {
+            get: function() { return targetFolder; }
+        },
         "pluginPath": {
             get: function() { return pluginPath; }
         },
         "resourcesPath": {
             get: function() { return resourcesPath; }
         },
-        "userFolder": {
-            get: function() { return userFolder; }
+        "tempFolder": {
+            get: function() { return tempFolder; }
         }
     } );
 

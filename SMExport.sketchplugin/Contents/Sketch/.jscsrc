@@ -1,6 +1,0 @@
-{
-	"preset": "jquery",
-	"fileExtensions": [ ".js" ],
-	"requireSpaceAfterKeywords": [ "return" ],
-	"disallowTrailingWhitespace": true
-}

@@ -8,9 +8,8 @@
 @import "view.js";
 @import "binding.js";
 
-// Blocker TO DO: Files must comply with WorkCloud naming scheme
 
-// TO DO: An image button should be sized by the largest state layer
+// TO DO: Button image button should be sized by the largest state layer
 
 // TO DO: Only Artboards of the same width/height ratio should be exported; all others ignored
 // TO DO: User can work at 1x or 2x Artboards
@@ -37,23 +36,17 @@ function initVars( context ) {
 
 /* Font functions  */
 function getFontManifest() {
-    var userFolder = Config.userFolder,
-        manifestPath = userFolder + "/.fontmanifest";
-
-    if( !Util.folderExists( userFolder ) ) {
-        Util.createFolders( userFolder , CocoaBridge.Array.arrayWithObjects( userFolder ) );
-    }
-    if( !CocoaBridge.fileExistsAtPath( manifestPath ) ) {
-        saveFontManifest();
-    }
-    return CocoaBridge.jsonWithContentsOfFile( manifestPath );
+    var settingsManifest = Config.settingsManifest.getManifest();
+    return settingsManifest.fonts || {};
 }
 function saveFontManifest( manifest ) {
     manifest = manifest || {};
-    var userFolder = Config.userFolder,
-        manifestPath = userFolder + "/.fontmanifest";
+    var settingsManifest = Config.settingsManifest.getManifest(),
+        saveManifest = Config.settingsManifest.saveManifest;
+    
+    settingsManifest.fonts = manifest;
 
-    Util.saveFileFromString( userFolder , manifestPath , CocoaBridge.stringify( manifest , true ) );
+    saveManifest( settingsManifest );
 }
 function getFontsDelta( manifest , fonts ) {
     return fonts.filter( function( font ) {

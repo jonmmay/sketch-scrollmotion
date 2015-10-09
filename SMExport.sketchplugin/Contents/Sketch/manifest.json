@@ -14,13 +14,21 @@
             "shortcut": "",
             "name": "Report Issue",
             "identifier": "ReportIssue"
+        },
+        {
+            "script": "test.sketchscript",
+            "handler": "onRun",
+            "shortcut": "",
+            "name": "test",
+            "identifier": "test"
         }
     ],
     "menu": {
-        "isRoot": false,
+        "isRoot": true,
         "items": [
             "SMExport",
-            "ReportIssue"
+            "ReportIssue",
+            "test"
         ]
     },
     "identifier": "com.scrollmotion.sketch.export-scrollmotion",
