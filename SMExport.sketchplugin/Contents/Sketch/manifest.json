@@ -9,11 +9,11 @@
             "identifier": "SMExport"
         },
         {
-            "script": "issue.sketchscript",
-            "handler": "onRun",
+            "script": "revealInFinder.sketchscript",
+            "handler": "revealExportFilesInFinder",
             "shortcut": "",
-            "name": "Report Issue",
-            "identifier": "ReportIssue"
+            "name": "Reveal Export Files...",
+            "identifier": "revealExportFiles"
         },
         {
             "script": "revealInFinder.sketchscript",
@@ -21,13 +21,29 @@
             "shortcut": "",
             "name": "Reveal Settings...",
             "identifier": "revealSettings"
+        },
+        {
+            "script": "revealInFinder.sketchscript",
+            "handler": "manageFilesLocally",
+            "shortcut": "",
+            "name": "Manage Files Locally",
+            "identifier": "exportLocally"
+        },
+        {
+            "script": "issue.sketchscript",
+            "handler": "onRun",
+            "shortcut": "",
+            "name": "Report Issue",
+            "identifier": "ReportIssue"
         }
     ],
     "menu": {
         "isRoot": false,
         "items": [
             "SMExport",
+            "revealExportFiles",
             "revealSettings",
+            "exportLocally",
             "ReportIssue"
         ]
     },

@@ -9,7 +9,25 @@ function revealInFinder( path ) {
     [workspace selectFile:path inFileViewerRootedAtPath:@""];
 }
 
+function manageFilesLocally( context ) {
+	var doc = context.document,
+		userManifest;
+
+	Config.init( context );
+	userManifest = Config.settingsManifest.getManifest();
+	Config.settingsManifest.syncWithDefaultManifest( userManifest );
+	
+	// CocoaBridge.showDialog( "Your Settings Will Be Saved",
+	// 	"Exported Scrollmotions will be saved to your Sketch project file directory." );
+
+	CocoaBridge.showDialog( "You're the best!",
+		"Exported Scrollmotions will be saved to your Sketch project file directory." );
+}
+function revealExportFilesInFinder( context ) {
+	Config.init( context );
+	revealInFinder( Config.targetFolder );
+}
 function revealSettingsInFinder( context ) {
 	Config.init( context );
-	revealInFinder( Config.settingsManifest.path() );
+	revealInFinder( Config.settingsManifest.folderPath() );
 }

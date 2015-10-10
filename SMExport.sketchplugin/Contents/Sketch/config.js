@@ -81,13 +81,19 @@ var Util = ( function( Util , CB ) {
 
         if( obj.count && obj.className ) {
             // Cocoa array
-            i = 0;
-            len = CB.Array.count( obj );
+            if( obj.className() == "MSArray" ) {
+                i = 0;
+                len = CB.Array.count( obj );
 
-            for( i ; i < len ; i++ ) {
-                iterator( CB.Array.objectAtIndex( obj , i ) , i );
-            }
-
+                for( i ; i < len ; i++ ) {
+                    iterator( CB.Array.objectAtIndex( obj , i ) , i );
+                }
+            } else {
+                // Cocoa object
+                for( i in obj ) {
+                    iterator( obj.objectForKey( i ) , i );
+                }
+            }  
         } else if( Object.prototype.toString.call( obj ) === "[object Array]" ) {
             obj.forEach( iterator );
         } else if( typeof obj === "object" ) {
@@ -284,9 +290,14 @@ var Config = ( function( Config , CB ) {
         inited = false,
 
         exportImgExt = ".png",
-        exportFactors = [ 0.5 , 1.0 , 1.5 , 2.0 , 3.0 ],
+        // exportFactors = [ 0.5 , 1.0 , 1.5 , 2.0 , 3.0 ],
         exportScaleFactor = 1;
 
+
+    function documentIsSaved() {
+        // Should coerse comparison between OSX and JS
+        return context.document.fileURL() != null; // jshint ignore:line
+    }
 
     ////////////////////////////////////////////////////
     // Helper functions for dealing with path strings //
@@ -399,38 +410,39 @@ var Config = ( function( Config , CB ) {
         var fullPathStr = getUserSettingsURL().fileSystemRepresentation(),
             settingsPath = getPathByDeletingLastPathComponent( fullPathStr );
         
-        // Reveal folder in finder
-        // var userSettingURL = [NSURL fileURLWithPath:settingsPath isDirectory:true];
-        // revealInFinder( userSettingURL.fileSystemRepresentation() );
-
         if( !Util.folderExists( settingsPath ) ) {
-            Util.createFolders( getPathByDeletingLastPathComponent( settingsPath ) , CocoaBridge.Array.arrayWithObjects( settingsPath ) );
+            Util.createFolders( getPathByDeletingLastPathComponent( settingsPath ) , CB.Array.arrayWithObjects( settingsPath ) );
         }
         
         // Save 
-        Util.saveFileFromString( settingsPath , fullPathStr , CocoaBridge.stringify( json , true ) );
+        Util.saveFileFromString( settingsPath , fullPathStr , CB.stringify( json , true ) );
     }
     function saveTempSettings( json ) {
         var tempPathStr = getTempSettingsURL().fileSystemRepresentation();
         
-        // Reveal folder in finder  
-        // var settingsPath = getPathByDeletingLastPathComponent( tempPathStr ),
-        //  tempSettingURL = [NSURL fileURLWithPath:settingsPath isDirectory:true];
-        // revealInFinder( tempSettingURL.fileSystemRepresentation() );
-
         // Save
         // Temp folder does not require sandbox authorization
-        CocoaBridge.writeToFile( CocoaBridge.stringify( json , true ) , CocoaBridge.stringByAppendingString( tempPathStr ) , "UTF8" );
+        CB.writeToFile( CB.stringify( json , true ) , CB.stringByAppendingString( tempPathStr ) , "UTF8" );
     }
     function saveSettingsManifest( json ) {
         var fn = useUserSettings() ? saveUserSettings : saveTempSettings;
         fn( json );
     }
 
-    function documentIsSaved() {
-        // Should coerse comparison between OSX and JS
-        return context.document.fileURL() != null; // jshint ignore:line
+    function syncSettingsWithDefault( json , requiresCleanSync ) {
+        var manifest = getResourcesSettingsManifest();
+
+        if( !requiresCleanSync ) {
+            Util.forEach( json , function( value , key ) {
+                if( manifest[ key ] ) {
+                    manifest[ key ] = value;
+                }
+            } );
+        }
+
+        saveUserSettings( manifest );
     }
+
     function getTargetFolderPath() {
         return useUserSettings() ? documentPath + "/" + documentName : tempFolder;
     }
@@ -504,7 +516,8 @@ var Config = ( function( Config , CB ) {
     Config.settingsManifest = {
         getManifest: getSettingsManifest,
         saveManifest: saveSettingsManifest,
-        path: getSettingsManifestPath
+        folderPath: getSettingsManifestPath,
+        syncWithDefaultManifest: syncSettingsWithDefault
     };
     Config.pluginManifest = getPluginManifest;
 
