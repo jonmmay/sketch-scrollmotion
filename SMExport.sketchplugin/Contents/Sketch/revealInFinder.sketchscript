@@ -1,0 +1,15 @@
+
+// jshint ignore:start
+@import "config.js";
+// jshint ignore:end
+
+function revealInFinder( path ) {
+    // Open folder in Finder
+    var workspace = NSWorkspace.alloc().init();
+    [workspace selectFile:path inFileViewerRootedAtPath:@""];
+}
+
+function revealSettingsInFinder( context ) {
+	Config.init( context );
+	revealInFinder( Config.settingsManifest.path() );
+}

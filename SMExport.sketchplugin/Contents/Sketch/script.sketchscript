@@ -182,8 +182,7 @@ function exportAsImage( view, filename , scaleFactors ) {
         Util.debug.debug("Writing asset " + slice + " to disk: " + exportFileName );
         imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
         
-        // Convert js string to Obj-C string
-        CocoaBridge.writeToFile( imageData , CocoaBridge.stringByAppendingString( exportFileName ) );
+        Util.saveFileFromData( exportFileName , imageData );
     } );
 
     if( maskLayer ) {
@@ -237,6 +236,8 @@ function output( viewData ) {
         fontManifest,
         contentSpecStr,
         contentSpecSrc;
+
+    log( Config.targetFolder );
 
     // 1. Create folders
     if( Util.folderExists( Config.targetFolder ) ) {

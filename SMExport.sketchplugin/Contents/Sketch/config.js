@@ -1,11 +1,15 @@
-/* global log , CocoaBridge , AppSandbox , NSMutableDictionary */
+/* global log , CocoaBridge , AppSandbox , 
+          NSMutableDictionary , NSURL , NSFileManager , NSDocumentDirectory , NSUserDomainMask , 
+          NSTemporaryDirectory , NSFullUserName */
+/* export Config , Util */
 
+// jshint ignore:start
 @import "cocoaBridge.js";
 @import "sandbox.js";
+// jshint ignore:end
 
 // TO DO: Alert helper
 // TO DO: Error messaging for:
-    // Document isn't saved
     // Document doesn't have artboards
 // TO DO: Identify Sketch versions
 // TO DO: Combo box for user prompts
@@ -51,6 +55,10 @@ var Util = ( function( Util , CB ) {
             };
         } ( idx , logMethods[ idx ] ) );
     }
+
+    ////////////////////////////////////////////////////
+    ///////////////// Helper Functions /////////////////
+    ////////////////////////////////////////////////////
 
     u.debug = debug;
 
@@ -99,12 +107,76 @@ var Util = ( function( Util , CB ) {
         } );
         return valArr;
     };
+    u.noop = function() {};
 
-    u.duplicateLayer = function( layer ) {
-        var layerCopy = layer.duplicate();
-        layerCopy.removeFromParent();
+    // u.duplicateLayer = function( layer ) {
+    //     var layerCopy = layer.duplicate();
+    //     layerCopy.removeFromParent();
 
-        return layerCopy;
+    //     return layerCopy;
+    // };
+
+
+    ////////////////////////////////////////////////////
+    /////////// File System Helper Functions ///////////
+    ////////////////////////////////////////////////////
+
+    function getSubstringAfterLastIndexOf( strI , str ) {
+        return str.substring( str.lastIndexOf( strI ) + 1 );
+    }
+    function getSubstringBeforeLastIndexOf( strI , str ) {
+        return str.substring( 0 , str.lastIndexOf( strI ) );
+    }
+    u.getLastPathComponent = function( pathStr ) {
+        return  getSubstringAfterLastIndexOf( "/" , pathStr );
+    };
+    u.getPathByDeletingLastPathComponent = function( pathStr ) {
+        return getSubstringBeforeLastIndexOf( "/" , pathStr );
+    };
+    u.getPathExtension = function( pathStr ) {
+        return getSubstringAfterLastIndexOf( "." , pathStr );
+    };
+    u.getPathByDeletingPathExtension = function( pathStr ) {
+        return getSubstringBeforeLastIndexOf( "." , pathStr );
+    };
+
+    // @desc helper function for saving data to filepath. Support for temp folder
+    // @param {string} path - path including filename; assumed to use Config.targetFolder path
+    // @param {string} encoding -
+    u.saveFileFromData = function( path , data , encoding ) {
+        var parentDir = u.getPathByDeletingLastPathComponent( path ),
+            path = CB.stringByAppendingString( path );
+
+        if( Config.useUserSettings() ) {
+            new AppSandbox().authorize( parentDir , function() {
+                CB.writeToFile( data , path , encoding );
+            } );
+        }else {
+            // Save to Temp folder
+            // Temp folder does not require sandbox authorization
+            CB.writeToFile( data , path , encoding );
+        }
+    };
+
+    // @desc helper function for saving strings to filepath. Support for temp folder
+    // @param {string} path - path requiring user authorization to save in sandbox
+    // @param {string} filename - assumed to use Config.targetFolder path
+    u.saveFileFromString = function( path , filename , filestring ) {
+        u.saveFileFromData( filename , CB.stringByAppendingString( filestring ) , "UTF8" )
+    };
+    u.createFolders = function( path , folders ) {
+        var i = CB.Array.count( folders ) - 1;
+        if( Config.useUserSettings() ) {
+            new AppSandbox().authorize( path , function() {
+                for( i ; i > -1 ; i-- ) {
+                    CB.createDirectoryAtPath( CB.Array.objectAtIndex( folders , i ) );
+                }
+            } );
+        } else {
+            for( i ; i > -1 ; i-- ) {
+                CB.createDirectoryAtPath( CB.Array.objectAtIndex( folders , i ) );
+            }
+        }
     };
     u.folderExists = function( path ) {
         return CB.fileExistsAtPath( path );
@@ -113,23 +185,7 @@ var Util = ( function( Util , CB ) {
         u.log("Removing file at: " + path );
         CB.removeItemAtPath( path );
     };
-    u.createFolders = function( path , folders ) {
-        new AppSandbox().authorize( path , function() {
-            var i = CB.Array.count( folders ) - 1;
-
-            for( i ; i > -1 ; i-- ) {
-                CB.createDirectoryAtPath( CB.Array.objectAtIndex( folders , i ) );
-            }
-        } );
-    };
-    u.saveFileFromString = function( path , filename , filestring ) {
-        new AppSandbox().authorize( path , function() {
-            var localPath = CB.stringByAppendingString( filename ),
-                str = CB.stringByAppendingString( filestring );
-
-            CB.writeToFile( str , localPath , "UTF8" );
-        } );
-    };
+    
     u.unique = function( str ) {
         u.unique.cache = u.unique.cache || {};
         var lowerCaseStr;
@@ -173,6 +229,11 @@ var Util = ( function( Util , CB ) {
                   .replace( new RegExp( "^" + replaceVal + "|" + replaceVal + "$" ) , "" );
     };
         
+
+    ////////////////////////////////////////////////////
+    ///////// Color and Units Helper Functions /////////
+    ////////////////////////////////////////////////////
+
     u.compToHex = function( c ) {
         var hex = c.toString( 16 );
         return hex.length === 1 ? "0" + hex : hex;
@@ -199,8 +260,6 @@ var Util = ( function( Util , CB ) {
     };
 
     u.toPx = function( val ) { return val + "px"; };
-
-    u.noop = function() {};
 
     // Merge u into Util
     u.forEach( u , function( _util , i ) {
@@ -233,24 +292,11 @@ var Config = ( function( Config , CB ) {
     // Helper functions for dealing with path strings //
     ////////////////////////////////////////////////////
     
-    function getSubstringAfterLastIndexOf( strI , str ) {
-        return str.substring( str.lastIndexOf( strI ) + 1 );
-    }
-    function getSubstringBeforeLastIndexOf( strI , str ) {
-        return str.substring( 0 , str.lastIndexOf( strI ) );
-    }
-    function getLastPathComponent( pathStr ) {
-        return  getSubstringAfterLastIndexOf( "/" , pathStr );
-    }
-    function getPathByDeletingLastPathComponent( pathStr ) {
-        return getSubstringBeforeLastIndexOf( "/" , pathStr );
-    }
-    function getPathExtension( pathStr ) {
-        return getSubstringAfterLastIndexOf( "." , pathStr );
-    }
-    function getPathByDeletingPathExtension( pathStr ) {
-        return getSubstringBeforeLastIndexOf( "." , pathStr );
-    }
+    // TO DO: Completely replace with Util functions
+    var getLastPathComponent = Util.getLastPathComponent,
+        getPathByDeletingLastPathComponent = Util.getPathByDeletingLastPathComponent,
+        getPathExtension = Util.getPathExtension,
+        getPathByDeletingPathExtension = Util.getPathByDeletingPathExtension;
 
     
     ////////////////////////////////////////////////////
@@ -327,7 +373,7 @@ var Config = ( function( Config , CB ) {
 
         return tempSettingsURL;
     }
-    function getSettingsManifest() {
+    function getSettingsManifestPath() {
         var url;
         if( useUserSettings() ) {
             url = getUserSettingsURL();
@@ -338,7 +384,10 @@ var Config = ( function( Config , CB ) {
             url = getTempSettingsURL();
         }
 
-        return CB.jsonWithContentsOfFile( url.fileSystemRepresentation() );
+        return url.fileSystemRepresentation();
+    }
+    function getSettingsManifest() {
+        return CB.jsonWithContentsOfFile( getSettingsManifestPath() );
     }
 
 
@@ -349,12 +398,6 @@ var Config = ( function( Config , CB ) {
     function saveUserSettings( json ) {
         var fullPathStr = getUserSettingsURL().fileSystemRepresentation(),
             settingsPath = getPathByDeletingLastPathComponent( fullPathStr );
-
-        // var revealInFinder = function( path ) {
-        //     // Open folder in Finder
-        //     var workspace = NSWorkspace.alloc().init();
-        //     [workspace selectFile:path inFileViewerRootedAtPath:@""];
-        // }
         
         // Reveal folder in finder
         // var userSettingURL = [NSURL fileURLWithPath:settingsPath isDirectory:true];
@@ -393,9 +436,9 @@ var Config = ( function( Config , CB ) {
     }
     function createTempFolder() {
         var fileManager = NSFileManager.defaultManager(),
-            // Name of project file, demo.sketch
+            // Name of project file. eg, demo.sketch
             displayName = context.document.displayName(),
-            // manifest identifier, com.company.sketch.export-awesomeness
+            // manifest identifier. eg, com.company.sketch.export-awesomeness
             pluginIdentifier = getPluginIdentifier(),
             tempDirPath = NSTemporaryDirectory(),
             tempDirURL;
@@ -445,8 +488,10 @@ var Config = ( function( Config , CB ) {
             resourcesPath = pluginPath + "/Contents/Resources";
             documentPath = getPathByDeletingLastPathComponent( doc.fileURL().path() );
             documentName = doc.displayName().replace( ".sketch" , ".scrollmotion" );
-            targetFolder = getTargetFolderPath();
             tempFolder = createTempFolder();
+            // tempFolder must be created before getting target folder
+            targetFolder = getTargetFolderPath();
+            
         }
     }
 
@@ -454,9 +499,12 @@ var Config = ( function( Config , CB ) {
     Config.exportImgExt = exportImgExt;
     Config.exportScaleFactor = exportScaleFactor;
 
+    Config.useUserSettings = useUserSettings;
+
     Config.settingsManifest = {
         getManifest: getSettingsManifest,
-        saveManifest: saveSettingsManifest
+        saveManifest: saveSettingsManifest,
+        path: getSettingsManifestPath
     };
     Config.pluginManifest = getPluginManifest;
 

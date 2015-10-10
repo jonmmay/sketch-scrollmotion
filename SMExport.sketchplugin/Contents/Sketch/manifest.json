@@ -5,7 +5,7 @@
             "script": "script.sketchscript",
             "handler": "onRun",
             "shortcut": "ctrl s",
-            "name": "Export ScrollMotion",
+            "name": "Export Scrollmotion",
             "identifier": "SMExport"
         },
         {
@@ -16,24 +16,24 @@
             "identifier": "ReportIssue"
         },
         {
-            "script": "test.sketchscript",
-            "handler": "onRun",
+            "script": "revealInFinder.sketchscript",
+            "handler": "revealSettingsInFinder",
             "shortcut": "",
-            "name": "test",
-            "identifier": "test"
+            "name": "Reveal Settings...",
+            "identifier": "revealSettings"
         }
     ],
     "menu": {
-        "isRoot": true,
+        "isRoot": false,
         "items": [
             "SMExport",
-            "ReportIssue",
-            "test"
+            "revealSettings",
+            "ReportIssue"
         ]
     },
-    "identifier": "com.scrollmotion.sketch.export-scrollmotion",
+    "identifier": "com.jonmmay.sketch.export-scrollmotion",
     "version": "0.1",
     "description": "Example Sketch Plugin using resources from within the bundle and a library script.",
-    "authorEmail": "support@scrollmotion.com",
-    "name": "ScrollMotion"
+    "authorEmail": "jon.m.may@gmail.com",
+    "name": "Export Scrollmotion"
 }
