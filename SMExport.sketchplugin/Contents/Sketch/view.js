@@ -1,7 +1,10 @@
 /* global Util , CocoaBridge */
+/* export View */
 
+// jshint ignore:start
 @import "cocoaBridge.js";
 @import "config.js";
+// jshint ignore:end
 
 // TO DO: Change "Artboard" to "masterGroup" to align with "parentGroup"
 // TO DO: Identify hidden layers

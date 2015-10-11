@@ -21,7 +21,7 @@ function manageFilesLocally( context ) {
 	// 	"Exported Scrollmotions will be saved to your Sketch project file directory." );
 
 	CocoaBridge.showDialog( "You're the best!",
-		"Exported Scrollmotions will be saved to your Sketch project file directory." );
+		"Exported Scrollmotions will be saved with your Sketch project file." );
 }
 function revealExportFilesInFinder( context ) {
 	Config.init( context );

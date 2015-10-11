@@ -482,6 +482,10 @@ var Config = ( function( Config , CB ) {
                 {
                     title: "Come on " + String( NSFullUserName() ),
                     body: "You should know you need to save to export."
+                },
+                {
+                    title: "Forgetting something?",
+                    body: "Be sure to save before exporting."
                 }
             ],
             index = Math.floor( Math.random() * messages.length ) ;

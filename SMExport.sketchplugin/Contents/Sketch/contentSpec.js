@@ -1,6 +1,9 @@
 /* global log , Util */
+/* export ContentSpec */
 
+// jshint ignore:start
 @import "config.js";
+// jshint ignore:end
 
 var ContentSpec = ( function( _ContentSpec ) {
     "use strict";

@@ -1,3 +1,5 @@
+/* export CocoaBridge */
+
 var CocoaBridge = ( function( _CocoaBridge ) {
 	var fileManager = NSFileManager.defaultManager(); // [NSFileManager defaultManager]
 

@@ -1,7 +1,10 @@
 /* global Util */
+/* export ViewBinding */
 "use strict";
 
+// jshint ignore:start
 @import "config.js";
+// jshint ignore:end
 
 var ViewBinding = ( function( _ViewBinding , options ) {
     function getEligibleSubviews( views ) {
