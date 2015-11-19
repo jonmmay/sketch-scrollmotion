@@ -1,7 +1,7 @@
 # sketch-scrollmotion
 A plugin for Sketch to export designs as a ScrollMotion applet.
 
-#### BEWARE. This experimental and is in no way supported by ScrollMotion. Use at your own risk: save often, keep backups of your files, and think about what you will do with all the time you've rediscovered.
+#### BEWARE. This is experimental and is in no way supported by ScrollMotion. Use at your own risk: save often, keep backups of your files, and think about what you will do with all the time you've rediscovered.
 
 ## Installation
 You can [Download Zip](https://github.com/jonmmay/sketch-scrollmotion/archive/master.zip) to the right and double-click on the .sketchplugin file to install.
@@ -42,7 +42,7 @@ You can [Download Zip](https://github.com/jonmmay/sketch-scrollmotion/archive/ma
 
 ## Export for SmartStudio
 * The exported folder of files will be saved in the same directory of your Sketch file
-* Zip the exported folder, change the file extension from `zip` to `scrollmotiontransit` and upload into your WorkCloud account
+* Zip the exported folder, change the file extension from `zip` to `scrollmotiontransit` and upload into your SmartStudio account
 
 ![alt text](https://github.com/jonmmay/sketch-scrollmotion/blob/master/Upload.gif?raw=true "Upload to WorkCloud")
 
