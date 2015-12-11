@@ -41,12 +41,14 @@
         "isRoot": false,
         "items": [
             "SMExport",
+            "-",
             "revealExportFiles",
             "revealSettings",
             "exportLocally",
             "ReportIssue"
         ]
     },
+    "compatibleVersion": "3.4",
     "identifier": "com.jonmmay.sketch.export-scrollmotion",
     "version": "0.1",
     "description": "Example Sketch Plugin using resources from within the bundle and a library script.",

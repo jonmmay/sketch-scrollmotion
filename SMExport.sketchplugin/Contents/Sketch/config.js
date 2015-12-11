@@ -281,6 +281,7 @@ var Config = ( function( Config , CB ) {
     "use strict";
     
     var context,
+        plugin,
         pluginPath,
         resourcesPath,
         documentPath,
@@ -315,18 +316,14 @@ var Config = ( function( Config , CB ) {
     ////////////////////////////////////////////////////
 
     function getPluginPathRoot() {
-        var pluginExt = ".sketchplugin",
-            pluginPath = String( context.scriptPath );
-
-        return pluginPath.substring( 0 , pluginPath.indexOf( pluginExt ) + pluginExt.length );
+        return [[plugin url] fileSystemRepresentation];
     }
     function getResourcesSettingsURL() {
         var pluginPath = getPluginPathRoot(),
             pluginName = getLastPathComponent( pluginPath ),
             pluginSettings = pluginName + "-settings";
 
-            // Should get resources folder from config
-            return NSURL.fileURLWithPath( pluginPath + "/Contents/Resources/" + pluginSettings );
+            return [plugin urlForResourceNamed: pluginSettings];
     }
     function getResourcesSettingsManifest() {
         var manifestPath = getResourcesSettingsURL().fileSystemRepresentation();
@@ -336,18 +333,10 @@ var Config = ( function( Config , CB ) {
         return {};
     }
     function getPluginManifest() {
-        var pluginPath = getPluginPathRoot(),
-            sketchFolder = pluginPath + "/Contents/Sketch",
-            manifestPath = sketchFolder + "/manifest.json";
-
-        if( CB.fileExistsAtPath( manifestPath ) ) {
-            return CB.jsonWithContentsOfFile( manifestPath );
-        }
-        return {};
+        return [plugin metadata];
     }
     function getPluginIdentifier() {
-        var identifier = getPluginManifest().identifier;
-        return String( identifier );
+        return [plugin identifier];
     }
 
 
@@ -456,7 +445,7 @@ var Config = ( function( Config , CB ) {
             tempDirURL;
 
         tempDirPath = tempDirPath.stringByAppendingPathComponent( pluginIdentifier );
-        tempDirPath = tempDirPath.stringByAppendingPathComponent( displayName.replace( ".sketch" , ".scrollmotion" ) );
+        tempDirPath = tempDirPath.stringByAppendingPathComponent( displayName + ".scrollmotion" );
 
         if( CB.fileExistsAtPath( tempDirPath ) ) {
             CB.removeItemAtPath( tempDirPath );
@@ -491,6 +480,7 @@ var Config = ( function( Config , CB ) {
             index = Math.floor( Math.random() * messages.length ) ;
 
         context = _context;
+        plugin = context.plugin;
         
         if( !documentIsSaved() ) {
             CB.showDialog( messages[ index ].title , messages[ index ].body );
@@ -503,11 +493,11 @@ var Config = ( function( Config , CB ) {
             pluginPath = getPluginPathRoot();
             resourcesPath = pluginPath + "/Contents/Resources";
             documentPath = getPathByDeletingLastPathComponent( doc.fileURL().path() );
-            documentName = doc.displayName().replace( ".sketch" , ".scrollmotion" );
+            documentName = doc.displayName() + ".scrollmotion";
             tempFolder = createTempFolder();
             // tempFolder must be created before getting target folder
             targetFolder = getTargetFolderPath();
-            
+
         }
     }
 

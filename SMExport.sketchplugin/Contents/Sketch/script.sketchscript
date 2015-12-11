@@ -149,7 +149,7 @@ function disableHiddenForExport( view ) {
     return hiddenLayer;
 }
 function makeSlice( layer , rect , scaleFactor ) {
-    var slice = CocoaBridge.MSSliceMaker.slicesFromExportableLayer( layer , rect ).firstObject();
+    var slice = [[MSSliceMaker slicesFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
     slice.page = $doc.currentPage().copyLightweight();
     slice.format = Config.exportImgExt.replace( "." , "" );
     slice.scale = scaleFactor;
