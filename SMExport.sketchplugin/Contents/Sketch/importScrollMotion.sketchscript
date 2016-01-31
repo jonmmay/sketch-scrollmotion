@@ -1,0 +1,982 @@
+@import "util.js";
+@import "config.js";
+@import "View.js";
+@import "CS.js";
+@import "htmlparser.js";
+
+// TO DO: bindingNames should use view.addNameAttributes
+// TO DO: Check color value for incoming HTML: hex or rgb
+
+var ImportScrollMotion = ( function( bindingNames ) {
+    var supportedTypes = "button,text,image,container".split( "," ),
+        imageExt = "png,jpeg,jpg,bmp,gif".split( "," ),
+        textAlign = "left,right,center,justify".split( "," ),
+        csTypes = {
+            image: function( cs, path, screen ) {
+                var imageData = ( cs.images && util.isArray( cs.images ) ) ?
+                                getImageData( path, cs.images[ 0 ] ) : null,
+                    image,
+                    size = getSize( cs, screen.orientation ),
+                    pos = getPosition( cs, screen.orientation ),
+                    props = {
+                        x: numRoundHalfUp( pos.x ),
+                        y: numRoundHalfUp( pos.y )
+                    };
+
+                if( size.width ) { props.width = numRoundHalfUp( size.width ); }
+                if( size.height ) { props.height = numRoundHalfUp( size.height ); }
+
+                if( imageData ) {
+                    image = makeBitmapLayer( imageData, props );
+                    image.name = cs.displayName;
+                }
+
+                if( image ) {
+                    return image;
+                } else {
+                    return null;
+                }
+            },
+            container: function( cs, path, screen ) {
+                var container = [[MSLayerGroup alloc] init],
+                    size = getSize( cs, screen.orientation ),
+                    pos = getPosition( cs, screen.orientation ),
+                    props = {
+                        x: numRoundHalfUp( pos.x ),
+                        y: numRoundHalfUp( pos.y ),
+                        width: numRoundHalfUp( size.width ),
+                        height: numRoundHalfUp( size.height ),
+                        borderThickness: util.num( cs.borderWidth ),
+                        borderColor: cs.borderColor,
+                        borderAlpha: cs.borderAlpha,
+                        cornerRadius: util.num( cs.cornerRadius ),
+                        fillColor: cs.backgroundColor,
+                        fillAlpha: cs.backgroundAlpha
+                    },
+                    mask;
+
+                container.name = bindingNames.container+ " " + cs.displayName;
+                mask = makeRectangleShape( props );
+                mask.name = "Container bg";
+                [mask setHasClippingMask:true];
+
+                [container addLayers:[ mask ]];
+                [container resizeToFitChildrenWithOption:true];
+                
+                return container;
+            },
+            button: function( cs, path, screen ) {
+                var group,
+                    regGroup,       regShapeGroup,      regTextLayer,
+                    downGroup,      downShapeGroup,     downTextLayer,      downFillColor,
+                    size = getSize( cs, screen.orientation ),
+                    pos = getPosition( cs, screen.orientation ),
+                    props = {
+                        x: numRoundHalfUp( pos.x ),
+                        y: numRoundHalfUp( pos.y ),
+                        width: numRoundHalfUp( size.width || 0 ),
+                        height: numRoundHalfUp( size.height || 0 ),
+                        fillColor: cs.cgButtonColor,
+                        fillAlpha: cs.cgButtonAlpha,
+                        borderThickness: util.num( cs.cgBorderWidth ),
+                        borderColor: cs.cgBorderColor,
+                        borderAlpha: cs.borderAlpha,
+                        cornerRadius: util.num( cs.cgCornerRadius )
+                    };
+
+                group = [[MSLayerGroup alloc] init];
+                group.name = bindingNames.button + " " + cs.displayName;
+
+                regGroup = [[MSLayerGroup alloc] init];
+                regGroup.name = cs.text;
+                regShapeGroup = makeRectangleShape( props );
+
+                regTextLayer = [[MSTextLayer alloc] initWithFrame:NSMakeRect( 0, 0, 1, 1 )];
+                regTextLayer.stringValue = cs.text;
+                regTextLayer.name = cs.text;
+                [regTextLayer setTextAlignment:textAlign.indexOf( cs.textAlign )];
+                regTextLayer.fontSize = util.roundHalfUp( util.num( cs.fontSize ) * screen.fonts[ 0 ].fontSize );
+                [regTextLayer setTextColor:[MSColor colorWithSVGString:cs.fontColor]];
+                [regTextLayer adjustFrameToFit];
+
+                [regTextLayer setTextBehaviour:1]; // Auto (0), Fixed (1)
+                [[regTextLayer frame] setWidth:( util.roundHalfUp( [[regShapeGroup frame] width] - ( util.num( cs.textPadding ) * 2 ) ) )];
+                [[regTextLayer frame] setX:( util.roundHalfUp( [[regShapeGroup frame] x] + util.num( cs.textPadding ) ) )];
+
+                // True center of text rect bounds
+                [[regTextLayer frame] setY:( [[regShapeGroup frame] y] + ( [[regShapeGroup frame] height] - [[regTextLayer frame] height] ) / 2 )];
+
+                // Sketch vertically centered text alignment guide is mid-xheight
+                // [[regTextLayer frame] setY:( util.roundHalfUp( [[regShapeGroup frame] y] + ( [[regShapeGroup frame] height] + [[regTextLayer font] xHeight]  ) / 2 - [regTextLayer fontSize] ) )];
+
+                downGroup = [[MSLayerGroup alloc] init];
+                downGroup.name = cs.text + " tap";
+                [downGroup setIsVisible: false];
+                downShapeGroup = [regShapeGroup duplicate];
+
+                if( cs.cgButtonPressedColor ) {
+                    downFillColor = [MSColor colorWithSVGString:cs.cgButtonPressedColor];
+                    downFillColor.alpha = cs.cgButtonPressedAlpha || 1;
+                    [[[downShapeGroup style] fills] firstObject].color = downFillColor; 
+                }
+
+                downTextLayer = [regTextLayer duplicate];
+                [downTextLayer setTextColor:[MSColor colorWithSVGString:cs.fontPressedColor]];
+
+                [regGroup addLayers:[ regShapeGroup, regTextLayer ]];
+                [regGroup resizeToFitChildrenWithOption:true];
+
+                [downGroup addLayers:[ downShapeGroup, downTextLayer ]];
+                [downGroup resizeToFitChildrenWithOption:true];
+                
+                [group addLayers:[ regGroup, downGroup ]];
+                [group resizeToFitChildrenWithOption:true];
+
+                return group;
+            },
+            image_button: function( cs, path, screen ) {
+                var group = [[MSLayerGroup alloc] init],
+                    regImage,       downImage,  
+                    onImage,        downOnImage,
+
+                    regImageData = ( cs.images && util.isArray( cs.images ) ) ?
+                                    getImageData( path, cs.images[ 0 ] ) : null,
+                    downImageData = ( cs.imagesDown && util.isArray( cs.imagesDown ) ) ?
+                                    getImageData( path, cs.imagesDown[ 0 ] ) : null,
+                    onImageData = ( cs.imagesOn && util.isArray( cs.imagesOn ) ) ?
+                                    getImageData( path, cs.imagesOn[ 0 ] ) : null,
+                    downOnImageData = ( cs.imagesDownOn && util.isArray( cs.imagesDownOn ) ) ?
+                                    getImageData( path, cs.imagesDownOn[ 0 ] ) : null,
+
+                    size = getSize( cs, screen.orientation ),
+                    pos = getPosition( cs, screen.orientation ),
+                    frame = {
+                        x: numRoundHalfUp( pos.x ),
+                        y: numRoundHalfUp( pos.y ),
+                        width: numRoundHalfUp( size.width || 0 ),
+                        height: numRoundHalfUp( size.height || 0 )
+                    };
+
+                group.name = bindingNames.button + " " + cs.displayName;
+
+                if( regImageData ) {
+                    regImage = makeBitmapLayer( regImageData, frame );
+                    regImage.name = cs.images[ 0 ];
+                    [group addLayers:[ regImage ]];
+                }
+                if( downImageData ) {
+                    downImage = makeBitmapLayer( downImageData, frame );
+                    downImage.name = cs.imagesDown[ 0 ];
+                    [downImage setIsVisible: false];
+                    [group addLayers:[ downImage ]];
+                }
+                if( onImageData ) {
+                    onImage = makeBitmapLayer( onImageData, frame );
+                    onImage.name = cs.imagesOn[ 0 ];
+                    [onImage setIsVisible: false];
+                    [group addLayers:[ onImage ]];
+                }
+                if( downOnImageData ) {
+                    downOnImage = makeBitmapLayer( downOnImageData, frame );
+                    downOnImage.name = cs.imagesDownOn[ 0 ];
+                    [downOnImage setIsVisible: false];
+                    [group addLayers:[ downOnImage ]];
+                }
+
+                [group resizeToFitChildrenWithOption:true];
+
+                if( [[group layers] count] > 0 ) {
+                    return group;
+                } else {
+                    return null;
+                }
+            },
+            hotspot: function( cs, path, screen ) {
+                return csTypes.unknown.call( this, arguments );
+            },
+            text: function( cs, path, screen ) {
+                return csTypes.unknown.call( this, arguments );
+            },
+            text_complex: function( cs, path, screen ) {
+                var textLayer = [[MSTextLayer alloc] initWithFrame:NSMakeRect( 0, 0, 1, 1 )],
+                    frame = [textLayer frame],
+                    size = getSize( cs, screen.orientation ),
+                    pos = getPosition( cs, screen.orientation ),
+                    color,
+
+                    // Provide better error handling for nodes
+                    parsedHtml = htmlToNodes.run( cs.text ),
+                    htmlNodes = parsedHtml.results(),
+                    htmlStrVal = parsedHtml.stringValue(),
+                    
+                    // For text layer naming
+                    indexOfSpace,
+                    maxChars = 21,
+
+                    fontFamily = firstInstanceofStyleInNodes( "font-family", htmlNodes ),
+                    fontSize = firstInstanceofStyleInNodes( "font-size", htmlNodes ),
+                    lnHeight = firstInstanceofStyleInNodes( "line-height", htmlNodes ),
+                    charSpace = firstInstanceofStyleInNodes( "letter-spacing", htmlNodes ),
+                    txtAlign = firstInstanceofStyleInNodes( "text-align", htmlNodes ),
+                    txtColor = firstInstanceofStyleInNodes( "color", htmlNodes ),
+                    txtAlpha = cs.alpha,
+                    paragraphStyle;
+
+                // Return null if no text value
+                if( htmlStrVal.length === 0 ) { return null; }
+
+                [textLayer setTextBehaviour:1]; // Auto (0), Fixed (1)
+
+                // Name layer
+                indexOfSpace = ( htmlStrVal.length < maxChars ) ? htmlStrVal.length : 
+                               htmlStrVal.substring( 0, maxChars ).lastIndexOf( " " );
+                textLayer.name = cs.displayName || htmlStrVal.substring( 0, ( ( indexOfSpace !== -1 ) ? indexOfSpace : maxChars ) ).trim();
+                
+                // Set text
+                textLayer.stringValue = stringWithBreaks( htmlStrVal, htmlNodes );
+
+                if( fontFamily ) {
+                    log( fontFamilyName( fontFamily ) );
+                    textLayer.fontPostscriptName = fontFamilyName( fontFamily );
+                }
+                                
+                if( fontSize ) { textLayer.fontSize = numRoundHalfUp( fontSize ); }
+                if( charSpace ) { [textLayer setCharacterSpacing:numRoundHalfUp( charSpace )]; }
+
+                if( lnHeight ) { 
+                    textLayer.usesNewLineSpacingBehaviour = true;
+
+                    // Behaving strangly by setting both lineHeight and lineSpacing paragraph style values
+                    // textLayer.lineSpacing = numRoundHalfUp( lnHeight );
+                    
+                    // Alternative method to set paragraph style line spacing
+                    setLineHeight.call( this, textLayer, numRoundHalfUp( lnHeight ));
+                }
+
+                txtAlign = textAlign.indexOf( txtAlign );
+                [textLayer setTextAlignment:( txtAlign > -1 ? txtAlign : textAlign.indexOf( "left" ) )];
+
+                // Check if rgb or hex
+                // txtColor = rgbFromString( txtColor );
+                // txtColor = ( txtColor ) ? util.rgbToHex( txtColor.r, txtColor.g, txtColor.b ) : "#000000";
+                color = [MSColor colorWithSVGString:txtColor];
+                [textLayer setTextColor:color];
+
+                [frame setX:numRoundHalfUp( pos.x )];
+                [frame setY:numRoundHalfUp( pos.y )];
+                [frame setWidth:numRoundHalfUp( size.width )];
+                [frame setHeight:numRoundHalfUp( size.height )];
+
+                [textLayer adjustFrameToFit];
+
+                return textLayer;
+            },
+            page: function( cs, path, screen ) {
+                var artboard = [MSArtboardGroup new],
+                    frame = [artboard frame],
+                    bgImageData,
+                    bgImage;
+
+                [frame setWidth:numRoundHalfUp( screen.width )];
+                [frame setHeight:numRoundHalfUp( screen.height )]
+
+                artboard.name = cs.displayName;
+                artboard.hasBackgroundColor = true;
+                artboard.includeBackgroundColorInExport = false;
+                artboard.backgroundColor = [MSColor colorWithSVGString:cs.backgroundColor];
+
+                if( cs.backgroundImage ) {
+                    bgImageData = getImageData( path, cs.backgroundImage );
+                    if( bgImageData ) {
+                        bgImage = imageLayer( bgImageData, {
+                            x: 0,
+                            y: 0,
+                            width: [frame width],
+                            height: [frame height]
+                        } );
+                        bgImage.name = cs.backgroundImage;
+                        [artboard addLayers:[ bgImage ]];
+                    }
+                }
+
+                return artboard;
+            },
+            unknown: function( cs, path, screen ) {}
+        };
+
+    function makeRectangleShape( args ) {
+        var group,
+            rect,
+            borderColor,
+            fillColor,
+            frame = "x,y,width,height".split( "," ),
+            key;
+
+        args = args || {};
+
+        for( key in frame ) {
+            if( typeof args[ key ] === "undefined" ) {
+                args[ key ] = 0;
+            }
+        }
+
+        rect = [[MSRectangleShape alloc] initWithFrame:NSMakeRect(
+                                            args.x,
+                                            args.y,
+                                            args.width,
+                                            args.height )];
+        group = [MSShapeGroup shapeWithPath:rect];
+
+        if( args.cornerRadius ) {
+            rect.cornerRadiusFloat = args.cornerRadius;
+        }
+        if( args.borderThickness ) {
+            borderColor = [MSColor colorWithSVGString:( args.borderColor || "#000000" )];
+            borderColor.alpha = args.borderAlpha || 1;
+            addBorder( group, {
+                position: 1,
+                thickness: args.borderThickness,
+                color: borderColor
+            } );
+        }
+        if( args.fillColor ) {
+            fillColor = [MSColor colorWithSVGString:args.fillColor];
+            fillColor.alpha = args.fillAlpha || 1;
+            addFill( group, {
+                color: fillColor
+            } );
+        }
+
+        return group;
+    }
+    function makeBitmapLayer( imageData, args ) {
+        var pos = "x,y".split( "," ),
+            frame,
+            image,
+            imageLayer,
+            key;
+
+        args = args || {};
+
+        for( key in pos ) {
+            if( typeof args[ key ] === "undefined" ) {
+                args[ key ] = 0;
+            }
+        }
+        
+        image = [[NSImage alloc] initWithData:imageData];
+        imageLayer = [MSBitmapLayer bitmapLayerFromImage:image];
+        frame = [imageLayer frame];
+
+        [frame setConstrainProportions: false];
+        [frame setX: args.x];
+        [frame setY: args.y];
+
+        if( args.width && args.height ) {
+            [frame setWidth: args.width];
+            [frame setHeight: args.height];
+        }
+        [frame setConstrainProportions: true];
+
+        return imageLayer;
+    }
+    function addBorder( layer, props ) {
+        var border = [[[layer style] borders] addNewStylePart],
+            key;
+        
+        for( key in props ) { border[ key ] = props[ key ]; }
+        
+        return border;
+    }
+    function addFill( layer, props ) {
+        var fill = [[[layer style] fills] addNewStylePart],
+            key;
+        
+        for( key in props ) { fill[ key ] = props[ key ]; }
+        
+        return fill;
+    }
+    function setLineHeight( textLayer, lineHeight ) {
+        if( [textLayer className] != "MSTextLayer" ) { return; }
+        if( lineHeight <= 0 ) {
+            lineHeight = [textLayer defaultLineHeight];
+        }
+
+        var attrsM = [[[[textLayer style] textStyle] attributes] mutableCopy],
+            paraStyle = attrsM.NSParagraphStyle || [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+
+        [paraStyle setMaximumLineHeight:lineHeight];
+        [paraStyle setMinimumLineHeight:lineHeight];
+
+        attrsM.NSParagraphStyle = paraStyle;
+        [[[textLayer style] textStyle] setAttributes:attrsM];
+        
+        if( this.doc ) {
+            [( this.doc ) reloadInspector];    
+        }
+    }
+
+    function getFileData( url ) {
+        if( url && [url isKindOfClass:[NSURL class]] ) {
+            var fileManager = [NSFileManager defaultManager];
+
+            return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
+                [NSData dataWithContentsOfURL:url] : null;  
+        }
+        return null;
+    }
+
+    function getPosition( cs, orientation ) {
+        var layouts = cs.layouts[ orientation ];
+        
+        return ( cs.x && cs.y ) ? { x: cs.x, y: cs.y } :
+               ( layouts.x && layouts.y ) ? { x: layouts.x, y: layouts.y } :
+               { x: "0px", y: "0px" };
+    }
+    function getSize( cs, orientation ) {
+        var layouts = cs.layouts[ orientation ];
+        
+        return ( cs.width && cs.height ) ? { width: cs.width, height: cs.height } :
+               ( layouts.width && layouts.height ) ? { width: layouts.width, height: layouts.height } :
+               { width: null, height: null };
+    }
+    function numRoundHalfUp( string ) {
+        if( typeof string === "string" ) {
+            return util.roundHalfUp( util.num( string ) );    
+        } else if( typeof string === "number" ) {
+            return util.roundHalfUp( string );
+        }
+
+        return string;
+    }
+
+    function traverseNodes( node , i ) {
+        if( node === undefined ) { return null; }
+
+        var parentNode = node.getParentNode(),
+            childrenNodes = node.getChildrenNodes(),
+            siblingsNum = ( parentNode ) ? parentNode.getChildrenNodes().length : 0;
+        
+        i = i || 0;
+
+        // Traverse siblings
+        while( node.stringValue.length === 0 && ( i < siblingsNum - 1 || childrenNodes.length > 0 ) ) {
+            // Traverse children
+            while( node.stringValue.length === 0 && childrenNodes.length > 0 ) {
+                return traverseNodes( childrenNodes[ 0 ] , 0 );
+            }
+
+            i++;
+            return traverseNodes( parentNode.getChildrenNodes()[ i ], i );
+        }
+
+        return ( node.stringValue.length > 0 ) ? node : null;
+    }
+    function firstInstanceofStyleInNodes( styleName , nodes ) {
+        if( nodes.length === 0 ) { return null; } // Provide more informative warning
+        var node = traverseNodes( nodes[ 0 ] );
+
+        while( node !== null ) {
+            if( !node.attrs || !node.attrs.style ) {
+                node = node.getParentNode();
+            }
+            if( node.attrs.style[ styleName ] ) {
+                return node.attrs.style[ styleName ];
+            }
+            node = node.getParentNode();
+        }
+        return null;
+    }
+    function spliceSlice( str, index, count, add ) {
+      return str.slice( 0, index ) + ( add || "" ) + str.slice( index + count );
+    }
+    function stringWithBreaks( str, nodes ) {
+        if( typeof str !== "string" ) { throw "Missing string for identifying line breaks"; }
+        
+        var breaks = [], i;
+        
+        nodes.forEach( function( node ) {
+            var i = ( node.tag === "div" ) ? node.location : -1;
+            
+            if( i >= 0 ) { breaks.push( i ); }
+        } );
+
+        // Remove first div instance
+        breaks = breaks.splice( 1, breaks.length );
+
+        // Insert breaks from end of string
+        for( i = breaks.length - 1; i >= 0; i-- ) {
+            str = spliceSlice( str, breaks[ i ], 0, "\n" );
+        }
+        return str;
+    }
+    function fontFamilyName( name ) {
+        var prefName = name.slice( 0, name.indexOf( "," ) ).trim();
+        
+        return prefName.replace( /\u0022|\u0027/ , "" );
+    }
+    
+    function retinaImage( name ) {
+        var regex = new RegExp( "([-A-Za-z0-9_]+).(" + imageExt.join( "|" ) + ")$" , "i" );
+        return name.replace( regex, "$1@2x.$2" );
+    }
+    function getImageData( filePath, fileName ) {
+        fileName = String( fileName );
+
+        // Try to get retina image
+        var retinaRegex = new RegExp( "@2x." + imageExt.join( "|" ) + "$" , "i" ),
+            retinaFileName = retinaRegex.test( fileName ) ? fileName : retinaImage( fileName ),
+            imageData = getFileData( [NSURL fileURLWithPath:filePath + "/" + retinaFileName] );
+
+        // Else, get image
+        if( !imageData ) {
+            imageData = getFileData( [NSURL fileURLWithPath:filePath + "/" + fileName] );
+        }
+
+        return imageData;
+    }
+
+    /**
+        * @desc Convert string containing RGB color data to object
+        * @param {string}
+        * @returns {object|null} Object with red, green, and blue values; else null if invalid
+    */
+    function rgbFromString( str ) {
+        var res = new RegExp( "\\(([^\\)]*)\\)" ).exec( str ),
+            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null;
+        
+        return ( rgb && rgb.length === 3 ) ? {
+            r: parseInt( rgb[ 0 ] ),
+            g: parseInt( rgb[ 1 ] ),
+            b: parseInt( rgb[ 2 ] )
+        } : null;
+    }
+
+    var layersFromCs = util.Object.extend( {
+        init: function( ctx ) {
+            this._super( ctx );
+
+            this.cs = ContentSpec.create( ctx );
+            this.view = View.create( ctx );
+        },
+        processCS: function( cs, path ) {
+            var type,
+                csObj,
+                layer;
+
+            // Overlay
+            if( cs.type ) {
+                if( supportedTypes.indexOf( cs.type.toLowerCase() ) > -1 ) {
+                    type = cs.type.toLowerCase();
+                } else { type = "unknown"; }
+
+                if( type === "button" ) {
+                    if( cs.images ) {
+                        type = "image_" + type;
+                    } else if( cs.cgButtonColor ) {
+                        // Do nothing
+                    } else {
+                        type = "hotspot";
+                    }
+                } else if( type === "text" && cs.html ) {
+                    type += "_complex";
+                }
+            }
+
+            // Page
+            else if( cs.overlays ) {
+                type = "page";
+            }
+
+            if( type ) {
+                // Merge content spec with stub
+                csObj = util.merge( this.cs.make( type ), cs );
+
+                // Assign context with access to this.view for writing setting layer properties
+                layer = csTypes[ type ].call( this, csObj, path, {
+                    "fonts": [
+                        {
+                            "fontName": "arial",
+                            "fontSize": 14,
+                            "name": "Normal"
+                        }
+                    ],
+                    "height": 768,
+                    "orientation": "landscape",
+                    "suffix": "",
+                    "width": 1024
+                } );
+
+                // Save content spec to layer
+                if( layer ) {
+                    this.view.make( layer ).setLayerCS( csObj );    
+                }       
+
+                return layer;
+            } else {
+                debug.debug( "Uknown Content Spec" );
+                return null;
+            }
+        }
+
+    } );
+
+    return layersFromCs;
+} )( {
+    container: "[C]",
+    button: "[B]"
+} );
+
+
+function onRun( context ) {
+	
+    try{
+        util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
+
+        util.debug.debug( "########## Import start ##########" );
+
+        var doc = context.document,
+            selection = context.selection,
+            plugin = context.plugin,
+            importSM = ImportScrollMotion.create( context ),
+            cs = ContentSpec.create( context ),
+            config = Config.create( context );
+
+        var page = doc.currentPage(),
+            fileManager = [NSFileManager defaultManager],
+            desktopURL = [fileManager URLsForDirectory:NSDesktopDirectory inDomains:NSUserDomainMask][ 0 ];   
+
+        function testImage() {
+            var image = importSM.processCS( {
+                "widget": "image",
+                "images": [
+                    "back_arrow_tap.png"
+                ],
+                "overlayId": "overlay1",
+                "type": "image",
+                "relative": "parent",
+                "scale": 1,
+                "alpha": 1,
+                "hidden": false,
+                "borderAlpha": 0,
+                "borderWidth": "0px",
+                "borderColor": "#999999",
+                "cornerRadius": "0px",
+                "clickThrough": false,
+                "draggable": false,
+                "layouts": {
+                    "landscape": {
+                        "width": "192px",
+                        "height": "192px",
+                        "x": "12px",
+                        "y": "12px",
+                        "verticalAlign": "top",
+                        "horizontalAlign": "left"
+                    }
+                },
+                "displayName": "Object 1"
+            }, [desktopURL fileSystemRepresentation] );
+
+            if( image ) {
+                [page addLayers:[ image ]];
+            }
+        }
+        function testBasicButton() {
+            var btn = importSM.processCS( {
+                "widget": "button",
+                "overlayId": "overlay1",
+                "displayName": "button",
+                "type": "button",
+                "text": "ScrollMotion",
+                "borderAlpha": 1,
+                "cgBorderColor": "#FF0000",
+                "cgBorderWidth": "2px",
+                "cgButtonColor": "#FFFFFF",
+                "cgButtonPressedAlpha": 1,
+                "cgButtonPressedColor": "#0099BB",
+                "cgButtonShineEffect": false,
+                "cgUseInteriorBorder": false,
+                "cgCornerRadius": "10px",
+                "font": "Arial-BoldMT",
+                "fontColor": "#0099BB",
+                "fontPressedColor": "#FFFFFF",
+                "fontSize": "1.1em",
+                "relative": "parent",
+                "toggle": false,
+                "hidden": false,
+                "scale": 1,
+                "alpha": 1,
+                "multiline": true,
+                "fixedSize": true,
+                "textAlign": "center",
+                "textPadding": "10px",
+                "clipToBounds": true,
+                "layouts": {
+                    "landscape": {
+                        "width": "180px",
+                        "height": "44px",
+                        "horizontalAlign": "left",
+                        "verticalAlign": "top",
+                        "x": "422px",
+                        "y": "362px"
+                    }
+                }
+            }, [desktopURL fileSystemRepresentation] );
+
+            [page addLayers:[ btn ]];
+        }
+        function testImageButton() {
+            var btn = importSM.processCS( {
+                "widget": "image_button",
+                "overlayId": "overlay3",
+                "type": "button",
+                "scale": 1,
+                "scaleMode": "fill",
+                "alpha": 1,
+                "relative": "parent",
+                "cornerRadius": "0px",
+                "borderAlpha": 0,
+                "borderWidth": "0px",
+                "borderColor": "#999999",
+                "toggle": false,
+                "hidden": false,
+                "layouts": {
+                    "landscape": {
+                        "width": "100px",
+                        "height": "100px",
+                        "x": "365.5px",
+                        "y": "288px",
+                        "verticalAlign": "top",
+                        "horizontalAlign": "left"
+                    }
+                },
+                "displayName": "Object 3",
+                "actions": [],
+                "images": [
+                    "back_arrow_tap.png"
+                ],
+                "imagesDown": [
+                    "2.png"
+                ],
+                "imagesOn": [
+                    "1.png"
+                ],
+                "imagesDownOn": [
+                    "1.png"
+                ]
+            }, [desktopURL fileSystemRepresentation] );
+
+            log( btn );
+            if( btn ) {
+                [page addLayers:[ btn ]];
+            }
+        }
+        function testContainer( context ) {
+            var container = importSM.processCS( {
+                "widget": "container",
+                "overlayId": "overlay2",
+                "type": "container",
+                "relative": "parent",
+                "scale": 1,
+                "alpha": 1,
+                "hidden": false,
+                "backgroundColor": "#FFFFFF",
+                "backgroundAlpha": 1,
+                "backgroundRepeat": "repeat-none",
+                "backgroundPosition": "center-center",
+                "borderWidth": "1px",
+                "borderColor": "#999999",
+                "borderAlpha": 1,
+                "cornerRadius": "10px",
+                "clickThrough": false,
+                "clipToBounds": true,
+                "draggable": false,
+                "contentWidth": "0px",
+                "contentHeight": "0px",
+                "userScrolling": "none",
+                "scrollerStyle": "black",
+                "paging": false,
+                "contentOffsetX": "0px",
+                "contentOffsetY": "0px",
+                "userScrollingBounces": true,
+                "layouts": {
+                    "landscape": {
+                        "x": "449px",
+                        "y": "17px",
+                        "width": "500px",
+                        "height": "350px",
+                        "verticalAlign": "top",
+                        "horizontalAlign": "left"
+                    }
+                },
+                "displayName": "Object 2",
+                "overlays": [
+                    {
+                        "overlayId": "overlay1"
+                    }
+                ]
+            }, [desktopURL fileSystemRepresentation] );
+
+            if( container ) {
+                [page addLayers:[ container ]];
+            }
+        }
+        function testText( context ) {
+            var text = importSM.processCS( {
+                "alpha": 0.5,
+                "bounces": false,
+                "displayName": "Object 1",
+                "hidden": false,
+                "html": true,
+                "layouts": {
+                    "landscape": {
+                        "height": "336px",
+                        "horizontalAlign": "left",
+                        "verticalAlign": "top",
+                        "width": "350px",
+                        "x": "22px",
+                        "y": "21px"
+                    }
+                },
+                "overlayId": "overlay1",
+                "plugin": "text_complex.smp",
+                "relative": "parent",
+                "size": "0em",
+                "text": "<div style=\"text-align: left; line-height: 16px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);font-size:14px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie </span><span style=\"color:#FF0000;\"><span style=\"font-family: ArialMT, Arial;\">accessorized</span></span><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> with a fancy bag, but her <span style=\"letter-spacing:-1px;\">smock</span> looked</span></span></span></div><div style=\"text-align: left; line-height: 16px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> inexpensive. I’ve begun to realize why Jacques makes experts fed up. I had to look up “Hova.” Wow! Expect a bump in frequency of Jay-Z pangrams! Having a few saxophone players is required to make a jazz combo. Jim fantasized about having sex with a large quantity of pancakes.</span></span></div>",
+                "type": "text",
+                "userScrolling": "none",
+                "widget": "text_complex"
+            }, [desktopURL fileSystemRepresentation] );
+
+            [page addLayers:[ text ]];
+        }
+        function testPage( context ) {
+            var artboard = importSM.processCS( {
+                "backgroundColor": "#FFFFFF",
+                "overlays": [
+                    {
+                        "overlayId": "object1"
+                    }
+                ],
+                "pageId": "page1",
+                "title": "",
+                "backgroundImageScaleMode": "center",
+                "displayName": "New Artboard"
+            }, [desktopURL fileSystemRepresentation] );
+
+            if( artboard ) {
+                [page addLayers:[ artboard ]];
+            }
+        }
+
+        function getFileData( url ) {
+            if( url && [url isKindOfClass:[NSURL class]] ) {
+                return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
+                    [NSData dataWithContentsOfURL:url] : null;  
+            }
+            return null;
+        }
+        function browseForFile( title, fileType ) {
+            var openPanel = [NSOpenPanel openPanel];
+            [openPanel setCanChooseFiles:true];
+            [openPanel setCanChooseDirectories:false];
+            [openPanel setAllowsMultipleSelection:false];
+            [openPanel setCanCreateDirectories:false];
+            [openPanel setMessage:@"Import " + title];
+            [openPanel setPrompt:@"Import"];
+
+            // This doesn't appear to be an option as of OSX 10.11
+            // [openPanel setTitle:title];
+            
+            if( fileType ) {
+                if( util.isArray( fileType ) ) {
+                    fileType = fileType.map( function( type ) {
+                        return [@"" stringByAppendingString:type];
+                    } );
+                } else {
+                    fileType = [NSArray arrayWithObjects:[@"" stringByAppendingString:fileType] , nil];
+                }
+                [openPanel setAllowedFileTypes:fileType];
+            }
+
+            if( [openPanel runModal] == NSOKButton ) {
+                return [[openPanel URLs] firstObject];
+            }
+        }
+        function getJSONObjectWithData( data, mutable ) {
+            var err = [[MOPointer alloc] init],
+                json;
+            mutable = mutable ? NSJSONReadingMutableContainers : 0;
+            
+            if( data && [data isKindOfClass:[NSData class]] ) {
+                json = [NSJSONSerialization JSONObjectWithData:data options:mutable error:err];
+
+                if( err.value() ) {
+                    util.debug.warn( "json error: can't load json" );
+                    util.debug.warn( err.value() );
+                    return null;
+                }
+                return json;
+            }
+            return null;
+        }
+
+        function processSubCS( overlays, url ) {
+            var layers = [];
+
+            util.forEach( overlays, function( overlay ) {
+                var layer = importSM.processCS( overlay, [url fileSystemRepresentation] );
+
+                if( layer ) {
+                    if( overlay.overlays ) {
+                        [layer addLayers:processSubCS( overlay.overlays, url )];
+                    }
+                    layers.push( layer );
+                }
+            } );
+
+            return layers;
+        }
+
+        var fileURL = browseForFile( "Content Spec", "json" ),
+            data,
+            allPages;
+
+        if( fileURL ) {
+            data = getFileData( fileURL )
+
+            cs.initWithJSON( getJSONObjectWithData( data, true ) );
+            log( cs.value() );
+
+            allPages = cs.getPagesIds();
+            util.forEach( allPages, function( id, i ) {
+                var csPage = cs.getPage( id, true ),
+                    url = [fileURL URLByDeletingLastPathComponent],
+                    // Ensure pageId is associated with page content spec
+                    artboard = importSM.processCS( util.merge( csPage, { "pageId": id } ), [url fileSystemRepresentation] ),
+                    frame,
+                    layers,
+                    padding = config.getSettingsKeyValue( "importArtboardPadding" ) || 0;
+
+                if( artboard ) {
+                    frame = [artboard frame];
+
+                    [page addLayers:[ artboard ]];
+                    [frame setX:i * ( padding + [frame width] )];
+
+                    if( csPage.overlays ) {
+                        layers = processSubCS( csPage.overlays, url );
+                        [artboard addLayers:layers];    
+                    }
+                }
+            } );
+        }
+
+        util.debug.debug( "########## Import end ##########" );
+        doc.showMessage( "Done" );
+    } catch( err ) {
+        util.debug.error( "Uncaught error: " + err );
+        doc.showMessage( "Error" );
+    }
+    
+}

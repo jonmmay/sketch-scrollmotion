@@ -1,0 +1,1263 @@
+@import "util.js";
+@import "Config.js";
+@import "View.js";
+@import "CS.js";
+
+// TO DO: Account for layer styling outside rect: borders, shadows, etc
+// TO DO: Attach CS to layer upon completing transformation
+// TO DO: Smart merge CS to concate properties such as metaData custom fonts
+
+var ExportScrollMotion = ( function() {
+    
+    // Requires access to config
+    function imageAssetHandler( view, callback ) {
+        var layerName = util.unique( util.slugify( view.getSanitizedName() ) ),
+            ext = this.config.getImageExtension(),
+            filename = this.config.getExportFolderPath() + "/" + layerName + ext,
+            src = layerName + ext;
+            
+        if( callback ) {
+            callback( src, filename );
+        }
+    }
+    function fontAssetHandler( view, callback ) {
+        var nsfont = [[[( view.layer ) style] textStyle] attributes].NSFont,
+            fontName = String( [nsfont fontName] );
+            
+        if( callback ) {
+            callback( nsfont, fontName );
+        }
+    }
+    function rectForOverlay( view, parentView ) {
+        var pos = parentView ? view.getLayoutRelativeTo( parentView ) : view.getAbsoluteLayout();
+
+        return {
+            width: util.toPx( pos.width ),
+            height: util.toPx( pos.height ),
+            x: util.toPx( pos.x ),
+            y: util.toPx( pos.y )
+        };
+    }
+
+    function bordersRequireRastering( view ) {
+        var borders = [[[( view.layer ) style] borders] array],
+            enabled = 0,
+            types = [],
+            requiresRastering = false;
+
+        util.forEach( borders, function( border ) {                    
+            if( [border isEnabled] ) {
+                enabled += 1;
+                types.push( [border fillType] );
+            }
+        } );
+
+        if( !( requiresRastering = requiresRastering || enabled > 1 ) ) {
+            // A color fill (0) or a gradient (1)
+            requiresRastering = types.filter( function( type ) {
+                return type > 0;
+            } ).length > 0;
+        }
+
+        return requiresRastering;
+    }
+    function fillsRequireRastering( view ) {
+        var fills = [[[( view.layer ) style] fills] array],
+            enabled = 0,
+            types = [],
+            requiresRastering = false;
+
+        util.forEach( fills, function( fill ) {                    
+            if( [fill isEnabled] ) {
+                enabled += 1;
+                types.push( [fill fillType] );
+            }
+        } );
+
+        if( !( requiresRastering = requiresRastering || enabled > 1 ) ) {
+            // A color fill (0), gradient (1) or pattern (4)
+            requiresRastering = types.filter( function( type ) {
+                return type > 0;
+            } ).length > 0;
+        }
+
+        return requiresRastering;
+    }
+    function shadowsRequireRastering( view ) {
+        var shadows = [[[( view.layer ) style] shadows] array],
+            enabled = 0,
+            requiresRastering = false;
+
+        util.forEach( shadows, function( shadow ) {                    
+            if( [shadow isEnabled] ) {
+                enabled += 1;
+            }
+        } );
+
+        return requiresRastering || enabled > 0;
+    }
+    function innerShadowsRequireRastering( view ) {
+        var shadows = [[[( view.layer ) style] innerShadows] array],
+            enabled = 0,
+            requiresRastering = false;
+
+        util.forEach( shadows, function( shadow ) {                    
+            if( [shadow isEnabled] ) {
+                enabled += 1;
+            }
+        } );
+
+        return requiresRastering || enabled > 0;
+    }
+    function viewRequiresRastering( view ) {
+        var kind = view.getLayerKind(),
+            requiresRastering = false;
+            
+        if( kind === "Artboard" || kind === "Slice" ) {
+            return false;
+        } else if( kind === "LayerGroup" ) {
+            util.forEach( view.subviews(), function( subview ) {
+                if( !requiresRastering ) {
+                    requiresRastering = viewRequiresRastering( subview );
+                }
+            } );
+        } else {
+            if( !requiresRastering ) {
+                requiresRastering = bordersRequireRastering( view );
+            }
+            if( !requiresRastering ) {
+                requiresRastering = fillsRequireRastering( view );
+            }
+            if( !requiresRastering ) {
+                requiresRastering = shadowsRequireRastering( view );
+            }
+            if( !requiresRastering ) {
+                requiresRastering = innerShadowsRequireRastering( view );
+            }
+        }
+
+        return requiresRastering;
+    }
+
+    function explicitMatchViewsToButtonStates( view ) {
+        var priority = [ "normal", "down", "on", "downOn" ],
+            stateNames = {
+                normal: "normal,default,regular".split( "," ),
+                down: "down,tap,highlight".split( "," ),
+                on: "on,toggled,toggledon,toggled on".split( "," ),
+                downOn: "downon,down on,ondown,on down,toggleddown,toggled down".split( "," )
+            },
+            matchedStates = { normal: [], down: [], on: [], downOn: [] },
+            unmatched = [],
+            subviews;
+
+        if( view.hasSubviews ) {
+            subviews = view.subviews();
+            
+            if( subviews.length > 1 ) {
+                util.forEach( view.subviews(), function( subview ) {
+                    var layerName = subview.name.toLowerCase(),
+                        matched = false;
+
+                    unmatched.push( subview );
+                    priority.forEach( function( state ) {
+                        var matchPattern = new RegExp( stateNames[ state ].join( "|" ), "i" ),
+                            matches = layerName.match( matchPattern );
+
+                        if( matches ) {
+                            matchedStates[ state ].push( subview );
+                        }                        
+                    } );
+                } );
+            } else {
+                matchedStates.normal.push( subviews[ 0 ] );    
+            }
+        } else {
+            matchedStates.normal.push( view );
+        }
+
+        // Conflict resolution: filter duplicates beginning with less specific state names.
+        // Coincidently this is priority listing
+        matchedStates.unmatched = unmatched;
+        priority.unshift( "unmatched" );
+        
+        priority.forEach( function( state, i ) {
+            matchedStates[ state ] = matchedStates[ state ].filter( function( item ) {
+                for( var ii = i + 1, iilen = priority.length; ii < iilen; ii++ ) {
+                    if( priority[ ii ] === state ) { continue; }
+                    
+                    for( var jj = 0, jjlen = matchedStates[ priority[ ii ] ].length; jj < jjlen; jj++ ) {
+                        if( matchedStates[ priority[ ii ] ][ jj ].name === item.name ) {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            } );
+        } );
+
+        return matchedStates;
+    }
+    function implicitMatchViewsToButtonStates( view ) {
+        var priority = [ "normal", "down", "on", "downOn" ],
+            matchedStates = explicitMatchViewsToButtonStates( view ),
+            unmatched = matchedStates.unmatched;
+
+        // If empty down state, move on state views into down state
+        if( matchedStates.down.length === 0 && matchedStates.on.length > 0 ) {
+            matchedStates.down.push( matchedStates.on.shift() );
+        }
+
+        // If empty downOn state and filled on state, clone on state views into downOn state
+        if( matchedStates.downOn.length === 0 && matchedStates.on.length > 0 ) {
+            matchedStates.downOn.push( matchedStates.on[ matchedStates.on.length - 1 ] );
+        }
+
+        // Dump unmatched views into normal view array
+        matchedStates.normal = matchedStates.normal.concat( unmatched );
+
+        return matchedStates;
+    }
+    function buttonStateViewRequiresRastering( view ) {
+        var kind = view.getLayerKind(),
+            textViews = [],
+            otherViews = [],
+            childVal,
+            requiresRastering = false;
+
+        function identifyViews( view ) {
+            var kind = view.getLayerKind(),
+                ret = { textViews: [], otherViews: [] },
+                childVal;
+
+            if( view.hasSubviews ) {
+                util.forEach( view.subviews(), function( subview ) {
+                    childVal = identifyViews( subview );
+                    ret.textViews = ret.textViews.concat( childVal.textViews );
+                    ret.otherViews = ret.otherViews.concat( childVal.otherViews );
+                } );
+            }
+
+            if( kind === "Text" ) {
+                ret.textViews.push( view );
+            } else if( kind !== "LayerGroup" ) {
+                ret.otherViews.push( view );
+            }
+
+            requiresRastering = viewRequiresRastering( view );
+
+            return ret;
+        }
+
+        if( view.hasSubviews ) {
+            childVal = identifyViews( view );
+            textViews = childVal.textViews;
+            otherViews = childVal.otherViews;
+        } else {
+            requiresRastering = viewRequiresRastering( view );
+        }
+
+        return requiresRastering || kind === "Bitmap" ||
+                         textViews.length > 1 || otherViews.length > 1;
+    }
+
+    function getTextAlignment( layer ) {
+        var alignment = [layer textAlignment],
+            values = [ "left", "right", "center", "justify", "natural" ];
+
+        // Return "natural" alignment as left
+        return ( alignment == values.indexOf( "natural" ) ) ? values[ 0 ] : values[ alignment ];
+    }
+    function getRgba( color ) {
+        return String( color ).replace( /[\(\)]/g, "" ).split( " " ).map( function( val ) {
+            var types = val.split( ":" ),
+                type = types[ 0 ],
+                value = types[ 1 ];
+
+            return ( type !== "a" ) ? Math.round( Number( value ) * 255 ) : Number( value );
+        } ).join( "," );
+    }
+
+    return util.Object.extend( {
+        init: function( ctx ) {
+            this._super( ctx );
+
+            this.config = Config.create( ctx );
+        },
+        processLayers: function( layers ) {
+            var context = this.context,
+                doc = this.context.document,
+                plugin = this.context.plugin,
+
+                layersForTransformation = layers,
+                eligibleViews = [],
+                transformedLayers = [],
+                view = View.create( context ),
+                viewBindingControl = new ViewBindingController(),
+                cs = ContentSpec.create( context ),
+
+                boundImageAssetHandler = imageAssetHandler.bind( this );
+
+            viewBindingControl.layerKindRegistry( "default", function( bindObj ) {
+                var view = bindObj.getView(),
+                    shouldBeExtracted = view.shouldExportClippingMask();
+
+                // Extract as image
+                if( shouldBeExtracted ) {
+                    viewBindingControl.layerKindGenerators[ "Bitmap" ].object( bindObj );
+                }
+            } );
+            viewBindingControl.layerKindRegistry( "Artboard", function( bindObj ) {
+                var view = bindObj.getView(),
+                    page = cs.make( "page" ),
+                    layerCS = view.getLayerCS(),
+                    id = String( [( view.layer ) objectID] );
+
+                page.setKeyValue( "displayName", view.getSanitizedName() );
+                
+                // Merge preexisting content spec properties
+                if( layerCS ) {
+                    page.setValue( util.merge( layerCS, page.value() ) );
+
+                    // Set preexisting page id
+                    id = layerCS.pageId ? layerCS.pageId : id ;
+                }
+
+                page.setPageId( id );
+                bindObj.page = page;
+            } );
+
+            // TO DO: Hidden, Alpha, Rotation
+            viewBindingControl.layerKindRegistry( "Bitmap", function( bindObj ) {
+                var view = bindObj.getView(),
+                    parent = bindObj.getParent(),
+                    rect,
+                    overlay = cs.make( "image" ),
+                    layerCS = view.getLayerCS(),
+                    id = String( [( view.layer ) objectID] );
+
+                boundImageAssetHandler( view, function( src, filename ) {
+                    overlay.setKeyValue( "images", [ src ] );
+                    bindObj.exportFiles.push( {
+                        getView: function() { return view; },
+                        target: filename
+                    } );
+                } );
+
+                rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
+                overlay.setLayouts( "landscape", util.merge( rect, {
+                    "horizontalAlign": "left",
+                    "verticalAlign": "top"
+                } ) );
+                overlay.setKeyValue( "displayName", view.getSanitizedName() );
+                overlay.setOverlayId( view.layer.objectID() );
+                
+                // Hidden
+                // Alpha
+                // Rotation
+
+                // Merge preexisting content spec properties
+                if( layerCS ) {
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                    
+                    // Set preexisting overlay id
+                    id = layerCS.overlayId ? layerCS.overlayId : id ;
+                }
+
+                overlay.setOverlayId( id );
+                bindObj.overlay = overlay;
+            } );
+            viewBindingControl.layerKindRegistry( "LayerGroup", function( bindObj ) {
+                var view = bindObj.getView();
+
+                // Reset value
+                this.stopAutoApplyBindingForChildren = false;
+
+                // If layerGroup has clipping mask and no bindings, 
+                // Export layerGroup as a flattened Bitmap
+                if( view.hasClippingMask && util.values( view.getNameAttributes() ).length === 0 ) {
+                    viewBindingControl.layerKindGenerators[ "Bitmap" ].object( bindObj );
+                    this.stopAutoApplyBindingForChildren = true;
+                }
+
+                // Defer to binding
+            } );
+
+            // TO DO: Line breaks, sequential spaces, tabs
+            // TO DO: Hidden, Alpha, Rotation
+            viewBindingControl.layerKindRegistry( "Text", function( bindObj ) {
+                var view = bindObj.getView(),
+                    parent = bindObj.getParent(),
+                    rect,
+                    overlay = cs.make( "text_complex" ),
+                    layerCS = view.getLayerCS(),
+                    id = String( [( view.layer ) objectID] ),
+                    nsfont = [[[( view.layer ) style] textStyle] attributes].NSFont;
+
+                overlay.setText( String( [( view.layer ) stringValue] ) );
+                overlay.setCustomFont( String( [( view.layer ) fontPostscriptName] ) , String( [nsfont familyName] ) );
+                overlay.setTextAlign( getTextAlignment( view.layer ) );
+                overlay.setLineHeight( util.toPx( [( view.layer ) lineSpacing] ) );
+                overlay.setLetterSpacing( util.toPx( [( view.layer ) characterSpacing] ) );
+                overlay.setColor( "#" + [[( view.layer ) textColor] hexValue] );
+                overlay.setFontSize( util.toPx( [( view.layer ) fontSize] ) );
+
+                fontAssetHandler( view, function( font, fontName ) {
+                    var style = {
+                        resetToDefaultFont: overlay.resetToDefaultFont
+                    };
+                    
+                    bindObj.exportFonts.push( { 
+                        getView: function() { return view; },
+                        fontName: fontName, 
+                        font: font, 
+                        fontStyle: style
+                    } );
+                } );
+
+                rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
+                overlay.setLayouts( "landscape", util.merge( rect, {
+                    "horizontalAlign": "left",
+                    "verticalAlign": "top"
+                } ) );
+                overlay.setKeyValue( "displayName", view.getSanitizedName() );
+
+                // Hidden
+                // Alpha
+                // Rotation
+
+                // Merge preexisting content spec properties
+                if( layerCS ) {
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
+
+                    // Set preexisting overlay id
+                    id = layerCS.overlayId ? layerCS.overlayId : id ;
+                }
+
+                overlay.setOverlayId( id );
+                bindObj.overlay = overlay;
+            } );
+
+            // Ignore
+            viewBindingControl.bindingRegistry( "-" , {
+                stopAutoApplyBindingForChildren: true
+            } );
+
+            // Flatten
+            viewBindingControl.bindingRegistry( "*" , {
+                stopAutoApplyBindingForChildren: true,
+                compose: function( bindObj, args ) {
+                    viewBindingControl.layerKindGenerators[ "Bitmap" ].object( bindObj );
+                }
+            } );
+
+            // Button
+            // TO DO: Fix fontSize default which is hardcodded at 14
+            // TO DO: Hidden, Alpha, Rotation
+            viewBindingControl.bindingRegistry( "B" , {
+                stopAutoApplyBindingForChildren: true,
+                compose: function( bindObj, args ) {
+                    var view = bindObj.getView(),
+                        parent = bindObj.getParent(),
+                        rect,
+                        layerCS = view.getLayerCS(),
+                        id = String( [( view.layer ) objectID] ),
+                        requiresRastering = false,
+                        inspectorToggle = view.getLayerValueForKey( "toggle" ) || false,
+                        overlay;
+
+                    // Reset export files 
+                    bindObj.exportFonts = [];
+                    bindObj.exportFiles = [];
+
+                    // Cg button properties
+                    var cgButtonDownState, 
+                        normalStates = [], downStates = [],
+                        textView, textPos, textColor, downColor,
+                        pos, border, cornerRadius,
+                        fill, downFill;
+
+                    var stateViews = implicitMatchViewsToButtonStates( view ),
+                        states = Object.getOwnPropertyNames( stateViews ),
+                        unmatchedStateViews = stateViews.unmatched;
+
+                    // Remove unmatched
+                    states.splice( states.indexOf( "unmatched" ), 1 );
+                    
+                    if( !inspectorToggle ) {
+                        // Remove on and downOn
+                        states.splice( states.indexOf( "on" ), 1 );
+                        states.splice( states.indexOf( "downOn" ), 1 );
+                    } else {
+                        if( stateViews.on.length > 0 ) {
+                            requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.on[ 0 ] );
+                        }
+                        if( stateViews.downOn.length > 0 ) {
+                            requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.downOn[ 0 ] );
+                        }   
+                    }
+
+                    if( stateViews.normal.length > 0 ) {
+                        requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.normal[ 0 ] );
+                    }
+
+                    if( stateViews.down.length > 0 ) {
+                        requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.down[ 0 ] );
+                    }
+                    
+                    overlay = cs.make( !requiresRastering ? "button" : "image_button" );
+                    overlay.setKeyValue( "displayName", view.getSanitizedName() );
+                    overlay.setKeyValue( "toggle", inspectorToggle );
+
+                    if( requiresRastering ) {
+                        // Pass state views to overlay image properties
+                        states.forEach( function( state ) {
+                            var stateView = stateViews[ state ][ 0 ],
+                                buttonStateName = state === "normal" ? "images" :
+                                                  "images" + state.replace( /^(\w)/, function( m ) { return m.toUpperCase(); } );
+                            
+                            if( stateView ) {
+                                boundImageAssetHandler( stateView, function( src, filename ) {
+                                    overlay.setKeyValue( buttonStateName, [ src ] );
+                                    bindObj.exportFiles.push( {
+                                        getView: function() { return stateView; },
+                                        target: filename
+                                    } );
+                                } );
+                            }
+                        } );
+
+                        
+                    } else {
+                        cgButtonDownState = ( inspectorToggle && stateViews.on.length > 0 ) ? "on" : "down";
+
+                        // Flatten normal state view layerGroups into array
+
+                        stateViews.normal.forEach( function flattenNormalStateViews( stateView ) {
+                            if( stateView.hasSubviews ) {
+                                util.forEach( stateView.subviews(), flattenNormalStateViews );
+                            } else {
+                                normalStates.push( stateView );
+                            }
+                        } );
+
+                        // Flatten cg button down state view layerGroups into array
+                        stateViews[ cgButtonDownState ].forEach( function flattenDownStateViews( stateView ) {
+                            if( stateView.hasSubviews ) {
+                                util.forEach( stateView.subviews(), flattenDownStateViews );
+                            } else {
+                                downStates.push( stateView );
+                            }
+                        } );
+
+                        // Capture cg button properties from layers
+                        normalStates.some( function( stateView ) {
+                            var kind = stateView.getLayerKind();
+
+                            // Exit loop if properties have been found
+                            if( textView && border && fill && pos && cornerRadius ) { return true; }
+
+                            if( kind === "Text" && !textView ) {
+                                overlay.setKeyValue( "text", String( [( stateView.layer ) stringValue] ) );
+                                
+                                textView = stateView;
+                                textColor = [( textView.layer ) textColor];
+                                textPos = textView.getLayoutRelativeTo( view );
+                            } else if( kind === "Rectangle" ) {
+                                border = border || [[[[( stateView.layer ) style] borders] array] firstObject];
+                                fill = fill || [[[[( stateView.layer ) style] fills] array] firstObject];
+                                pos = pos || stateView.getLayoutRelativeTo( view );
+
+                                // We know there are children layers since the layer kind is "Rectangle"
+                                cornerRadius = cornerRadius || [[[( stateView.layer ) children] firstObject] cornerRadiusFloat];
+                            }
+                        } );
+
+                        downStates.some( function( stateView ) {
+                            var kind = stateView.getLayerKind();
+
+                            // Exit loop if properties have been found
+                            if( downColor && downFill ) { return true; }
+
+                            if( kind === "Text" ) {
+                                downColor = downColor || [( stateView.layer ) textColor];
+                            }
+                            if( kind === "Rectangle" ) {
+                                downFill = downFill || [[[[( stateView.layer ) style] fills] array] firstObject];
+                            }
+                        } );
+
+                        // Assign cg button properties to overlay
+                        if( textView ) {
+                            overlay.setKeyValue( "font" , String( [( textView.layer ) fontPostscriptName] ) );
+                            fontAssetHandler( textView, function( font, fontName ) {
+                                var style = {
+                                    resetToDefaultFont: function() {
+                                        overlay.setKeyValue( "font", "Arial-BoldMT" );
+                                    }
+                                };
+                                
+                                bindObj.exportFonts.push( { 
+                                    getView: function() { return textView; },
+                                    fontName: fontName,
+                                    font: font,
+                                    fontStyle: style
+                                } );
+                            } );
+
+                            overlay.setKeyValue( "textAlign", getTextAlignment( textView.layer ) );
+                            overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / 14 + "em" );
+                            overlay.setKeyValue( "fontColor" , "#" + [textColor hexValue] );
+                        }
+                        if( textPos && pos ) { overlay.setKeyValue( "textPadding",  util.toPx( textPos.x - pos.x ) ); }
+                        if( downColor || textColor ) {
+                            overlay.setKeyValue( "fontPressedColor" , "#" + [( downColor || textColor ) hexValue] );
+                        }
+
+                        if( border ) {
+                            overlay.setKeyValue( "cgBorderWidth", util.toPx( [border thickness] ) );
+                            overlay.setKeyValue( "cgBorderColor", "#" + [[border color] hexValue] );
+                            overlay.setKeyValue( "borderAlpha", Number( getRgba( [border color] ).split( "," ).pop() ) );
+                        }
+                        if( fill ) {
+                            overlay.setKeyValue( "cgButtonColor", "#" + [[fill color] hexValue] );
+                            // overlay.setKeyValue( "cgButtonAlpha" , Number( getRgba( [fill color] ).split( "," ).pop() ) );
+                        }
+                        if( downFill ) {
+                            overlay.setKeyValue( "cgButtonPressedColor", "#" + [[downFill color] hexValue] );
+                            // overlay.setKeyValue( "cgButtonPressedAlpha", Number( getRgba( [downFill color] ).split( "," ).pop() ) );
+                        }
+
+                        if( typeof cornerRadius !== undefined && pos ) {
+                            // Ensure corner radius doesn't exceed half of smallest dimension
+                            overlay.setKeyValue( "cgCornerRadius" , util.toPx( 
+                                ( cornerRadius <= Math.min( pos.width , pos.height ) / 2 ) ? 
+                                    cornerRadius : Math.min( pos.width , pos.height ) / 2
+                            ) );
+                        }
+                    }
+                    
+                    rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
+                    overlay.setLayouts( "landscape", util.merge( rect, {
+                        "horizontalAlign": "left",
+                        "verticalAlign": "top"
+                    } ) );
+
+                    // Hidden
+                    // Alpha
+                    // Rotation
+
+                    // Merge preexisting content spec properties
+                    if( layerCS ) {
+                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
+
+                        // Set preexisting overlay id
+                        id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    }
+
+                    overlay.setOverlayId( id );
+                    bindObj.overlay = overlay;
+                }   
+            } );
+
+            // Container
+            // TO DO: Hidden, Alpha, Rotation
+            viewBindingControl.bindingRegistry( "C" , {
+                compose: function( bindObj, args ) {
+                    var view = bindObj.getView(),
+                        parent = bindObj.getParent(),
+                        rect,
+                        overlay = cs.make( "container" ),
+                        layerCS = view.getLayerCS(),
+                        id = String( [( view.layer ) objectID] ),
+                        frame = view.getClippingMask(),
+                        scrollFrame = view.getInfluenceLayoutSansStyles(),
+                        
+                        // Using stub default values if not defined
+                        inspectorPaging = view.getLayerValueForKey( "paging" ),
+                        inspectorClipToBounds = view.getLayerValueForKey( "clipToBounds" ),
+                        inspectorTapThrough = view.getLayerValueForKey( "tapThrough" ),
+                        inspectorDrag = view.getLayerValueForKey( "draggable" ),
+                        inspectorBounces = view.getLayerValueForKey( "userScrollingBounces" ),
+                        inspectorscrollStyle = view.getLayerValueForKey( "scrollerStyle" ),
+                        inspectorScrollDir = view.getLayerValueForKey( "userScrolling" ),
+                        
+                        scrollDir = inspectorScrollDir ? inspectorScrollDir :
+                                    scrollFrame.width > frame && scrollFrame.height > frame.height ? "both" :
+                                    scrollFrame.width > frame.width ? "horizontal" :
+                                    scrollFrame.height > frame.height ? "vertical" :
+                                    "none";
+
+                    overlay.setKeyValue( "userScrolling" , scrollDir );
+                    overlay.setKeyValue( "contentHeight" , util.toPx( scrollFrame.height ) );
+                    overlay.setKeyValue( "contentWidth" , util.toPx( scrollFrame.width ) );
+
+                    rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
+                    overlay.setLayouts( "landscape", util.merge( rect, {
+                        "horizontalAlign": "left",
+                        "verticalAlign": "top"
+                    } ) );
+                    overlay.setKeyValue( "displayName", view.getSanitizedName() );
+
+                    if( typeof inspectorPaging !== undefined ) {
+                        overlay.setKeyValue( "paging" , inspectorPaging );
+                    }
+                    if( typeof inspectorClipToBounds !== undefined ) {
+                        overlay.setKeyValue( "clipToBounds" , inspectorClipToBounds );
+                    }
+                    if( typeof inspectorTapThrough !== undefined ) {
+                        overlay.setKeyValue( "tapThrough" , inspectorTapThrough );
+                    }
+                    if( typeof inspectorDrag !== undefined ) {
+                        overlay.setKeyValue( "draggable" , inspectorDrag );
+                    }
+                    if( typeof inspectorBounces !== undefined ) {
+                        overlay.setKeyValue( "userScrollingBounces" , inspectorBounces );
+                    }
+                    if( typeof inspectorscrollStyle !== undefined ) {
+                        overlay.setKeyValue( "scrollerStyle" , inspectorscrollStyle );
+                    }
+                    
+                    // Hidden
+                    // Alpha
+                    // Rotation
+
+                    // Merge preexisting content spec properties
+                    if( layerCS ) {
+                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
+
+                        // Set preexisting overlay id
+                        id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    }
+
+                    overlay.setOverlayId( id );
+                    bindObj.overlay = overlay;
+                }
+            } );
+
+            // Textfield
+            // viewBindingControl.bindingRegistry( "T" , function( bindObj, args ) {
+            // } );
+
+            // Process layers excluding layers tagged to be ignored
+            util.forEach( layersForTransformation, function( layer ) {
+                var layerView = view.make( layer );
+                    
+                if( !layerView.shouldBeIgnored() ) {
+                    eligibleViews.push( layerView );
+                }
+            } );
+
+            // Process eligible layers
+            util.forEach( eligibleViews, function( layerView ) {
+                var boundLayers = viewBindingControl.applyBindings( layerView );
+                boundLayers.forEach( function( layer ) {
+                    transformedLayers.push( layer );
+                } );
+                
+            } );
+
+            return transformedLayers;
+        }
+    } );
+} )();
+
+function onRun( context ) {
+    var DEBUG_PREVENT_EXPORT = false;
+    
+    try{
+        util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
+
+        var alert,
+            messages = [
+                {
+                    title: "Hey Now",
+                    body: "Save your Sketch project and try again!"
+                },
+                {
+                    title: "Wait",
+                    body: "Where's your file? Please save and try again."
+                },
+                {
+                    title: "Come on " + String( NSFullUserName() ),
+                    body: "You should know you need to save to export."
+                },
+                {
+                    title: "Forgetting something?",
+                    body: "Be sure to save before exporting."
+                }
+            ],
+            index = Math.floor( Math.random() * messages.length ),
+            iconData,
+            icon;
+
+        if( !documentIsSaved() ) {
+            alert = [COSAlertWindow new];
+            [alert setMessageText: messages[ index ].title];
+            [alert setInformativeText: messages[ index ].body];
+
+            iconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
+            icon = [[NSImage alloc] initWithData:iconData];
+            if( icon ) {
+                [alert setIcon:icon];    
+            }
+            
+            [alert runModal];
+            
+            return;
+        }
+
+        util.debug.debug( "########## Export start ##########" );
+
+        var doc = context.document,
+            selection = context.selection,
+            plugin = context.plugin,
+
+            exportSM = ExportScrollMotion.create( context ),
+            cs = ContentSpec.create( context ),
+            config = Config.create( context ),
+            layersForTransformation = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers],
+            transformedLayers = exportSM.processLayers( layersForTransformation ),
+
+            fileManager = [NSFileManager defaultManager],
+            csFileURL = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
+            data,
+            json;
+
+        // Attempt to initialize with export folder's content spec to retain data
+        if( !config.getSettingsKeyValue( "overwriteExportFolder" ) ) {
+            data = getFileData( csFileURL );
+            
+            if( data ) {
+                json = getJSONObjectWithData( data, true );
+                
+                if( json ) {
+                    // Convert JSON for use with JavaScript
+                    cs.initWithJSON( JSON.parse( String( util.stringifyJSON( json ) ) ) );
+                }
+            }
+        }
+
+        /*
+            * @desc
+            * @param
+            * @returns {boolean} identifying if the document has been saved
+            * @private
+        */
+        function documentIsSaved() {
+            // Should coerse comparison between OSX and JS
+            return [( context.document ) fileURL] != null;
+        }
+        function getFileData( url ) {
+            if( url && [url isKindOfClass:[NSURL class]] ) {
+                return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
+                    [NSData dataWithContentsOfURL:url] : null;  
+            }
+            return null;
+        }
+        function getJSONObjectWithData( data, mutable ) {
+            var err = [[MOPointer alloc] init],
+                json;
+            mutable = mutable ? NSJSONReadingMutableContainers : 0;
+            
+            if( data && [data isKindOfClass:[NSData class]] ) {
+                json = [NSJSONSerialization JSONObjectWithData:data options:mutable error:err];
+
+                if( err.value() ) {
+                    util.debug.warn( "json error: can't load json" );
+                    util.debug.warn( err.value() );
+                    return null;
+                }
+                return json;
+            }
+            return null;
+        }
+        function showDialog( title, message ) {
+            var alert = [COSAlertWindow new],
+                responseCode;
+            
+            [alert setMessageText: title];
+            [alert setInformativeText: message];
+
+            return {
+                addButtonWithTitle: function( title ) {
+                    [alert addButtonWithTitle: title];
+                    return this;
+                },
+                run: function( actionHandler ) {
+                    responseCode = [alert runModal];
+                    if( actionHandler ) {
+                        // 1000 = rightmost button
+                        // 1001 = second button from right
+                        // 1002 = third button from right
+                        // 100 + n
+                        actionHandler( responseCode );
+                    }
+                }
+            };
+        }
+        function promptUserForFontURL( font ) {
+            var openPanel = [NSOpenPanel openPanel],
+                title = "Please locate font " + [font displayName],
+                fileTypes = [ "ttf", "otf" ];
+
+            [openPanel setCanChooseFiles:true];
+            [openPanel setCanChooseDirectories:false];
+            [openPanel setAllowsMultipleSelection:false];
+            [openPanel setCanCreateDirectories:false];
+            [openPanel setMessage:title];
+
+            // This doesn't appear to be an option as of OSX 10.11
+            // [openPanel setTitle:title];
+
+            fileTypes = fileTypes.map( function( type ) {
+                return [@"" stringByAppendingString:type];
+            } );
+
+            [openPanel setAllowedFileTypes:fileTypes];
+
+            if( [openPanel runModal] == NSOKButton ) {
+                return [[openPanel URLs] firstObject];
+            } else {
+                return null;
+            }
+        }
+        function checkManifestForFonts( fonts ) {
+            var manifest = config.getSettingsManifest(),
+                fontManifest = manifest ? manifest.fonts || {} : {},
+                unregisteredFonts = fonts.filter( function( font ) {
+                    if( !fontManifest[ [font fontName] ] ) {
+                        return true;
+                    }
+                } ),
+                shouldPromptUser = false,
+                newFonts = {};
+
+            // Inform user of missing fonts
+            if( unregisteredFonts.length > 0 ) {
+                showDialog( "Missing Font File" + ( unregisteredFonts.length > 1 ? "s" : "" ),
+                            "Please locate the font file" + ( unregisteredFonts.length > 1 ? "s" : "" ) + " used in this document:\n" +
+                            unregisteredFonts.map( function( font ) {
+                                return [font displayName];
+                            } ).join( "\n" ) )
+                    .addButtonWithTitle( "OK" )
+                    .addButtonWithTitle( "Not Now" )
+                    .run( function( res ) {
+                        shouldPromptUser = ( res == 1001 ) ? false : true;
+                    } );
+            }
+
+            // Prompt user to locate missing fonts
+            if( shouldPromptUser ) {
+                unregisteredFonts.forEach( function( font ) {
+                    var url = promptUserForFontURL( font );
+
+                    if( url ) {
+                        newFonts[ [font fontName] ] = [url fileSystemRepresentation];
+                    }
+                } );
+            }
+
+            // Save missing font paths to font manifest
+            if( util.values( newFonts ).length > 0 ) {
+                util.merge( fontManifest, newFonts );
+                manifest.fonts = fontManifest;
+
+                config.setSettingsManifest( manifest );
+            }
+
+            return fontManifest;
+        }
+        
+        function defineScreenSupport( layers ) {
+            var screenSize;
+
+            transformedLayers.some( function( obj ) {
+                if( !obj.type ) {
+                    obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
+                }
+
+                if( obj.type === "page" ) {
+                    screenSize = obj.getView().getAbsoluteLayout();
+                    cs.addScreenSupportScreen( ( screenSize.width < screenSize.height ? "portrait" : "landscape" ), screenSize.width, screenSize.height );
+                    
+                    return true;
+                }
+            } );
+        }
+        function mapOverlaysToParent( layers ) {
+            return layers.map( function( obj ) {
+                var overlay = obj.overlay,
+                    existingCS,
+                    parent = obj.getParent ? obj.getParent() : null,
+                    parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null;
+
+                obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
+
+                if( obj.type !== null ) {
+                    if( obj.type === "overlay" ) {
+                        existingCS = cs.getOverlay( overlay.getOverlayId() );
+
+                        // Generate new unique overlay id if preexisting overlay doesn't exist
+                        // Or preexisting overlay is an alternative type
+                        if( !existingCS || ( existingCS && existingCS.type !== overlay.type ) ) {
+                            overlay.setOverlayId( cs.generateOverlayId() );
+                        }
+
+                        // Add overlay to content spec
+                        cs.appendOverlay( overlay.value() );
+
+                        // Add overlay reference to parent overlay/page
+                        if( parentObject && parentObject.addReferenceByOverlayId ) {
+                            parentObject.addReferenceByOverlayId( overlay.getOverlayId() );
+                        }
+                    } else if( obj.type === "page" ) {
+                        existingCS = cs.getPage( obj.page.getPageId() );
+
+                        // Generate new unique page id if preexisting page doesn't exist
+                        if( !existingCS ) {
+                            obj.page.setPageId( cs.generatePageId() );    
+                        }
+                        
+                        // Add page to content spec
+                        cs.appendPage( obj.page.value() );
+                    }
+                }
+
+                return obj;
+            } );
+        }
+
+        function makeSlice( layer, rect, scaleFactor ) {
+            // Sketch 3.4.4
+            // var slice = [[MSSliceMaker slicesFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
+            
+            // Sketch 3.5.0
+            var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
+                        
+            // Sketch 3.4.4
+            // slice.page = [[doc currentPage] copyLightweight];
+            
+            // Sketch 3.5.0
+            slice.page = [[doc currentPage] copyIncludingObjectIDS];
+            slice.format = config.getImageExtension().replace( "." , "" );
+            slice.scale = scaleFactor;
+
+            return slice;
+        }
+        function disableMaskForExport( view ) {
+            var parentView = view.parentGroup,
+                maskLayer = null;
+
+            if( view.hasClippingMask ) {
+                maskLayer = view;
+            }
+
+            if( maskLayer === null ) {
+                while( parentView !== null && !parentView.hasClippingMask && !parentView.isArtboard() ) {
+                    parentView = parentView.parentGroup;
+                }
+                if( parentView.hasClippingMask ) {
+                    maskLayer = parentView;
+                }
+            }
+
+            if( maskLayer !== null ) {
+                maskLayer.disableMask();
+            }
+            return maskLayer;
+        }
+        function disableHiddenForExport( view ) {
+            var parentView = view.parentGroup,
+                hiddenLayer = null;
+
+            if( view.hasHiddenSubviews() ) {
+                hiddenLayer = view;
+            }
+
+            if( hiddenLayer === null ) {
+                while( parentView !== null && !parentView.hasHiddenSubviews() && !parentView.isArtboard() ) {
+                    parentView = parentView.parentGroup;
+                }
+                if( parentView.hasHiddenSubviews() ) {
+                    hiddenLayer = parentView;
+                }
+            }
+
+            if( hiddenLayer !== null ) {
+                hiddenLayer.disableHidden();
+            }
+            return hiddenLayer;
+        }
+        function exportImage( view, filename ) {
+            var slice,
+                hasClippingMask = ( view.isFolder() && view.hasClippingMask ) ? true : false,
+                scaleFactors = config.getExportScaleFactors(),
+                
+                // Get absolute rect--width and height without subviews or style--if layer has clipping mask
+                // Else, get rect including styles
+                rect = hasClippingMask ? [[( view.layer ) absoluteRect] rect] : [( view.layer) absoluteInfluenceRect],
+                
+                // Get parent layer and disable hidden layers
+                maskLayer = !hasClippingMask ? disableMaskForExport( view ) : null,
+                
+                // Get parent layer and disable hidden layers 
+                hiddenLayer = !hasClippingMask ? disableHiddenForExport( view ) : null,
+                exportFilename,
+                exportFileExt = filename.slice( filename.lastIndexOf( "." ) ),
+                imageData;
+
+            scaleFactors.forEach( function( scale ) {
+                if( typeof scale !== "number" ) {
+                    util.debug.warn( "Can't export at scale: " + scale );
+                    return;
+                }
+
+                var scaleStr = (scale !== 1 ) ? "@" + scale + "x" : "";
+
+                exportFilename = filename.slice( 0, filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;                
+                slice = makeSlice( view.layer, rect, scale );
+
+                if( slice ) {
+                    imageData = [MSExportManager dataForRequest:slice];
+
+                    util.debug.debug( "Writing asset: " + slice + ", to disk: " + exportFilename );
+                    [imageData writeToFile:exportFilename atomically:true]
+                } else {
+                    util.debug.warn( "Can't slice asset: " + exportFilename );
+                }
+            } );
+
+            if( maskLayer ) {
+                maskLayer.enableMask();
+            }
+            if( hiddenLayer ) {
+                hiddenLayer.enableHidden();
+            }
+        }
+        function output( layers ) {
+            var fileManager = [NSFileManager defaultManager],
+                targetFolderPath = config.getExportFolderPath(),
+                exportFiles = [],
+                exportFonts = [],
+                userFonts = {},
+                fontManifest,
+
+                json = cs.value(),
+                jsonStr,
+                jsonPath,
+
+                resourcesStudioPrefPath = config.getResourcesPath() + "/__studio__preferences.json",
+                resourcesResetCSS = config.getResourcesPath() + "/" + cs.getResetCss(),
+                targetStudioPrefPath = targetFolderPath + "/__studio__preferences.json",
+                targetResetCSSPath = targetFolderPath + "/" + cs.getResetCss();
+
+            if( util.debug.getLevel() > 3 && DEBUG_PREVENT_EXPORT ) { 
+                util.debug.debug( "### Deferring output ###" );
+                return;
+            }
+
+            util.debug.debug( "Saving to path: " + targetFolderPath );
+
+            // 1. Remove export folder based on userSettings
+            if( config.getSettingsKeyValue( "overwriteExportFolder" ) && [fileManager fileExistsAtPath:targetFolderPath] ) {
+                [fileManager removeItemAtPath:targetFolderPath error:nil];
+            }
+
+            // 2. Create export folder if none exists
+            if( ![fileManager fileExistsAtPath:targetFolderPath] ) {
+                [fileManager createDirectoryAtPath:targetFolderPath withIntermediateDirectories:true attributes:nil error:nil];
+            }
+
+            // 3. Collect export files
+            util.forEach( layers, function( obj ) {
+                exportFiles = exportFiles.concat( obj.exportFiles );
+                exportFonts = exportFonts.concat( obj.exportFonts );
+            } );
+
+            // 4. Export fonts
+
+            // Get unique fonts used
+            exportFonts.forEach( function( font ) {
+                if( !userFonts[ font.fontName ] ) {
+                    userFonts[ font.fontName ] = font.font;
+                }
+            } );
+
+            // Get paths to all unique fonts
+            fontManifest = checkManifestForFonts( util.values( userFonts ) );
+
+            // Copy font from manifest or revert overlay to common font
+            util.forEach( userFonts, function( nsfont, fontName ) {
+                var path = fontManifest[ fontName ],
+                    fontFound = path ? [fileManager fileExistsAtPath:path]: false,
+                    fileName,
+                    style;
+
+                // Add fonts to content spec and scrollmotion folder
+                if( fontFound ) {
+                    fileName = path.split( "/" ).slice( -1 )[ 0 ];
+                    style = fontName.split( "-" ).slice( -1 )[ 0 ];
+                    style = ( fontName !== style ) ? style : "Regular";
+
+                    cs.addFontMetaData( {
+                        fileName: fileName,
+                        postScriptName: String( [nsfont fontName] ),
+                        fullName: String( [nsfont displayName] ),
+                        familyName: String( [nsfont familyName] ),
+                        style: style
+                    } );
+
+                    util.debug.debug( "Copying from path: " + path + ", to path: " + targetFolderPath + "/" + fileName );
+                    [fileManager copyItemAtPath:path toPath:( targetFolderPath + "/" + fileName ) error:nil];
+                }
+                
+                // Revert custom font overlays to default font/text
+                else {
+                    exportFonts.filter( function( fontObj ) {
+                        return fontName === fontObj.name;
+                    } ).forEach( function( fontObj ) {
+                        fontObj.fontStyle.resetToDefaultFont();
+                    } );
+                }
+            } );
+
+            // 5. Save ContentSpec.json
+            if( json ) {
+                jsonStr = util.stringifyJSON( json );
+                jsonPath = targetFolderPath + "/ContentSpec.json";
+
+                debug.debug( "Writing content spec to path: " + jsonPath );
+                [jsonStr writeToFile:jsonPath atomically:true encoding:NSUTF8StringEncoding error:null];
+            }
+
+            // 6. Export images
+            if( exportFiles.length ) {
+                exportFiles.forEach( function( fileObj ) {
+                    // Assign plugin context to exportImage context for access to currentPage
+                    exportImage( fileObj.getView(), fileObj.target );
+                } );
+            }
+
+            // 7. Copy resources
+            if( [fileManager fileExistsAtPath:resourcesStudioPrefPath] ) {
+                [fileManager copyItemAtPath:resourcesStudioPrefPath toPath:targetStudioPrefPath error:nil];
+            }
+            if( [fileManager fileExistsAtPath:resourcesResetCSS] ) {
+                [fileManager copyItemAtPath:resourcesResetCSS toPath:targetResetCSSPath error:nil];
+            }
+        }
+
+        mapOverlaysToParent( transformedLayers );
+        defineScreenSupport( transformedLayers );
+        output( transformedLayers );
+        log( cs.value() );
+
+        util.debug.debug( "########## Export end ##########" );
+        doc.showMessage( "Done" );
+    } catch( err ) {
+        util.debug.error( "Uncaught error: " + err );
+        doc.showMessage( "Error" );
+    }
+}

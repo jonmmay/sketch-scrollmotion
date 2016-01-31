@@ -1,0 +1,17 @@
+{
+    "widget": "text_complex",
+    "overlayId": "",
+    "plugin": "text_complex.smp",
+    "type": "text",
+    "relative": "parent",
+    "alpha": 1,
+    "hidden": false,
+    "text": "",
+    "html": true,
+    "bounces": false,
+    "size": "0em",
+    "userScrolling": "none",
+    "layouts": {
+    },
+    "displayName": ""
+}

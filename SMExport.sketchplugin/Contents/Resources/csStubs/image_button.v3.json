@@ -1,0 +1,20 @@
+{
+    "widget": "image_button",
+    "overlayId": "",
+    "images": [""],
+    "type": "button",
+    "scale": 1,
+    "scaleMode": "fill",
+    "alpha": 1,
+    "relative": "parent",
+    "cornerRadius": "0px",
+    "borderAlpha": 0,
+    "borderWidth": "0px",
+    "borderColor": "#999999",
+    "toggle": false,
+    "hidden": false,
+    "layouts": {
+    },
+    "displayName": "",
+    "actions": []
+}

@@ -1,18 +1,26 @@
 {
     "author": "Jon May",
+    "authorEmail": "jon.m.may@gmail.com",
+    "name": "ScrollMotion",
+    "description": "Example Sketch Plugin using resources from within the bundle and a library script.",
+    "version": "0.1",
+    "compatibleVersion": "3.4",
+    "homepage": "https://github.com/jonmmay/sketch-scrollmotion",
+    "updateURL": "",
+    "identifier": "com.jonmmay.sketch.export-scrollmotion",
     "commands": [
         {
             "script": "script.sketchscript",
             "handler": "onRun",
             "shortcut": "ctrl s",
-            "name": "Export Scrollmotion",
-            "identifier": "SMExport"
+            "name": "Export",
+            "identifier": "Old_SMExport"
         },
         {
             "script": "revealInFinder.sketchscript",
             "handler": "revealExportFilesInFinder",
             "shortcut": "",
-            "name": "Reveal Export Files...",
+            "name": "Reveal Exports...",
             "identifier": "revealExportFiles"
         },
         {
@@ -26,32 +34,63 @@
             "script": "revealInFinder.sketchscript",
             "handler": "manageFilesLocally",
             "shortcut": "",
-            "name": "Manage Files Locally",
+            "name": "Save Settings Locally",
             "identifier": "exportLocally"
         },
         {
             "script": "issue.sketchscript",
             "handler": "onRun",
             "shortcut": "",
-            "name": "Report Issue",
+            "name": "Report Issue...",
             "identifier": "ReportIssue"
+        },
+        {
+            "script": "exportScrollMotion.sketchscript",
+            "handler": "onRun",
+            "shortcut": "ctrl s",
+            "name": "Export",
+            "identifier": "exportScrollMotion"
+        },
+        {
+            "script": "importScrollMotion.sketchscript",
+            "handler": "onRun",
+            "shortcut": "",
+            "name": "Import...",
+            "identifier": "importScrollMotion"
+        },
+        {
+            "script": "layerInspectors.sketchscript",
+            "handler": "smButton",
+            "shortcut": "",
+            "name": "Edit Button...",
+            "identifier": "editButton"
+        },
+        {
+            "script": "layerInspectors.sketchscript",
+            "handler": "smContainer",
+            "shortcut": "",
+            "name": "Edit Container...",
+            "identifier": "editContainer"
         }
     ],
     "menu": {
         "isRoot": false,
         "items": [
-            "SMExport",
+            "importScrollMotion",
+            "exportScrollMotion",
             "-",
-            "revealExportFiles",
-            "revealSettings",
-            "exportLocally",
-            "ReportIssue"
+            "editButton",
+            "editContainer",
+            "-",
+            { 
+                "title": "Settings",
+                "items": [
+                    "revealSettings",
+                    "exportLocally"
+                ]
+            },
+            "ReportIssue",
+            "revealExportFiles"
         ]
-    },
-    "compatibleVersion": "3.4",
-    "identifier": "com.jonmmay.sketch.export-scrollmotion",
-    "version": "0.1",
-    "description": "Example Sketch Plugin using resources from within the bundle and a library script.",
-    "authorEmail": "jon.m.may@gmail.com",
-    "name": "Export Scrollmotion"
+    }
 }

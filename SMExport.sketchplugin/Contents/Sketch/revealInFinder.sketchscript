@@ -1,7 +1,5 @@
-
-// jshint ignore:start
+@import "util.js";
 @import "config.js";
-// jshint ignore:end
 
 function revealInFinder( path ) {
     // Open folder in Finder
@@ -11,23 +9,54 @@ function revealInFinder( path ) {
 
 function manageFilesLocally( context ) {
 	var doc = context.document,
-		userManifest;
+		config = Config.create( context ),
+		fileManager = [NSFileManager defaultManager],
+		settingsPath = config.getSettingsPath(),
+		documentsSettingsPath = config.getDocumentsSettingsPath(),
+		userManifest,
+		
+		alert = [[NSAlert alloc] init],
+		alertVal,
+		err = [[MOPointer alloc] init];
 
-	Config.init( context );
-	userManifest = Config.settingsManifest.getManifest();
-	Config.settingsManifest.syncWithDefaultManifest( userManifest );
-	
-	// CocoaBridge.showDialog( "Your Settings Will Be Saved",
-	// 	"Exported Scrollmotions will be saved to your Sketch project file directory." );
+	[alert setMessageText:"Save Settings Locally"];
+    [alert setInformativeText:[( context.plugin ) name] + " settings will be saved to your Documents folder"];
+    [alert addButtonWithTitle:"OK"];
+    [alert addButtonWithTitle:"Cancel"];
 
-	CocoaBridge.showDialog( "You're the best!",
-		"Exported Scrollmotions will be saved with your Sketch project file." );
+    alertVal = [alert runModal];
+
+    if( alertVal === NSAlertFirstButtonReturn ) {
+    	// Update manifest before copying
+		userManifest = config.syncSettingsWithDefault( config.getSettingsManifest() );
+		config.setSettingsManifest( userManifest );
+
+		// Copying
+		if( [fileManager fileExistsAtPath:settingsPath] ) {
+			// Create destination folder if it doesn't exist
+			if( ![fileManager fileExistsAtPath:documentsSettingsPath] ) {
+                [fileManager createDirectoryAtPath:util.getPathByDeletingLastPathComponent( documentsSettingsPath ) withIntermediateDirectories:true attributes:nil error:nil];
+            
+                // Exclude from iCloud backup
+                // [[NSURL fileURLWithPath:util.getPathByDeletingLastPathComponent( documentsSettingsPath )] setResourceValue:true forKey:NSURLIsExcludedFromBackupKey error:err];
+
+                // if( err.value() ) {
+                // 	log( err.value() );
+                // }
+            }
+	        
+	        [fileManager copyItemAtPath:settingsPath toPath:documentsSettingsPath error:nil];        
+	    }
+	    doc.showMessage( "You Rock!" );
+    }
 }
 function revealExportFilesInFinder( context ) {
-	Config.init( context );
-	revealInFinder( Config.targetFolder );
+	var config = Config.create( context );
+
+	revealInFinder( config.getExportFolderPath() );
 }
 function revealSettingsInFinder( context ) {
-	Config.init( context );
-	revealInFinder( Config.settingsManifest.folderPath() );
+	var config = Config.create( context );
+
+	revealInFinder( config.getSettingsPath() );
 }
