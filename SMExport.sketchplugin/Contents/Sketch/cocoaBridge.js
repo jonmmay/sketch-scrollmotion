@@ -103,7 +103,7 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 		[openDialog setCanChooseDirectories:true];
 		[openDialog setAllowsMultipleSelection:false];
 		[openDialog setCanCreateDirectories:true];
-		[openDialog setTitle:title];
+		[openDialog setMessage:title];
 		if( [openDialog runModal] == NSOKButton ) {
 			return [[openDialog URLs] firstObject];
 		}
@@ -115,7 +115,7 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 		[openDialog setCanChooseDirectories:false];
 		[openDialog setAllowsMultipleSelection:false];
 		[openDialog setCanCreateDirectories:false];
-		[openDialog setTitle:title];
+		[openDialog setMessage:title];
 
 		if( filetype ) {
 			if( filetype instanceof Array ) {
@@ -255,9 +255,9 @@ var CocoaBridge = ( function( _CocoaBridge ) {
 		return [MSSliceMaker slicesFromExportableLayer:layer inRect:rect];
 	};
 
-	CB.MSSliceExporter = {};
-	CB.MSSliceExporter.dataForRequest = function( slice ) {
-		return [MSSliceExporter dataForRequest:slice];	
+	CB.MSExportManager = {};
+	CB.MSExportManager.dataForRequest = function( slice ) {
+		return [MSExportManager dataForRequest:slice];	
 	};
 
 	return CB;

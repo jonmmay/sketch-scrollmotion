@@ -149,8 +149,9 @@ function disableHiddenForExport( view ) {
     return hiddenLayer;
 }
 function makeSlice( layer , rect , scaleFactor ) {
-    var slice = [[MSSliceMaker slicesFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
-    slice.page = $doc.currentPage().copyLightweight();
+    var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
+
+    slice.page = $doc.currentPage().copyIncludingObjectIDS();
     slice.format = Config.exportImgExt.replace( "." , "" );
     slice.scale = scaleFactor;
 
@@ -182,7 +183,7 @@ function exportAsImage( view, filename , scaleFactors ) {
         slice = makeSlice( view.layer , rect , scale );
 
         Util.debug.debug("Writing asset " + slice + " to disk: " + exportFileName );
-        imageData = CocoaBridge.MSSliceExporter.dataForRequest( slice );
+        imageData = CocoaBridge.MSExportManager.dataForRequest( slice );
         
         Util.saveFileFromData( exportFileName , imageData );
     } );
@@ -387,6 +388,17 @@ var onRun = function( context ) {
 
     initVars( context );
     Config.init( context );
+
+    function manageFilesLocally() {
+        var userManifest = Config.settingsManifest.getManifest();
+        
+        Config.settingsManifest.syncWithDefaultManifest( userManifest );
+    }
+
+    if( !Config.useUserSettings() ) {
+        manageFilesLocally();
+        Config.init( context );
+    }
 
     var viewBinding = new ViewBinding();
 

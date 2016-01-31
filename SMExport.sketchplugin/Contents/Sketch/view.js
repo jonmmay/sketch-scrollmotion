@@ -147,9 +147,9 @@ var View = ( function( _View , CB ) {
 		}
 
 		// Do not traverse Symbols
-		if( this.layer.sharedObjectID() != null ) {
-		    return true;
-		}
+		// if( this.layer.sharedObjectID() != null ) {
+		//     return true;
+		// }
 
 		return false;
 	};
@@ -348,7 +348,7 @@ var View = ( function( _View , CB ) {
 		} );
 
 		// Force redraw
-		this.layer.resizeRoot( true );
+		this.layer.resizeToFitChildrenWithOption( true );
 	};
 	// Applies to subviews
 	View.prototype.enableMask = function() {
@@ -369,7 +369,7 @@ var View = ( function( _View , CB ) {
 		} );
 
 		// Force redraw
-		this.layer.resizeRoot( true );
+		this.layer.resizeToFitChildrenWithOption( true );
 	};
 
 	View.prototype.isClippingMask = function() {
