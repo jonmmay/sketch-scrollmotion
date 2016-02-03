@@ -71,6 +71,13 @@
             "shortcut": "",
             "name": "Edit Container...",
             "identifier": "editContainer"
+        },
+        {
+            "script": "layerInspectors.sketchscript",
+            "handler": "importPages",
+            "shortcut": "",
+            "name": "Import pages...",
+            "identifier": "importPages"
         }
     ],
     "menu": {
@@ -79,6 +86,7 @@
             "importScrollMotion",
             "exportScrollMotion",
             "-",
+            "importPages",
             "editButton",
             "editContainer",
             "-",

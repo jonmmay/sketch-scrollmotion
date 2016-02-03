@@ -448,6 +448,21 @@ var ContentSpec = ( function( options ) {
             var metaData = this.spec.metaData;
             return ( metaData && metaData.resetTextCss ) ? metaData.resetTextCss : null;
         },
+        getStartPage: function() {
+            return this.spec.metaData.startPage;
+        },
+        setStartPage: function( id ) {
+            var pageIds = this.getPagesIds(),
+                pageSetIds = this.getPageSetsIds();
+
+            if( pageIds.indexOf( id ) > 0 || pageSetIds.indexOf( id ) ) {
+                this.spec.metaData.startPage = id;
+            } else {
+                debug.warn( "Page or Pageset id <" + id + "> must exist in the Content Spec" );
+            }
+
+            return this;
+        },
         getContentSpecKeysByKey: function( key ) {
             var arr = [],
                 obj = this.spec[ key ],

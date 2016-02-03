@@ -372,3 +372,33 @@ function smContainer( context ) {
         doc.showMessage( "Ahh 💩... Select a layer group to make a container." );
     }
 }
+
+// function importPages( context ) {
+//     var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 230, 184 )],
+//         alert = [[NSAlert alloc] init],
+//         alertVal,
+//         testCS = "page1,page2,page3,page4,page5,pageset1,pageset2".split( "," );
+
+//     var scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect( 0, 0, 200, 200 )],
+//         // matrix = [[NSMatrix alloc] initWithFrame:NSMakeRect( 0, 0, 200, 100 )
+//         //     mode:NSListModeMatrix
+//         //     cellClass:[NSButtonCell class]
+//         //     numberOfRows:testCS.length
+//         //     numberOfColumns:1
+//         // ];
+    
+//     // [accessory addSubview:matrix];
+//     // [accessory addSubview:scrollView];
+//     [alert setAccessoryView:accessory];
+
+//     [alert setMessageText:"Select Pages to Import"];
+
+//     alertVal = [alert runModal];
+// }
+
+
+
+
+
+
+

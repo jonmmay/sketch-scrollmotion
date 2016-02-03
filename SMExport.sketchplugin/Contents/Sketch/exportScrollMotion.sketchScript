@@ -29,7 +29,7 @@ var ExportScrollMotion = ( function() {
         }
     }
     function rectForOverlay( view, parentView ) {
-        var pos = parentView ? view.getLayoutRelativeTo( parentView ) : view.getAbsoluteLayout();
+        var pos = parentView ? view.getLayoutRelativeTo( parentView ) : view.getInfluenceLayout();
 
         return {
             width: util.toPx( pos.width ),
@@ -277,7 +277,7 @@ var ExportScrollMotion = ( function() {
 
             return ( type !== "a" ) ? Math.round( Number( value ) * 255 ) : Number( value );
         } ).join( "," );
-    }
+    }        
 
     return util.Object.extend( {
         init: function( ctx ) {
@@ -318,17 +318,19 @@ var ExportScrollMotion = ( function() {
                 
                 // Merge preexisting content spec properties
                 if( layerCS ) {
-                    page.setValue( util.merge( layerCS, page.value() ) );
-
                     // Set preexisting page id
                     id = layerCS.pageId ? layerCS.pageId : id ;
+
+                    page.setValue( util.merge( layerCS, page.value() ) );
                 }
 
                 page.setPageId( id );
+
+                // Attach to bindObj
                 bindObj.page = page;
             } );
 
-            // TO DO: Hidden, Alpha, Rotation
+            // TO DO: Rotation
             viewBindingControl.layerKindRegistry( "Bitmap", function( bindObj ) {
                 var view = bindObj.getView(),
                     parent = bindObj.getParent(),
@@ -352,20 +354,21 @@ var ExportScrollMotion = ( function() {
                 } ) );
                 overlay.setKeyValue( "displayName", view.getSanitizedName() );
                 overlay.setOverlayId( view.layer.objectID() );
-                
-                // Hidden
-                // Alpha
-                // Rotation
+
+                overlay.setKeyValue( "hidden", view.isHidden() );
+                overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
                 if( layerCS ) {
-                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                    
                     // Set preexisting overlay id
                     id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
                 }
 
                 overlay.setOverlayId( id );
+
+                // Attach to bindObj
                 bindObj.overlay = overlay;
             } );
             viewBindingControl.layerKindRegistry( "LayerGroup", function( bindObj ) {
@@ -385,7 +388,7 @@ var ExportScrollMotion = ( function() {
             } );
 
             // TO DO: Line breaks, sequential spaces, tabs
-            // TO DO: Hidden, Alpha, Rotation
+            // TO DO: Rotation
             viewBindingControl.layerKindRegistry( "Text", function( bindObj ) {
                 var view = bindObj.getView(),
                     parent = bindObj.getParent(),
@@ -423,19 +426,20 @@ var ExportScrollMotion = ( function() {
                 } ) );
                 overlay.setKeyValue( "displayName", view.getSanitizedName() );
 
-                // Hidden
-                // Alpha
-                // Rotation
+                overlay.setKeyValue( "hidden", view.isHidden() );
+                overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
                 if( layerCS ) {
-                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
-
                     // Set preexisting overlay id
                     id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
                 }
 
                 overlay.setOverlayId( id );
+
+                // Attach to bindObj
                 bindObj.overlay = overlay;
             } );
 
@@ -454,7 +458,7 @@ var ExportScrollMotion = ( function() {
 
             // Button
             // TO DO: Fix fontSize default which is hardcodded at 14
-            // TO DO: Hidden, Alpha, Rotation
+            // TO DO: Rotation
             viewBindingControl.bindingRegistry( "B" , {
                 stopAutoApplyBindingForChildren: true,
                 compose: function( bindObj, args ) {
@@ -527,8 +531,6 @@ var ExportScrollMotion = ( function() {
                                 } );
                             }
                         } );
-
-                        
                     } else {
                         cgButtonDownState = ( inspectorToggle && stateViews.on.length > 0 ) ? "on" : "down";
 
@@ -644,25 +646,26 @@ var ExportScrollMotion = ( function() {
                         "verticalAlign": "top"
                     } ) );
 
-                    // Hidden
-                    // Alpha
-                    // Rotation
+                    overlay.setKeyValue( "hidden", view.isHidden() );
+                    overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
                     if( layerCS ) {
-                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
-
                         // Set preexisting overlay id
                         id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
                     }
 
                     overlay.setOverlayId( id );
+
+                    // Attach to bindObj
                     bindObj.overlay = overlay;
                 }   
             } );
 
             // Container
-            // TO DO: Hidden, Alpha, Rotation
+            // TO DO: Rotation
             viewBindingControl.bindingRegistry( "C" , {
                 compose: function( bindObj, args ) {
                     var view = bindObj.getView(),
@@ -700,38 +703,39 @@ var ExportScrollMotion = ( function() {
                     } ) );
                     overlay.setKeyValue( "displayName", view.getSanitizedName() );
 
-                    if( typeof inspectorPaging !== undefined ) {
+                    if( typeof inspectorPaging !== "undefined" ) {
                         overlay.setKeyValue( "paging" , inspectorPaging );
                     }
-                    if( typeof inspectorClipToBounds !== undefined ) {
+                    if( typeof inspectorClipToBounds !== "undefined" ) {
                         overlay.setKeyValue( "clipToBounds" , inspectorClipToBounds );
                     }
-                    if( typeof inspectorTapThrough !== undefined ) {
+                    if( typeof inspectorTapThrough !== "undefined" ) {
                         overlay.setKeyValue( "tapThrough" , inspectorTapThrough );
                     }
-                    if( typeof inspectorDrag !== undefined ) {
+                    if( typeof inspectorDrag !== "undefined" ) {
                         overlay.setKeyValue( "draggable" , inspectorDrag );
                     }
-                    if( typeof inspectorBounces !== undefined ) {
+                    if( typeof inspectorBounces !== "undefined" ) {
                         overlay.setKeyValue( "userScrollingBounces" , inspectorBounces );
                     }
-                    if( typeof inspectorscrollStyle !== undefined ) {
+                    if( typeof inspectorscrollStyle !== "undefined" ) {
                         overlay.setKeyValue( "scrollerStyle" , inspectorscrollStyle );
                     }
                     
-                    // Hidden
-                    // Alpha
-                    // Rotation
+                    overlay.setKeyValue( "hidden", view.isHidden() );
+                    overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
                     if( layerCS ) {
-                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
-
                         // Set preexisting overlay id
                         id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
                     }
 
                     overlay.setOverlayId( id );
+
+                    // Attach to bindObj
                     bindObj.overlay = overlay;
                 }
             } );
@@ -769,8 +773,25 @@ function onRun( context ) {
     try{
         util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
 
-        var alert,
-            messages = [
+        util.debug.debug( "########## Export start ##########" );
+
+        var doc = context.document,
+            selection = context.selection,
+            plugin = context.plugin,
+            fileManager = [NSFileManager defaultManager],
+
+            exportSM = ExportScrollMotion.create( context ),
+            cs = ContentSpec.create( context ),
+            config = Config.create( context ),
+            csFileURL = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
+
+            layersForTransformation = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers],
+            transformedLayers,
+            data,
+            json,
+
+            unsavedAlert,
+            unsavedMessages = [
                 {
                     title: "Hey Now",
                     body: "Save your Sketch project and try again!"
@@ -788,42 +809,29 @@ function onRun( context ) {
                     body: "Be sure to save before exporting."
                 }
             ],
-            index = Math.floor( Math.random() * messages.length ),
-            iconData,
-            icon;
+            unsavedIndex = Math.floor( Math.random() * unsavedMessages.length ),
+            unsavedIconData,
+            unsavedIcon;
 
-        if( !documentIsSaved() ) {
-            alert = [COSAlertWindow new];
-            [alert setMessageText: messages[ index ].title];
-            [alert setInformativeText: messages[ index ].body];
+        // User must save document to export
+        if( !config.getExportFolderPath() ) {
+            unsavedAlert = [COSAlertWindow new];
+            [unsavedAlert setMessageText: unsavedMessages[ unsavedIndex ].title];
+            [unsavedAlert setInformativeText: unsavedMessages[ unsavedIndex ].body];
 
-            iconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
-            icon = [[NSImage alloc] initWithData:iconData];
-            if( icon ) {
-                [alert setIcon:icon];    
+            unsavedIconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
+            unsavedIcon = [[NSImage alloc] initWithData:unsavedIconData];
+            if( unsavedIcon ) {
+                [unsavedAlert setIcon:unsavedIcon];    
             }
             
-            [alert runModal];
+            [unsavedAlert runModal];
             
             return;
         }
 
-        util.debug.debug( "########## Export start ##########" );
-
-        var doc = context.document,
-            selection = context.selection,
-            plugin = context.plugin,
-
-            exportSM = ExportScrollMotion.create( context ),
-            cs = ContentSpec.create( context ),
-            config = Config.create( context ),
-            layersForTransformation = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers],
-            transformedLayers = exportSM.processLayers( layersForTransformation ),
-
-            fileManager = [NSFileManager defaultManager],
-            csFileURL = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
-            data,
-            json;
+        // Create Content Spec from layer information
+        transformedLayers = exportSM.processLayers( layersForTransformation );
 
         // Attempt to initialize with export folder's content spec to retain data
         if( !config.getSettingsKeyValue( "overwriteExportFolder" ) ) {
@@ -839,16 +847,6 @@ function onRun( context ) {
             }
         }
 
-        /*
-            * @desc
-            * @param
-            * @returns {boolean} identifying if the document has been saved
-            * @private
-        */
-        function documentIsSaved() {
-            // Should coerse comparison between OSX and JS
-            return [( context.document ) fileURL] != null;
-        }
         function getFileData( url ) {
             if( url && [url isKindOfClass:[NSURL class]] ) {
                 return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
@@ -971,7 +969,10 @@ function onRun( context ) {
         }
         
         function defineScreenSupport( layers ) {
-            var screenSize;
+            var screenSize,
+                orientation,
+                screens = cs.getScreenSupportScreens(),
+                addScreen = true;
 
             transformedLayers.some( function( obj ) {
                 if( !obj.type ) {
@@ -980,15 +981,35 @@ function onRun( context ) {
 
                 if( obj.type === "page" ) {
                     screenSize = obj.getView().getAbsoluteLayout();
-                    cs.addScreenSupportScreen( ( screenSize.width < screenSize.height ? "portrait" : "landscape" ), screenSize.width, screenSize.height );
+                    orientation = ( screenSize.width < screenSize.height ) ? "portrait" : "landscape";
+
+                    // See if screen size matches an existing screen
+                    if( screens.length > 0 ) {
+                        screens.some( function( screen ) {
+                            if( screen.width === screenSize.width &&
+                                screen.height === screenSize.height &&
+                                screen.orientation === orientation ) {
+
+                                addScreen = false;
+                                return true;
+                            }
+                        } );
+                    }
+
+                    if( addScreen ) {
+                        cs.addScreenSupportScreen( orientation, screenSize.width, screenSize.height );    
+                    }
                     
                     return true;
                 }
             } );
         }
         function mapOverlaysToParent( layers ) {
+            var startPageId = cs.getStartPage();
+
             return layers.map( function( obj ) {
-                var overlay = obj.overlay,
+                var overlay,
+                    page,
                     existingCS,
                     parent = obj.getParent ? obj.getParent() : null,
                     parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null;
@@ -997,31 +1018,48 @@ function onRun( context ) {
 
                 if( obj.type !== null ) {
                     if( obj.type === "overlay" ) {
+                        overlay = obj.overlay
                         existingCS = cs.getOverlay( overlay.getOverlayId() );
 
                         // Generate new unique overlay id if preexisting overlay doesn't exist
                         // Or preexisting overlay is an alternative type
-                        if( !existingCS || ( existingCS && existingCS.type !== overlay.type ) ) {
+                        if( !existingCS || ( existingCS && existingCS.type !== overlay.value().type ) ) {
                             overlay.setOverlayId( cs.generateOverlayId() );
                         }
 
                         // Add overlay to content spec
                         cs.appendOverlay( overlay.value() );
 
+                        // Attach content spec to layer
+                        obj.getView().setLayerCS( overlay.value() );
+
                         // Add overlay reference to parent overlay/page
                         if( parentObject && parentObject.addReferenceByOverlayId ) {
                             parentObject.addReferenceByOverlayId( overlay.getOverlayId() );
+
+                            // Attach content spec to layer
+                            parent.getView().setLayerCS( overlay.value() );
                         }
                     } else if( obj.type === "page" ) {
-                        existingCS = cs.getPage( obj.page.getPageId() );
+                        page = obj.page;
+                        existingCS = cs.getPage( page.getPageId() );
 
                         // Generate new unique page id if preexisting page doesn't exist
                         if( !existingCS ) {
-                            obj.page.setPageId( cs.generatePageId() );    
+                            page.setPageId( cs.generatePageId() );    
                         }
                         
                         // Add page to content spec
-                        cs.appendPage( obj.page.value() );
+                        cs.appendPage( page.value() );
+
+                        // Attach content spec to layer
+                        obj.getView().setLayerCS( page.value() );
+
+                        // Set start page if none exists
+                        if( !startPageId ) {
+                            cs.setStartPage( page.getPageId() );
+                            startPageId = page.getPageId();
+                        }
                     }
                 }
 
@@ -1058,7 +1096,7 @@ function onRun( context ) {
                 while( parentView !== null && !parentView.hasClippingMask && !parentView.isArtboard() ) {
                     parentView = parentView.parentGroup;
                 }
-                if( parentView.hasClippingMask ) {
+                if( parentView !== null && parentView.hasClippingMask ) {
                     maskLayer = parentView;
                 }
             }
@@ -1080,7 +1118,7 @@ function onRun( context ) {
                 while( parentView !== null && !parentView.hasHiddenSubviews() && !parentView.isArtboard() ) {
                     parentView = parentView.parentGroup;
                 }
-                if( parentView.hasHiddenSubviews() ) {
+                if( parentView !== null && parentView.hasHiddenSubviews() ) {
                     hiddenLayer = parentView;
                 }
             }
@@ -1098,7 +1136,7 @@ function onRun( context ) {
                 // Get absolute rect--width and height without subviews or style--if layer has clipping mask
                 // Else, get rect including styles
                 rect = hasClippingMask ? [[( view.layer ) absoluteRect] rect] : [( view.layer) absoluteInfluenceRect],
-                
+
                 // Get parent layer and disable hidden layers
                 maskLayer = !hasClippingMask ? disableMaskForExport( view ) : null,
                 

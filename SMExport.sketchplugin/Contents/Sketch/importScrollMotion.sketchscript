@@ -6,6 +6,7 @@
 
 // TO DO: bindingNames should use view.addNameAttributes
 // TO DO: Check color value for incoming HTML: hex or rgb
+// Note, some older Sketch files may have a line height multiple paragraph style that MAY alter the apparent text baseline position
 
 var ImportScrollMotion = ( function( bindingNames ) {
     var supportedTypes = "button,text,image,container".split( "," ),
@@ -29,6 +30,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 if( imageData ) {
                     image = makeBitmapLayer( imageData, props );
                     image.name = cs.displayName;
+
+                    [[[image style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
+                    [image setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
                 }
 
                 if( image ) {
@@ -62,6 +66,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 [container addLayers:[ mask ]];
                 [container resizeToFitChildrenWithOption:true];
+
+                [[[container style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
+                [container setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
                 
                 return container;
             },
@@ -111,7 +118,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 downGroup = [[MSLayerGroup alloc] init];
                 downGroup.name = cs.text + " tap";
-                [downGroup setIsVisible: false];
+                [downGroup setIsVisible:false];
                 downShapeGroup = [regShapeGroup duplicate];
 
                 if( cs.cgButtonPressedColor ) {
@@ -131,6 +138,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 
                 [group addLayers:[ regGroup, downGroup ]];
                 [group resizeToFitChildrenWithOption:true];
+
+                [[[group style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
+                [group setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
 
                 return group;
             },
@@ -167,23 +177,26 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 if( downImageData ) {
                     downImage = makeBitmapLayer( downImageData, frame );
                     downImage.name = cs.imagesDown[ 0 ];
-                    [downImage setIsVisible: false];
+                    [downImage setIsVisible:false];
                     [group addLayers:[ downImage ]];
                 }
                 if( onImageData ) {
                     onImage = makeBitmapLayer( onImageData, frame );
                     onImage.name = cs.imagesOn[ 0 ];
-                    [onImage setIsVisible: false];
+                    [onImage setIsVisible:false];
                     [group addLayers:[ onImage ]];
                 }
                 if( downOnImageData ) {
                     downOnImage = makeBitmapLayer( downOnImageData, frame );
                     downOnImage.name = cs.imagesDownOn[ 0 ];
-                    [downOnImage setIsVisible: false];
+                    [downOnImage setIsVisible:false];
                     [group addLayers:[ downOnImage ]];
                 }
 
                 [group resizeToFitChildrenWithOption:true];
+
+                [[[group style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
+                [group setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
 
                 if( [[group layers] count] > 0 ) {
                     return group;
@@ -244,7 +257,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 if( charSpace ) { [textLayer setCharacterSpacing:numRoundHalfUp( charSpace )]; }
 
                 if( lnHeight ) { 
-                    textLayer.usesNewLineSpacingBehaviour = true;
+                    // textLayer.usesNewLineSpacingBehaviour = true;
 
                     // Behaving strangly by setting both lineHeight and lineSpacing paragraph style values
                     // textLayer.lineSpacing = numRoundHalfUp( lnHeight );
@@ -268,6 +281,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 [frame setHeight:numRoundHalfUp( size.height )];
 
                 [textLayer adjustFrameToFit];
+
+                [[[textLayer style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
+                [textLayer setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
 
                 return textLayer;
             },
@@ -938,7 +954,7 @@ function onRun( context ) {
             return layers;
         }
 
-        var fileURL = browseForFile( "Content Spec", "json" ),
+        var fileURL = browseForFile( "ContentSpec.json", "json" ),
             data,
             allPages;
 

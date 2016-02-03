@@ -51,9 +51,12 @@ function manageFilesLocally( context ) {
     }
 }
 function revealExportFilesInFinder( context ) {
-	var config = Config.create( context );
+	var config = Config.create( context ),
+		exportPath = config.getExportFolderPath();
 
-	revealInFinder( config.getExportFolderPath() );
+	if( exportPath ) {
+		revealInFinder( config.getExportFolderPath() );	
+	}
 }
 function revealSettingsInFinder( context ) {
 	var config = Config.create( context );

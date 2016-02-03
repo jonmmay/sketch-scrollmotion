@@ -1,3 +1,4 @@
 # osx noise
 **/.DS_Store
-**/copyPlugin.sh
+**/copyFromSketch.sh
+**/copyIntoSketch.sh

@@ -2,6 +2,7 @@
 
 // TODO: Merge ViewBindingController into View to reduce namespace pollution
 // TODO: doNotTraverse symbols is a false positive, why?
+// Note, rotation will have an effect on Absolute Rect values
 
 var ViewBindingController = ( function( options ) {
     // reduceIntermediateLayers will remove all intermediate LayerGroups without modifiers
@@ -449,7 +450,7 @@ var View = ( function() {
     View.prototype.getLayerValueForKey = function( key ) {
         if( !command ) {
             util.debug.warn( "Access to context is required for MSPluginCommand api" );
-            return;
+            return null;
         }
         var attrs = [command valueForKey:ATTRIBUTES_KEY onLayer:( this.layer )] || "{}";
 
@@ -464,7 +465,7 @@ var View = ( function() {
             util.debug.warn( "Access to context is required for MSPluginCommand api" );
             return;
         }
-        if( typeof value === null || typeof value === undefined || typeof key === undefined ) {
+        if( typeof value === "null" || typeof value === "undefined" || typeof key === "undefined" ) {
             return;
         }
 
@@ -479,10 +480,20 @@ var View = ( function() {
 
         [command setValue:attrs forKey:ATTRIBUTES_KEY onLayer:( this.layer )];
     };
+    View.prototype.clearLayerValues = function() {
+        if( !command ) {
+            util.debug.warn( "Access to context is required for MSPluginCommand api" );
+            return this;
+        }
+
+        [command setValue:"" forKey:ATTRIBUTES_KEY onLayer:( this.layer )];
+      
+        return this;  
+    };
     View.prototype.getLayerCS = function() {
         if( !command ) {
             util.debug.warn( "Access to context is required for MSPluginCommand api" );
-            return;
+            return null;
         }
         
         var value = [command valueForKey:CONTENTSPEC_KEY onLayer:( this.layer )];
@@ -502,6 +513,16 @@ var View = ( function() {
         var value = util.stringifyJSON( json );
 
         [command setValue:value forKey:CONTENTSPEC_KEY onLayer:( this.layer )];
+    };
+    View.prototype.clearLayerCS = function() {
+        if( !command ) {
+            util.debug.warn( "Access to context is required for MSPluginCommand api" );
+            return this;
+        }
+
+        [command setValue:"" forKey:CONTENTSPEC_KEY onLayer:( this.layer )];
+
+        return this;
     };
 
     View.prototype.parentArtboard = function() {
@@ -524,9 +545,9 @@ var View = ( function() {
         var dim,
             view = this.parentArtboard();
         if( this.isArtboard() || view !== null ) {
-            dim = this.getAbsoluteLayout();
+            dim = this.getInfluenceLayout();
         } else {
-            dim = view.getAbsoluteLayout();
+            dim = view.getInfluenceLayout();
         }
 
         return {
@@ -717,7 +738,7 @@ var View = ( function() {
     };
     View.prototype.getClippingMask = function() {
         if( !this.hasClippingMask ) {
-            return this.getAbsoluteLayout();
+            return this.getInfluenceLayout();
         }
         var clippingMask;
 
@@ -727,17 +748,17 @@ var View = ( function() {
             }
         } );
 
-        return clippingMask ? clippingMask.getAbsoluteLayout() : null;
+        return clippingMask ? clippingMask.getInfluenceLayout() : null;
     };
     
     View.prototype.getLayoutRelativeTo = function( view ) {
-        var layout = this.getAbsoluteLayout(),
+        var layout = this.getInfluenceLayout(),
             relLayout,
             x = layout.x,
             y = layout.y;
 
         if( view instanceof this.constructor ) {
-            relLayout = view.getAbsoluteLayout();
+            relLayout = view.getInfluenceLayout();
 
             x -= relLayout.x;
             y -= relLayout.y;
@@ -750,27 +771,79 @@ var View = ( function() {
             height: layout.height
         };
     };
-    View.prototype.getAbsoluteLayout = function() {
-        var frame = this.layer.frame(),
-            x = this.layer.absoluteRect().rulerX(),
-            y = this.layer.absoluteRect().rulerY();
 
-        if( this.isArtboard() ) {
-            util.debug.info( "Zeroing Artboard x and y for <" + this.name + ">" );
-            x = 0;
-            y = 0;
+    /**
+        * @desc Gets the view;s frame including borders and shadows
+        * @returns {object} frame
+        * @returns {number} frame.x - Absolute frame x position
+        * @returns {number} frame.y - Absolute frame y position
+        * @returns {number} frame.width - Frame width
+        * @returns {number} frame.height - Frame height
+    */
+    // TODO: Account for layer rotation
+    View.prototype.getInfluenceLayout = function() {
+        var isArtboard = this.isArtboard(),
+            x,  y,  width,  height,
+            frame,
+            absRect = [( this.layer ) absoluteRect],
+
+            // Get active borders: center or outside
+            borders = !isArtboard ? this.getBorders() : [],
+            activeInfluenceBorders = borders.filter( function( border ) {
+                // Center (0), Inside (1) or Outside (2)
+                var position = [border position];
+
+                if( [border isEnabled] ) {
+                    if( position != 1 ) {
+                        return true
+                    }
+                }
+
+                return false;
+            } ),
+            
+            // Get active shadows
+            shadows = !isArtboard ? this.getShadows() : [],
+            activeInfluenceShadows = shadows.filter( function( shadow ) {
+                return [shadow isEnabled];
+            } );
+
+        // Use influenceRectForFrame if active center or outside borders styles or active shadow styles
+        if( activeInfluenceBorders.length > 0 || activeInfluenceShadows.length > 0 ) {
+            frame = [( this.layer ) influenceRectForBounds];
+            x = [absRect rulerX] + frame.origin.x;
+            y = [absRect rulerY] + frame.origin.y;
+            width = frame.size.width;
+            height = frame.size.height;
+        }
+
+        // Use frame
+        else {
+            frame = [( this.layer ) frame];
+            width = [frame width];
+            height = [frame height];
+
+            if( isArtboard ) {
+                // Alternative option: influenceRectForBounds
+                util.debug.info( "Zeroing Artboard x and y for <" + this.name + ">" );
+                x = 0;
+                y = 0;
+            } else {
+                x = [absRect rulerX];
+                y = [absRect rulerY];
+            }
         }
 
         return {
             x: x,
             y: y,
-            width: frame.width(),
-            height: frame.height()
-        };
+            width: width,
+            height: height
+        };        
     };
     View.prototype.getInfluenceLayoutSansStyles = function() {
         if( !this.hasClippingMask ) {
-            return this.getAbsoluteLayout();
+            return this.getInfluenceLayout();
         }
 
         var frame = this.getClippingMask(),
@@ -791,7 +864,8 @@ var View = ( function() {
         frame.height = maxHeight;
         return frame;
     };
-    View.prototype.getInfluenceLayout = function() {
+
+    View.prototype.getAbsoluteLayout = function() {
         var frame = this.layer.frame(),
             gkrect = [GKRect rectWithRect:[( this.layer ) absoluteInfluenceRect]],
             absrect = this.layer.absoluteRect(),
@@ -811,6 +885,25 @@ var View = ( function() {
             width: frame.width(),
             height: frame.height()
         };
+    };
+
+    View.prototype.getBorders = function() {
+        var borders = [];
+
+        util.forEach( [[[( this.layer ) style] borders] array], function( border ) {
+            borders.push( border );
+        } );
+
+        return borders;
+    };
+    View.prototype.getShadows = function() {
+        var shadows = [];
+
+        util.forEach( [[[( this.layer ) style] shadows] array], function( shadow ) {
+            shadows.push( shadow );
+        } );
+
+        return shadows;
     };
 
     View.prototype.duplicate = function() {

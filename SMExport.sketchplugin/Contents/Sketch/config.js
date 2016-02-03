@@ -219,10 +219,21 @@ var Config = ( function() {
         return manifest;
     }
 
+    /*
+        * @desc Get Sketch app Bundle short version
+        * @returns {string} version number as string
+        * @private
+    */
     function getSketchVersion() {
         return String( [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] );
     }
 
+    /*
+        * @desc Get Sketch app version by type
+        * @param {string} [type=major] - major, minor, or patch version
+        * @returns {number} version number
+        * @private
+    */
     function getSemanticVersion( type ) {
         type = type ? type.toLowerCase() : "major";
 
@@ -233,6 +244,11 @@ var Config = ( function() {
         return ( i > -1 && versionArr.length > i ) ? parseInt( versionArr[ i ] ) : 0;
     }
 
+    /*
+        * @desc Get Sketch app concatenated version
+        * @returns {number} version number
+        * @private
+    */
     function getSketchVersionNumber() {
         var versionArr = SKETCH_VERSION.split( "." );
 
@@ -256,12 +272,15 @@ var Config = ( function() {
 
             PLUGIN_PATH = PLUGIN_PATH || [[plugin url] fileSystemRepresentation];
             RESOURCES_PATH = RESOURCES_PATH || [[plugin urlForResourceNamed:@""] fileSystemRepresentation];
-            DOCUMENT_PATH = DOCUMENT_PATH || util.getPathByDeletingLastPathComponent( [[doc fileURL] path] );
-            DOCUMENT_NAME = DOCUMENT_NAME || [doc displayName] + ".scrollmotion";
             SETTINGS_FILENAME = SETTINGS_FILENAME || [plugin identifier] + "-settings";
             CACHES_PATH = CACHES_PATH || createCachesFolder();
-            EXPORT_FOLDER_PATH = EXPORT_FOLDER_PATH || DOCUMENT_PATH + "/" + DOCUMENT_NAME;
             SKETCH_VERSION = getSketchVersion() || "0.0.0";
+
+            DOCUMENT_PATH = ( typeof DOCUMENT_PATH !== "undefined" ) ? DOCUMENT_PATH : 
+                            !![doc fileURL] ? util.getPathByDeletingLastPathComponent( [[doc fileURL] path] ) : null;
+            DOCUMENT_NAME = DOCUMENT_NAME || [doc displayName] + ".scrollmotion";
+            EXPORT_FOLDER_PATH = ( typeof EXPORT_FOLDER_PATH !== "undefined" ) ? EXPORT_FOLDER_PATH :
+                                 ( DOCUMENT_PATH && DOCUMENT_NAME ) ? DOCUMENT_PATH + "/" + DOCUMENT_NAME : null;
         },
         getSketchVersion: function() {
             return SKETCH_VERSION;
