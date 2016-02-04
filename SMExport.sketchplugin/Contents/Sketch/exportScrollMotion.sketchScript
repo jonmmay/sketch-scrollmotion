@@ -285,7 +285,7 @@ var ExportScrollMotion = ( function() {
 
             this.config = Config.create( ctx );
         },
-        processLayers: function( layers ) {
+        processLayers: function( layers, csOrientation, csFontSize ) {
             var context = this.context,
                 doc = this.context.document,
                 plugin = this.context.plugin,
@@ -298,6 +298,9 @@ var ExportScrollMotion = ( function() {
                 cs = ContentSpec.create( context ),
 
                 boundImageAssetHandler = imageAssetHandler.bind( this );
+
+                csOrientation = csOrientation || "landscape";
+                csFontSize = csFontSize || 14;
 
             viewBindingControl.layerKindRegistry( "default", function( bindObj ) {
                 var view = bindObj.getView(),
@@ -335,6 +338,7 @@ var ExportScrollMotion = ( function() {
                 var view = bindObj.getView(),
                     parent = bindObj.getParent(),
                     rect,
+                    
                     overlay = cs.make( "image" ),
                     layerCS = view.getLayerCS(),
                     id = String( [( view.layer ) objectID] );
@@ -348,7 +352,7 @@ var ExportScrollMotion = ( function() {
                 } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
-                overlay.setLayouts( "landscape", util.merge( rect, {
+                overlay.setLayouts( csOrientation, util.merge( rect, {
                     "horizontalAlign": "left",
                     "verticalAlign": "top"
                 } ) );
@@ -393,6 +397,7 @@ var ExportScrollMotion = ( function() {
                 var view = bindObj.getView(),
                     parent = bindObj.getParent(),
                     rect,
+
                     overlay = cs.make( "text_complex" ),
                     layerCS = view.getLayerCS(),
                     id = String( [( view.layer ) objectID] ),
@@ -420,7 +425,7 @@ var ExportScrollMotion = ( function() {
                 } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
-                overlay.setLayouts( "landscape", util.merge( rect, {
+                overlay.setLayouts( csOrientation, util.merge( rect, {
                     "horizontalAlign": "left",
                     "verticalAlign": "top"
                 } ) );
@@ -457,7 +462,6 @@ var ExportScrollMotion = ( function() {
             } );
 
             // Button
-            // TO DO: Fix fontSize default which is hardcodded at 14
             // TO DO: Rotation
             viewBindingControl.bindingRegistry( "B" , {
                 stopAutoApplyBindingForChildren: true,
@@ -465,11 +469,13 @@ var ExportScrollMotion = ( function() {
                     var view = bindObj.getView(),
                         parent = bindObj.getParent(),
                         rect,
+
+                        overlay,
                         layerCS = view.getLayerCS(),
                         id = String( [( view.layer ) objectID] ),
+                        
                         requiresRastering = false,
-                        inspectorToggle = view.getLayerValueForKey( "toggle" ) || false,
-                        overlay;
+                        inspectorToggle = view.getLayerValueForKey( "toggle" ) || false;
 
                     // Reset export files 
                     bindObj.exportFonts = [];
@@ -609,7 +615,7 @@ var ExportScrollMotion = ( function() {
                             } );
 
                             overlay.setKeyValue( "textAlign", getTextAlignment( textView.layer ) );
-                            overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / 14 + "em" );
+                            overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / csFontSize + "em" );
                             overlay.setKeyValue( "fontColor" , "#" + [textColor hexValue] );
                         }
                         if( textPos && pos ) { overlay.setKeyValue( "textPadding",  util.toPx( textPos.x - pos.x ) ); }
@@ -641,7 +647,7 @@ var ExportScrollMotion = ( function() {
                     }
                     
                     rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
-                    overlay.setLayouts( "landscape", util.merge( rect, {
+                    overlay.setLayouts( csOrientation, util.merge( rect, {
                         "horizontalAlign": "left",
                         "verticalAlign": "top"
                     } ) );
@@ -671,6 +677,7 @@ var ExportScrollMotion = ( function() {
                     var view = bindObj.getView(),
                         parent = bindObj.getParent(),
                         rect,
+                        
                         overlay = cs.make( "container" ),
                         layerCS = view.getLayerCS(),
                         id = String( [( view.layer ) objectID] ),
@@ -697,7 +704,7 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "contentWidth" , util.toPx( scrollFrame.width ) );
 
                     rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
-                    overlay.setLayouts( "landscape", util.merge( rect, {
+                    overlay.setLayouts( csOrientation, util.merge( rect, {
                         "horizontalAlign": "left",
                         "verticalAlign": "top"
                     } ) );
@@ -789,6 +796,9 @@ function onRun( context ) {
             transformedLayers,
             data,
             json,
+            screens,
+            orientation,
+            fontSize,
 
             unsavedAlert,
             unsavedMessages = [
@@ -829,9 +839,6 @@ function onRun( context ) {
             
             return;
         }
-
-        // Create Content Spec from layer information
-        transformedLayers = exportSM.processLayers( layersForTransformation );
 
         // Attempt to initialize with export folder's content spec to retain data
         if( !config.getSettingsKeyValue( "overwriteExportFolder" ) ) {
@@ -968,43 +975,49 @@ function onRun( context ) {
             return fontManifest;
         }
         
-        function defineScreenSupport( layers ) {
-            var screenSize,
+        function setCSScreenSupport( layers ) {
+            var view = View.create( context ),
+                screenSize,
                 orientation,
                 screens = cs.getScreenSupportScreens(),
                 addScreen = true;
 
-            transformedLayers.some( function( obj ) {
-                if( !obj.type ) {
-                    obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
-                }
+            util.forEach( layers, function( layer ) {
+                var viewLayer = view.make( layer );
 
-                if( obj.type === "page" ) {
-                    screenSize = obj.getView().getAbsoluteLayout();
-                    orientation = ( screenSize.width < screenSize.height ) ? "portrait" : "landscape";
-
-                    // See if screen size matches an existing screen
-                    if( screens.length > 0 ) {
-                        screens.some( function( screen ) {
-                            if( screen.width === screenSize.width &&
-                                screen.height === screenSize.height &&
-                                screen.orientation === orientation ) {
-
-                                addScreen = false;
-                                return true;
-                            }
-                        } );
+                if( addScreen ) {
+                    // Get layer artboard
+                    if( !viewLayer.isArtboard() ) {
+                        viewLayer = viewLayer.parentArtboard();
                     }
 
-                    if( addScreen ) {
-                        cs.addScreenSupportScreen( orientation, screenSize.width, screenSize.height );    
+                    if( viewLayer && viewLayer.isArtboard() ) {
+                        screenSize = viewLayer.getAbsoluteLayout();
+                        orientation = ( screenSize.width < screenSize.height ) ? "portrait" : "landscape";
+
+                        // See if screen size matches an existing screen
+                        if( screens.length > 0 ) {
+                            screens.some( function( screen ) {
+                                if( screen.width === screenSize.width &&
+                                    screen.height === screenSize.height &&
+                                    screen.orientation === orientation ) {
+
+                                    // Screen exists; don't add
+                                    addScreen = false;
+                                    return true;
+                                }
+                            } );
+                        }
+
+                        if( addScreen ) {
+                            cs.addScreenSupportScreen( orientation, screenSize.width, screenSize.height );
+                            addScreen = false;
+                        }
                     }
-                    
-                    return true;
                 }
             } );
         }
-        function mapOverlaysToParent( layers ) {
+        function mapCSOverlaysToParent( layers ) {
             var startPageId = cs.getStartPage();
 
             return layers.map( function( obj ) {
@@ -1287,8 +1300,17 @@ function onRun( context ) {
             }
         }
 
-        mapOverlaysToParent( transformedLayers );
-        defineScreenSupport( transformedLayers );
+        // Set content spec screen support
+        setCSScreenSupport( layersForTransformation );
+
+        screens = cs.getScreenSupportScreens();
+        orientation = screens.length > 0 ? screens[ 0 ].orientation : "landscape";
+        fontSize = 14;
+
+        // Create content spec from layer information
+        transformedLayers = exportSM.processLayers( layersForTransformation, orientation, fontSize );
+
+        mapCSOverlaysToParent( transformedLayers );
         output( transformedLayers );
         log( cs.value() );
 

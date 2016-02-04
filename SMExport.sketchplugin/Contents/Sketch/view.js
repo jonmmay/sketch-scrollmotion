@@ -526,20 +526,10 @@ var View = ( function() {
     };
 
     View.prototype.parentArtboard = function() {
-        var view = this.parentGroup;
-
-        if( view === null ) {
-            return null;
-        }
-
-        while( view.parentGroup !== undefined ) {
-            view = view.parentGroup;
-            if( view === null ) {
-                return null;
-            } else if( view.isArtboard() ) {
-                return view;
-            }
-        }
+        var artboard = [( this.layer ) parentArtboard],
+            view = artboard ? new View( artboard ) : null;
+        
+        return view;
     };
     View.prototype.getArboardDimensions = function() {
         var dim,

@@ -185,7 +185,7 @@ var ContentSpec = ( function( options ) {
         overlayHelpers = extend( {}, csHelpers, defineNonEnumerableProperties( {}, {
             setLayouts: function( orientation, data ) {
                 var key;
-
+                
                 if( !this.spec.layouts[ orientation ] ) {
                     this.spec.layouts[ orientation ] = {};
                 }
@@ -487,7 +487,7 @@ var ContentSpec = ( function( options ) {
         },
         getScreenSupportScreens: function() {
             var screenSupport = this.spec.screenSupport,
-                screens = screenSupport && screenSupport.screens ? screenSupport.screens : null;
+                screens = screenSupport && screenSupport.screens ? screenSupport.screens : [];
 
             return screens;
         },
