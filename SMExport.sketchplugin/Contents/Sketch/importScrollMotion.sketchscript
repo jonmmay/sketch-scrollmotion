@@ -280,7 +280,8 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 [frame setWidth:numRoundHalfUp( size.width )];
                 [frame setHeight:numRoundHalfUp( size.height )];
 
-                [textLayer adjustFrameToFit];
+                // Resize text layer to fit; this may not be the same size as the overlay
+                // [textLayer adjustFrameToFit];
 
                 [[[textLayer style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
                 [textLayer setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
@@ -456,11 +457,14 @@ var ImportScrollMotion = ( function( bindingNames ) {
                ( layouts.width && layouts.height ) ? { width: layouts.width, height: layouts.height } :
                { width: null, height: null };
     }
+
+    // Disable rounding until support exists for retina
     function numRoundHalfUp( string ) {
         if( typeof string === "string" ) {
-            return util.roundHalfUp( util.num( string ) );    
+            // return util.roundHalfUp( util.num( string ) );
+            return util.num( string );
         } else if( typeof string === "number" ) {
-            return util.roundHalfUp( string );
+            // return util.roundHalfUp( string );
         }
 
         return string;

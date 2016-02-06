@@ -29,7 +29,7 @@ var ExportScrollMotion = ( function() {
         }
     }
     function rectForOverlay( view, parentView ) {
-        var pos = parentView ? view.getLayoutRelativeTo( parentView ) : view.getInfluenceLayout();
+        var pos = parentView ? view.getLayoutRelativeTo( parentView ) : view.getAbsoluteLayout();
 
         return {
             width: util.toPx( pos.width ),
@@ -200,8 +200,7 @@ var ExportScrollMotion = ( function() {
         return matchedStates;
     }
     function implicitMatchViewsToButtonStates( view ) {
-        var priority = [ "normal", "down", "on", "downOn" ],
-            matchedStates = explicitMatchViewsToButtonStates( view ),
+        var matchedStates = explicitMatchViewsToButtonStates( view ),
             unmatched = matchedStates.unmatched;
 
         // If empty down state, move on state views into down state
@@ -245,7 +244,7 @@ var ExportScrollMotion = ( function() {
                 ret.otherViews.push( view );
             }
 
-            requiresRastering = viewRequiresRastering( view );
+            requiresRastering = requiresRastering || viewRequiresRastering( view );
 
             return ret;
         }
@@ -293,7 +292,7 @@ var ExportScrollMotion = ( function() {
                 layersForTransformation = layers,
                 eligibleViews = [],
                 transformedLayers = [],
-                view = View.create( context ),
+                viewBind = View.create( context ),
                 viewBindingControl = new ViewBindingController(),
                 cs = ContentSpec.create( context ),
 
@@ -494,7 +493,7 @@ var ExportScrollMotion = ( function() {
 
                     // Remove unmatched
                     states.splice( states.indexOf( "unmatched" ), 1 );
-                    
+
                     if( !inspectorToggle ) {
                         // Remove on and downOn
                         states.splice( states.indexOf( "on" ), 1 );
@@ -509,6 +508,19 @@ var ExportScrollMotion = ( function() {
                     }
 
                     if( stateViews.normal.length > 0 ) {
+
+                        // TO DO: Refactor
+                        // if( stateViews.normal.length > 1 ) {
+                        //     var normGroup = [[MSLayerGroup alloc] init];
+                        //     normGroup.name = stateViews.normal[ 0 ].name;
+                        //     [( stateViews.normal[ 0 ].getLayerParent().layer ) insertLayers:[ normGroup ] beforeLayer:(stateViews.normal[ 0 ].layer)];
+                        //     stateViews.normal.forEach( function( view ) {
+                        //         [( view.layer ) moveToLayer:normGroup beforeLayer:null];
+                        //     } );
+                        //     [normGroup resizeToFitChildrenWithOption:true];
+                        //     stateViews.normal[ 0 ] = viewBind.make( normGroup, stateViews.normal[ 0 ].parentGroup );
+                        // }
+
                         requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.normal[ 0 ] );
                     }
 
@@ -520,6 +532,7 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "displayName", view.getSanitizedName() );
                     overlay.setKeyValue( "toggle", inspectorToggle );
 
+                    // "Image" button
                     if( requiresRastering ) {
                         // Pass state views to overlay image properties
                         states.forEach( function( state ) {
@@ -537,7 +550,10 @@ var ExportScrollMotion = ( function() {
                                 } );
                             }
                         } );
-                    } else {
+                    }
+
+                    // "Basic" button
+                    else {
                         cgButtonDownState = ( inspectorToggle && stateViews.on.length > 0 ) ? "on" : "down";
 
                         // Flatten normal state view layerGroups into array
@@ -618,7 +634,10 @@ var ExportScrollMotion = ( function() {
                             overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / csFontSize + "em" );
                             overlay.setKeyValue( "fontColor" , "#" + [textColor hexValue] );
                         }
-                        if( textPos && pos ) { overlay.setKeyValue( "textPadding",  util.toPx( textPos.x - pos.x ) ); }
+
+                        // SmartStudio requires text padding to be an whole number 
+                        // otherwise the button is completely jacked up
+                        if( textPos && pos ) { overlay.setKeyValue( "textPadding",  util.toPx( Math.floor( textPos.x - pos.x ) ) ); }
                         if( downColor || textColor ) {
                             overlay.setKeyValue( "fontPressedColor" , "#" + [( downColor || textColor ) hexValue] );
                         }
@@ -635,6 +654,8 @@ var ExportScrollMotion = ( function() {
                         if( downFill ) {
                             overlay.setKeyValue( "cgButtonPressedColor", "#" + [[downFill color] hexValue] );
                             // overlay.setKeyValue( "cgButtonPressedAlpha", Number( getRgba( [downFill color] ).split( "," ).pop() ) );
+                        } else if( fill ) {
+                            overlay.setKeyValue( "cgButtonPressedColor", "#" + [[fill color] hexValue] );
                         }
 
                         if( typeof cornerRadius !== undefined && pos ) {
@@ -753,7 +774,7 @@ var ExportScrollMotion = ( function() {
 
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
-                var layerView = view.make( layer );
+                var layerView = viewBind.make( layer );
                     
                 if( !layerView.shouldBeIgnored() ) {
                     eligibleViews.push( layerView );

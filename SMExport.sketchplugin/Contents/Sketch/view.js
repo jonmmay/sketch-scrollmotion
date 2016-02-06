@@ -857,17 +857,14 @@ var View = ( function() {
 
     View.prototype.getAbsoluteLayout = function() {
         var frame = this.layer.frame(),
-            gkrect = [GKRect rectWithRect:[( this.layer ) absoluteInfluenceRect]],
-            absrect = this.layer.absoluteRect(),
-            rulerDeltaX,
-            rulerDeltaY,
-            x,
-            y;
+            x = this.layer.absoluteRect().rulerX(),
+            y = this.layer.absoluteRect().rulerY();
 
-        rulerDeltaX = absrect.rulerX() - absrect.x();
-        rulerDeltaY = absrect.rulerY() - absrect.y();
-        x = Math.round( gkrect.x() + rulerDeltaX );
-        y = Math.round( gkrect.y() + rulerDeltaY );
+        if( this.isArtboard() ) {
+            util.debug.info( "Zeroing Artboard x and y for <" + this.name + ">" );
+            x = 0;
+            y = 0;
+        }
 
         return {
             x: x,
@@ -875,6 +872,26 @@ var View = ( function() {
             width: frame.width(),
             height: frame.height()
         };
+
+        // var frame = this.layer.frame(),
+        //     gkrect = [GKRect rectWithRect:[( this.layer ) absoluteInfluenceRect]],
+        //     absrect = this.layer.absoluteRect(),
+        //     rulerDeltaX,
+        //     rulerDeltaY,
+        //     x,
+        //     y;
+
+        // rulerDeltaX = absrect.rulerX() - absrect.x();
+        // rulerDeltaY = absrect.rulerY() - absrect.y();
+        // x = Math.round( gkrect.x() + rulerDeltaX );
+        // y = Math.round( gkrect.y() + rulerDeltaY );
+
+        // return {
+        //     x: x,
+        //     y: y,
+        //     width: frame.width(),
+        //     height: frame.height()
+        // };
     };
 
     View.prototype.getBorders = function() {
