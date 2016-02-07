@@ -685,6 +685,35 @@ var ContentSpec = ( function( options ) {
                 return pageSet;
             }
             return null;
+        },
+        typeofOverlay: function( overlay ) {
+            var type,
+                basicButtonProps = [
+                    "cgButtonColor",
+                    "cgButtonAlpha",
+                    "cgButtonPressedColor",
+                    "cgButtonPressedAlpha",
+                    "cgCornerRadius",
+                    "cgBorderColor",
+                    "cgBorderWidth",
+                    "cgBorderAlpha"
+                ];
+
+            if( overlay.type === "button" ) {
+                if( overlay.images || overlay.imagesDown || overlay.imagesOn || overlay.imagesDownOn ) {
+                    type = "image " + type;
+                } else if( basicButtonProps.filter( function( prop ) {
+                        return overlay[ prop ] ? true : false;
+                    } ).length > 0 ) {
+                    type = "basic " + type;
+                } else {
+                    type = "hotspot " + type;
+                }
+            } else {
+                type = overlay.type || null;
+            }
+
+            return type;
         }
     } );
 

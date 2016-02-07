@@ -113,7 +113,9 @@ var ExportScrollMotion = ( function() {
         var kind = view.getLayerKind(),
             requiresRastering = false;
             
-        if( kind === "Artboard" || kind === "Slice" ) {
+        if( kind === "Bitmap" ) {
+            return true;
+        } else if( kind === "Artboard" || kind === "Slice" ) {
             return false;
         } else if( kind === "LayerGroup" ) {
             util.forEach( view.subviews(), function( subview ) {
@@ -218,21 +220,27 @@ var ExportScrollMotion = ( function() {
 
         return matchedStates;
     }
-    function buttonStateViewRequiresRastering( view ) {
-        var kind = view.getLayerKind(),
-            textViews = [],
-            otherViews = [],
-            childVal,
-            requiresRastering = false;
 
-        function identifyViews( view ) {
+    /**
+        * @desc Check if layers and sublayers require rasterizing for button export
+        * param {object|object[]} views - array of View instances
+        * returns {boolean}
+    */
+    function buttonStateViewsRequiresRastering( views ) {
+        var requiresRastering = false,
+            textViews = [],
+            otherViews = [];
+
+        views = ( views instanceof Array ) ? views : [ views ];
+
+        function identifyViewAndChildren( view ) {
             var kind = view.getLayerKind(),
                 ret = { textViews: [], otherViews: [] },
                 childVal;
 
             if( view.hasSubviews ) {
                 util.forEach( view.subviews(), function( subview ) {
-                    childVal = identifyViews( subview );
+                    childVal = identifyViewAndChildren( subview );
                     ret.textViews = ret.textViews.concat( childVal.textViews );
                     ret.otherViews = ret.otherViews.concat( childVal.otherViews );
                 } );
@@ -244,21 +252,21 @@ var ExportScrollMotion = ( function() {
                 ret.otherViews.push( view );
             }
 
-            requiresRastering = requiresRastering || viewRequiresRastering( view );
-
             return ret;
         }
 
-        if( view.hasSubviews ) {
-            childVal = identifyViews( view );
-            textViews = childVal.textViews;
-            otherViews = childVal.otherViews;
-        } else {
-            requiresRastering = viewRequiresRastering( view );
-        }
+        util.forEach( views, function( view ) {
+            var kind = view.getLayerKind(),
+                child;
 
-        return requiresRastering || kind === "Bitmap" ||
-                         textViews.length > 1 || otherViews.length > 1;
+            requiresRastering = viewRequiresRastering( view );
+            child = identifyViewAndChildren( view );
+            textViews = textViews.concat( child.textViews );
+            otherViews = otherViews.concat( child.otherViews );
+
+        } );
+
+        return requiresRastering || textViews.length > 1 || otherViews.length > 1;
     }
 
     function getTextAlignment( layer ) {
@@ -276,7 +284,7 @@ var ExportScrollMotion = ( function() {
 
             return ( type !== "a" ) ? Math.round( Number( value ) * 255 ) : Number( value );
         } ).join( "," );
-    }        
+    }
 
     return util.Object.extend( {
         init: function( ctx ) {
@@ -344,10 +352,16 @@ var ExportScrollMotion = ( function() {
 
                 boundImageAssetHandler( view, function( src, filename ) {
                     overlay.setKeyValue( "images", [ src ] );
-                    bindObj.exportFiles.push( {
-                        getView: function() { return view; },
+                    
+                    bindObj.exportFiles.push( util.Command.create( util.noop, util.noop, {
+                        getView: function() { return view },
                         target: filename
-                    } );
+                    } ) );
+                    
+                    // bindObj.exportFiles.push( {
+                    //     getView: function() { return view; },
+                    //     target: filename
+                    // } );
                 } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
@@ -365,6 +379,11 @@ var ExportScrollMotion = ( function() {
                 if( layerCS ) {
                     // Set preexisting overlay id
                     id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                    // Clear layer content spec if overlay is a different type
+                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                        layerCS = view.clearLayerCS().getLayerCS();
+                    }
 
                     overlay.setValue( util.merge( layerCS, overlay.value() ) );
                 }
@@ -438,6 +457,11 @@ var ExportScrollMotion = ( function() {
                     // Set preexisting overlay id
                     id = layerCS.overlayId ? layerCS.overlayId : id ;
 
+                    // Clear layer content spec if overlay is a different type
+                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                        layerCS = view.clearLayerCS().getLayerCS();
+                    }
+
                     overlay.setValue( util.merge( layerCS, overlay.value() ) );
                 }
 
@@ -462,6 +486,8 @@ var ExportScrollMotion = ( function() {
 
             // Button
             // TO DO: Rotation
+            // TO DO: Refactor state rasterization removing explicit references to states
+            // TO DO: Refactor text reset to use commands
             viewBindingControl.bindingRegistry( "B" , {
                 stopAutoApplyBindingForChildren: true,
                 compose: function( bindObj, args ) {
@@ -471,8 +497,11 @@ var ExportScrollMotion = ( function() {
 
                         overlay,
                         layerCS = view.getLayerCS(),
+
+                        // TO DO: Refactor solution to preserve common overlay props if type differs
+                        layerCSActions = { "actions": layerCS.actions || [] },
                         id = String( [( view.layer ) objectID] ),
-                        
+
                         requiresRastering = false,
                         inspectorToggle = view.getLayerValueForKey( "toggle" ) || false;
 
@@ -480,8 +509,8 @@ var ExportScrollMotion = ( function() {
                     bindObj.exportFonts = [];
                     bindObj.exportFiles = [];
 
-                    // Cg button properties
-                    var cgButtonDownState, 
+                    // Basic button properties
+                    var basicButtonDownState, 
                         normalStates = [], downStates = [],
                         textView, textPos, textColor, downColor,
                         pos, border, cornerRadius,
@@ -500,32 +529,19 @@ var ExportScrollMotion = ( function() {
                         states.splice( states.indexOf( "downOn" ), 1 );
                     } else {
                         if( stateViews.on.length > 0 ) {
-                            requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.on[ 0 ] );
+                            requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.on );
                         }
                         if( stateViews.downOn.length > 0 ) {
-                            requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.downOn[ 0 ] );
+                            requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.downOn );
                         }   
                     }
 
                     if( stateViews.normal.length > 0 ) {
-
-                        // TO DO: Refactor
-                        // if( stateViews.normal.length > 1 ) {
-                        //     var normGroup = [[MSLayerGroup alloc] init];
-                        //     normGroup.name = stateViews.normal[ 0 ].name;
-                        //     [( stateViews.normal[ 0 ].getLayerParent().layer ) insertLayers:[ normGroup ] beforeLayer:(stateViews.normal[ 0 ].layer)];
-                        //     stateViews.normal.forEach( function( view ) {
-                        //         [( view.layer ) moveToLayer:normGroup beforeLayer:null];
-                        //     } );
-                        //     [normGroup resizeToFitChildrenWithOption:true];
-                        //     stateViews.normal[ 0 ] = viewBind.make( normGroup, stateViews.normal[ 0 ].parentGroup );
-                        // }
-
-                        requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.normal[ 0 ] );
+                        requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.normal );
                     }
 
                     if( stateViews.down.length > 0 ) {
-                        requiresRastering = requiresRastering || buttonStateViewRequiresRastering( stateViews.down[ 0 ] );
+                        requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.down );
                     }
                     
                     overlay = cs.make( !requiresRastering ? "button" : "image_button" );
@@ -543,10 +559,38 @@ var ExportScrollMotion = ( function() {
                             if( stateView ) {
                                 boundImageAssetHandler( stateView, function( src, filename ) {
                                     overlay.setKeyValue( buttonStateName, [ src ] );
-                                    bindObj.exportFiles.push( {
-                                        getView: function() { return stateView; },
-                                        target: filename
-                                    } );
+
+                                    bindObj.exportFiles.push( util.Command.create( 
+                                        // Group layers
+                                        function() {
+                                            if( stateViews[ state ].length > 1 ) {
+                                                var group = [[MSLayerGroup alloc] init];
+                                                group.name = stateViews[ state ][ 0 ].name;
+                                                
+                                                [( stateViews[ state ][ 0 ].getLayerParent().layer ) insertLayers:[ group ] beforeLayer:( stateViews[ state ][ 0 ].layer )];
+                                                stateViews[ state ].forEach( function( view ) {
+                                                    [( view.layer ) moveToLayer:group beforeLayer:null];
+                                                } );
+                                                [group resizeToFitChildrenWithOption:true];
+                                                stateViews[ state ][ 0 ] = viewBind.make( group, stateViews[ state ][ 0 ].parentGroup );
+                                                stateView = stateViews[ state ][ 0 ];
+                                            } 
+                                        },
+
+                                        // Ungroup layers
+                                        function() {
+                                            if( stateView.getLayerKind() === "LayerGroup" ) {
+                                                [( stateView.layer ) ungroup];    
+                                            }
+                                        }, {
+                                            getView: function() { return stateView; },
+                                            target: filename
+                                    } ) );
+                                    
+                                    // bindObj.exportFiles.push( {
+                                    //     getView: function() { return stateView; },
+                                    //     target: filename
+                                    // } );
                                 } );
                             }
                         } );
@@ -554,10 +598,9 @@ var ExportScrollMotion = ( function() {
 
                     // "Basic" button
                     else {
-                        cgButtonDownState = ( inspectorToggle && stateViews.on.length > 0 ) ? "on" : "down";
+                        basicButtonDownState = ( inspectorToggle && stateViews.on.length > 0 ) ? "on" : "down";
 
-                        // Flatten normal state view layerGroups into array
-
+                        // Flatten basic button normal state view layerGroups into array
                         stateViews.normal.forEach( function flattenNormalStateViews( stateView ) {
                             if( stateView.hasSubviews ) {
                                 util.forEach( stateView.subviews(), flattenNormalStateViews );
@@ -566,8 +609,8 @@ var ExportScrollMotion = ( function() {
                             }
                         } );
 
-                        // Flatten cg button down state view layerGroups into array
-                        stateViews[ cgButtonDownState ].forEach( function flattenDownStateViews( stateView ) {
+                        // Flatten basic button down state view layerGroups into array
+                        stateViews[ basicButtonDownState ].forEach( function flattenDownStateViews( stateView ) {
                             if( stateView.hasSubviews ) {
                                 util.forEach( stateView.subviews(), flattenDownStateViews );
                             } else {
@@ -575,7 +618,7 @@ var ExportScrollMotion = ( function() {
                             }
                         } );
 
-                        // Capture cg button properties from layers
+                        // Capture basic button properties from layers
                         normalStates.some( function( stateView ) {
                             var kind = stateView.getLayerKind();
 
@@ -681,7 +724,13 @@ var ExportScrollMotion = ( function() {
                         // Set preexisting overlay id
                         id = layerCS.overlayId ? layerCS.overlayId : id ;
 
-                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                        // Clear layer content spec if overlay is a different type
+                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                            // layerCS = util.commonProperties( overlay.value(), layerCS );
+                            layerCS = view.clearLayerCS().getLayerCS();
+                        }
+
+                        overlay.setValue( util.merge( layerCS, layerCSActions, overlay.value() ) );
                     }
 
                     overlay.setOverlayId( id );
@@ -757,6 +806,11 @@ var ExportScrollMotion = ( function() {
                     if( layerCS ) {
                         // Set preexisting overlay id
                         id = layerCS.overlayId ? layerCS.overlayId : id ;
+
+                        // Clear layer content spec if overlay is a different type
+                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                            layerCS = view.clearLayerCS().getLayerCS();
+                        }
 
                         overlay.setValue( util.merge( layerCS, overlay.value() ) );
                     }
@@ -1009,7 +1063,7 @@ function onRun( context ) {
                 if( addScreen ) {
                     // Get layer artboard
                     if( !viewLayer.isArtboard() ) {
-                        viewLayer = viewLayer.parentArtboard();
+                        viewLayer = viewLayer.getParentArtboard();
                     }
 
                     if( viewLayer && viewLayer.isArtboard() ) {
@@ -1307,8 +1361,10 @@ function onRun( context ) {
             // 6. Export images
             if( exportFiles.length ) {
                 exportFiles.forEach( function( fileObj ) {
+                    fileObj.execute();
                     // Assign plugin context to exportImage context for access to currentPage
-                    exportImage( fileObj.getView(), fileObj.target );
+                    exportImage( fileObj.value.getView(), fileObj.value.target );
+                    fileObj.undo();
                 } );
             }
 

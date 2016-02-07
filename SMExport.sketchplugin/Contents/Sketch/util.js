@@ -173,19 +173,36 @@ var util = ( function() {
             /**
                 * @memberof util.Object
                 * @method init
-                * @param {object} ctx -
+                * @param {object} [ctx] - Sketch Plugin context
             */
             init: function( ctx ) {
-                this.context = ctx = ctx || {};
-                this.doc = ctx.document;
-                this.plugin = ctx.plugin;
-                this.selection = ctx.selection;
-                this.command = ctx.command;
+                if( ctx ) {
+                    this.context = ctx;
+                    this.doc = ctx.document;
+                    this.plugin = ctx.plugin;
+                    this.selection = ctx.selection;
+                    this.command = ctx.command;
+                }
             }
         } );
 
         return object;
     } )();
+
+    /**
+        * @desc
+        * @param {function} execute -
+        * @param {funcion} undo -
+        * @param {*} value -
+        * returns {object}
+    */
+    util.Command = util.Object.extend( {
+        init: function( execute, undo, value ) {
+            this.execute = execute;
+            this.undo = undo;
+            this.value = value;
+        }
+    } );
 
     /**
         * @desc Iterate over a Cocoa Array or Object of JS Array or Object
@@ -297,6 +314,38 @@ var util = ( function() {
         } );    
         
         return root;
+    };
+
+    /**
+        * @desc Identify common and different properties for a series of objects
+        * @param {...object} objects -
+        * @returns {object} results
+        * @returns {object} results.common - Common properties with values of last parameter
+        * @returns {array} results.different - Property key names not shared with all parameters
+    */
+    util.commonProperties = function( objects ) {
+        var objects = util.isArray( objects ) ? objects : Array.prototype.slice.call( arguments ),
+            common = objects.reduce( function( acc, obj ) {
+                for( var p in obj ) {
+                    acc[ p ] = obj[ p ];
+                }
+                
+                return acc;
+            }, {} ),
+            different = objects.reduce( function( acc, obj ) {
+                for( var p in common ) {
+                    if( typeof obj[ p ] === "undefined" ) {
+                        delete common[ p ];
+                        acc.push( p );
+                    }
+                }
+
+                return acc;
+            }, [] );
+        return {
+            common: common,
+            different: different
+        };
     };
 
     /**
