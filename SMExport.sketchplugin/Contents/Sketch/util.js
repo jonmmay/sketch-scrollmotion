@@ -77,6 +77,15 @@ var util = ( function() {
     };
 
     /**
+        * @desc Assertion function for testing
+        * @param {boolean} outcome - Assertion results
+        * @param {string} description - Assertion description to be logged
+    */
+    util.assert = function( outcome, description ) {
+        debug.log( ( outcome ? "Pass" : " * Fail" ) + ": " + description );            
+    };
+
+    /**
         * @desc Constructor for extending and creating class constructors
         * Primary value is passing plugin context to Objects outside of plugin script handler
         * @namespace util

@@ -3,19 +3,20 @@
     "authorEmail": "jon.m.may@gmail.com",
     "name": "ScrollMotion",
     "description": "Example Sketch Plugin using resources from within the bundle and a library script.",
-    "version": "0.1",
-    "compatibleVersion": "3.4",
+    "version": "0.9",
+    "compatibleVersion": "3.5",
     "homepage": "https://github.com/jonmmay/sketch-scrollmotion",
     "updateURL": "",
     "identifier": "com.jonmmay.sketch.export-scrollmotion",
     "commands": [
         {
-            "script": "script.sketchscript",
-            "handler": "onRun",
-            "shortcut": "ctrl s",
-            "name": "Export",
-            "identifier": "Old_SMExport"
+            "script": "tests/tests.js",
+            "handler": "runTests",
+            "shortcut": "",
+            "name": "Run tests...",
+            "identifier": "tests"
         },
+
         {
             "script": "revealInFinder.sketchscript",
             "handler": "revealExportFilesInFinder",
