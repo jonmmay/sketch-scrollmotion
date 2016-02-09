@@ -311,7 +311,7 @@ var ExportScrollMotion = ( function() {
 
             viewBindingControl.layerKindRegistry( "default", function( bindObj ) {
                 var view = bindObj.getView(),
-                    shouldBeExtracted = view.shouldExportClippingMask();
+                    shouldBeExtracted = view.shouldExtractClippingMask();
 
                 // Extract as image
                 if( shouldBeExtracted ) {

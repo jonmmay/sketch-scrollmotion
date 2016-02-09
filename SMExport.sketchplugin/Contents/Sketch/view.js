@@ -899,7 +899,7 @@ var View = ( function() {
         * @desc Check if layer has a clipping mask applied and should be extracted
         * @returns {boolean}
     */
-    View.prototype.shouldExportClippingMask = function() {
+    View.prototype.shouldExtractClippingMask = function() {
         return ( !this.isFolder() && this.isClippingMask() ) ? this.nameBeginsWith( "+" ) : true;
     };
 
@@ -1052,7 +1052,7 @@ var View = ( function() {
     */
     View.prototype.getInfluenceLayoutSansStyles = function() {
         if( !this.hasClippingMask ) {
-            return this.getInfluenceLayout();
+            return this.getAbsoluteLayout();
         }
 
         var frame = this.getClippingMask(),
@@ -1182,13 +1182,7 @@ var View = ( function() {
             * @returns
         */
         init: function( ctx ) {
-            this._super( ctx );
-            
-            context = this.context;
-            doc = this.context.document;
-            plugin = this.context.plugin;
-            selection = this.context.selection;
-            command = this.context.command;
+            this._super( ctx );            
         },
 
         /**
