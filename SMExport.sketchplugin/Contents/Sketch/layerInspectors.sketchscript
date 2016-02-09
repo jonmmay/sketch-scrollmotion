@@ -371,6 +371,44 @@ function smContainer( context ) {
         doc.showMessage( "Ahh 💩... Select a layer group to make a container." );
     }
 }
+function toggleSelectionToIgnore( context ) {
+    var doc = context.document,
+        selection = context.selection,
+        selectedLayers = ( [selection count] > 0 ) ? selection : null,
+        transformedLayers = [],
+        toggleValues = [],
+        ignoreRegex = /^(-\s*)|(\s*-)$/,
+        view = View.create( context );
+
+    if( selectedLayers ) {
+        util.forEach( selectedLayers, function( layer ) {
+            var newView = view.make( layer );
+            
+            transformedLayers.push( newView );
+            toggleValues.push( ignoreRegex.test( newView.name ) );
+        } );
+
+        if( toggleValues.indexOf( false ) > -1 ) {
+            // All layers should be tagged to be ignored
+
+            transformedLayers.forEach( function( view ) {
+                // Ignore layers not already tagged
+                if( !ignoreRegex.test( view.name ) ) {
+                    view.addNameAttributes( "-" );
+                }
+            } );
+
+        } else {
+            // All layers should not be tagged to be ignored
+            transformedLayers.forEach( function( view ) {
+               [( view.layer ) setName:( view.name.replace( ignoreRegex, "" ) )];
+            } );
+        }
+    } else {
+            doc.showMessage( "Select layers to exclude from export." );
+        }
+}
+
 
 // function importPages( context ) {
 //     var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 230, 184 )],

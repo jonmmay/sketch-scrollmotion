@@ -476,7 +476,7 @@ var View = ( function() {
         var name = this.name.replace( /(:|\/)/g , "_" )
                             .replace( /__/g , "_" )
                             .replace( /\[.*?\]/g , "" )
-                            .replace( /^(\*|\-)|(\*|\-)$/g , "" )
+                            .replace( /^(\*|\-|\+)|(\*|\-\+)$/g , "" )
                             .replace( new RegExp( "@@mask" , "g" ) , "" )
                             .replace( new RegExp( "@@hidden" , "g" ) , "" )
                             .trim();
@@ -518,13 +518,18 @@ var View = ( function() {
         * @returns {object} View instance
     */
     View.prototype.addNameAttributes = function( attrName, attrArgs ) {
-        var argsStr = ( Array.isArray( attrArgs ) ) ? attrArgs.join( "," ) :
-                      ( typeof attrArgs === "string" ) ? attrArgs : null,
-        name = "[" + attrName + ( argsStr ? "=" + argsStr : "" ) + "]" + ( this.name.length > 0 ? " " : "" ) + this.name;
+        if( typeof attrName !== "string" || attrName.length === 0 ) { return this; }
 
-        if( typeof attrName === "string" ) {
-            [( this.layer ) setName:name];
-        }
+        // specialAttrRegex will consist of *(flatten) or -(ignore) named attributes
+        var specialAttrRegex = /^(\*|-)$/g,
+            argsStr = ( Array.isArray( attrArgs ) ) ? attrArgs.join( "," ) :
+                      ( typeof attrArgs === "string" ) ? attrArgs : null,
+        name = specialAttrRegex.test( attrName ) ? attrName :
+               "[" + attrName + ( argsStr ? "=" + argsStr : "" ) + "]";
+
+        name += ( this.name.length > 0 ? " " : "" ) + this.name;
+
+        [( this.layer ) setName:name];
 
         return this;
     };

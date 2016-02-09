@@ -72,6 +72,13 @@
             "shortcut": "",
             "name": "Edit Container...",
             "identifier": "editContainer"
+        },
+        {
+            "script": "layerInspectors.sketchscript",
+            "handler": "toggleSelectionToIgnore",
+            "shortcut": "",
+            "name": "Toggle Exportable",
+            "identifier": "ignore"
         }
     ],
     "menu": {
@@ -82,6 +89,7 @@
             "-",
             "editButton",
             "editContainer",
+            "ignore",
             "-",
             { 
                 "title": "Settings",
