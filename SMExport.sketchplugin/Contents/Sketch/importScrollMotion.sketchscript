@@ -57,7 +57,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         fillColor: cs.backgroundColor,
                         fillAlpha: cs.backgroundAlpha
                     },
-                    mask;
+                    mask,
+                    view = this.view,
+                    layerView;
 
                 container.name = bindingNames.container+ " " + cs.displayName;
                 mask = makeRectangleShape( props );
@@ -69,6 +71,30 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 [[[container style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
                 [container setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
+
+                layerView = view.make( container );
+
+                if( typeof cs.paging !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.paging, "paging" );
+                }
+                if( typeof cs.clipToBounds !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.clipToBounds, "clipToBounds" );
+                }
+                if( typeof cs.tapThrough !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.tapThrough, "tapThrough" );
+                }
+                if( typeof cs.draggable !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.draggable, "draggable" );
+                }
+                if( typeof cs.userScrollingBounces !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.userScrollingBounces, "userScrollingBounces" );
+                }
+                if( typeof cs.scrollerStyle !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.scrollerStyle, "scrollerStyle" );
+                }
+                if( typeof cs.userScrolling !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.userScrolling, "userScrolling" );
+                }
                 
                 return container;
             },
@@ -89,7 +115,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         borderColor: cs.cgBorderColor,
                         borderAlpha: cs.borderAlpha,
                         cornerRadius: util.num( cs.cgCornerRadius )
-                    };
+                    },
+                    view = this.view,
+                    layerView;
 
                 group = [[MSLayerGroup alloc] init];
                 group.name = bindingNames.button + " " + cs.displayName;
@@ -141,6 +169,12 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 [[[group style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
                 [group setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
+
+                layerView = view.make( group );
+
+                if( typeof cs.toggle !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.toggle, "toggle" );    
+                }
 
                 return group;
             },
@@ -305,7 +339,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 if( cs.backgroundImage ) {
                     bgImageData = getImageData( path, cs.backgroundImage );
                     if( bgImageData ) {
-                        bgImage = imageLayer( bgImageData, {
+                        bgImage = makeBitmapLayer( bgImageData, {
                             x: 0,
                             y: 0,
                             width: [frame width],
@@ -786,7 +820,6 @@ function onRun( context ) {
                 ]
             }, [desktopURL fileSystemRepresentation] );
 
-            log( btn );
             if( btn ) {
                 [page addLayers:[ btn ]];
             }

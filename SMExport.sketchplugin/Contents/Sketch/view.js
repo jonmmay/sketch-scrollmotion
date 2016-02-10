@@ -587,6 +587,7 @@ var View = ( function() {
         }
 
         var attrs = [command valueForKey:ATTRIBUTES_KEY onLayer:( this.layer )] || "{}";
+        log( attrs );
 
         if( typeof attrs === "string" || [attrs isKindOfClass:[NSString class]] ) {
             attrs = JSON.parse( String( attrs ) );
@@ -1182,7 +1183,13 @@ var View = ( function() {
             * @returns
         */
         init: function( ctx ) {
-            this._super( ctx );            
+            this._super( ctx );
+            
+            context = this.context;
+            doc = this.context.document;
+            plugin = this.context.plugin;
+            selection = this.context.selection;
+            command = this.context.command;
         },
 
         /**
