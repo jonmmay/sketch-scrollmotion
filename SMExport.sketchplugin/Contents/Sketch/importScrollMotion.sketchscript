@@ -151,7 +151,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 if( cs.cgButtonPressedColor ) {
                     downFillColor = [MSColor colorWithSVGString:cs.cgButtonPressedColor];
-                    downFillColor.alpha = cs.cgButtonPressedAlpha || 1;
+                    downFillColor.alpha = ( typeof cs.cgButtonPressedAlpha === "number" ) ? cs.cgButtonPressedAlpha : 1;
                     [[[downShapeGroup style] fills] firstObject].color = downFillColor; 
                 }
 
@@ -199,7 +199,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         y: numRoundHalfUp( pos.y ),
                         width: numRoundHalfUp( size.width || 0 ),
                         height: numRoundHalfUp( size.height || 0 )
-                    };
+                    },
+                    view = this.view,
+                    layerView;
 
                 group.name = bindingNames.button + " " + cs.displayName;
 
@@ -231,6 +233,12 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
                 [[[group style] contextSettings] setOpacity:( ( typeof cs.alpha === "number" ) ? cs.alpha : 1 )];
                 [group setIsVisible:( ( typeof cs.hidden === "boolean" ) ? !cs.hidden : true )];
+
+                layerView = view.make( group );
+
+                if( typeof cs.toggle !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.toggle, "toggle" );    
+                }
 
                 if( [[group layers] count] > 0 ) {
                     return group;
@@ -383,7 +391,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
         }
         if( args.borderThickness ) {
             borderColor = [MSColor colorWithSVGString:( args.borderColor || "#000000" )];
-            borderColor.alpha = args.borderAlpha || 1;
+            borderColor.alpha = ( typeof args.borderAlpha === "number" ) ? args.borderAlpha : 1;
             addBorder( group, {
                 position: 1,
                 thickness: args.borderThickness,
@@ -392,7 +400,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
         }
         if( args.fillColor ) {
             fillColor = [MSColor colorWithSVGString:args.fillColor];
-            fillColor.alpha = args.fillAlpha || 1;
+            fillColor.alpha = ( typeof args.fillAlpha === "number" ) ? args.fillAlpha : 1;
             addFill( group, {
                 color: fillColor
             } );
@@ -478,11 +486,49 @@ var ImportScrollMotion = ( function( bindingNames ) {
     }
 
     function getPosition( cs, orientation ) {
-        var layouts = cs.layouts[ orientation ];
-        
-        return ( cs.x && cs.y ) ? { x: cs.x, y: cs.y } :
-               ( layouts.x && layouts.y ) ? { x: layouts.x, y: layouts.y } :
-               { x: "0px", y: "0px" };
+        var props = "x,y,width,height".split( "," ),
+            layouts = {
+                x: 0,
+                y: 0,
+                width: 512,
+                height: 378,
+                horizontalAlign: "center",
+                verticalAlign: "center"
+            },
+            isLegacy = props.filter( function( p ) { return !!cs[ p ]; } ).length === props.length,
+            x,
+            y;
+
+            if( isLegacy ) {
+                util.forEach( layouts, function( v, p ) {
+                    var isNum = props.indexOf( p ) > -1;
+                    
+                    if( cs[ p ] ) {
+                        layouts[ p ] = isNum ? util.num( cs[ p ] ) : cs[ p ];
+                    }
+                } );
+            } else {
+                if( cs.layouts && cs.layouts[ orientation ] ) {                    
+                    util.forEach( cs.layouts[ orientation ], function( v, p ) {
+                        var isNum = props.indexOf( p ) > -1;
+
+                        layouts[ p ] = isNum ? util.num( v ) : v;
+                    } );
+                }
+            }
+
+        layouts.x = layouts.horizontalAlign === "center" ? layouts.x -= layouts.width / 2 :
+                    layouts.horizontalAlign === "right" ? layouts.x -= layouts.width : layouts.x;
+        layouts.y = layouts.verticalAlign === "center" ? layouts.y -= layouts.height / 2 :
+                    layouts.verticalAlign === "bottom" ? layouts.y -= layouts.height : layouts.y;
+
+        if( cs.displayName === "Milk" ) {
+            log( layouts );
+        }
+        return {
+            x: layouts.x,
+            y: layouts.y
+        };
     }
     function getSize( cs, orientation ) {
         var layouts = cs.layouts[ orientation ];

@@ -587,7 +587,6 @@ var View = ( function() {
         }
 
         var attrs = [command valueForKey:ATTRIBUTES_KEY onLayer:( this.layer )] || "{}";
-        log( attrs );
 
         if( typeof attrs === "string" || [attrs isKindOfClass:[NSString class]] ) {
             attrs = JSON.parse( String( attrs ) );
@@ -766,7 +765,7 @@ var View = ( function() {
             if( !sublayer.isVisible() ) {
                 // If native hidden is found, disable hidden for export 
                 // And tag the layer for later re-enabling
-                util.debug.debug( "Disabling hidden for layer <" + sublayer.name + ">" );
+                util.debug.debug( "Disabling hidden for layer <" + sublayer.name() + ">" );
                 sublayer.setName( name );
                 sublayer.setIsVisible( true );
 
@@ -852,7 +851,7 @@ var View = ( function() {
             if( sublayer.hasClippingMask() ) {
                 // If native mask is found, disable mask for export 
                 // And tag the layer for later re-enabling
-                util.debug.debug( "Disabling mask for layer <" + sublayer.name + ">" );
+                util.debug.debug( "Disabling mask for layer <" + sublayer.name() + ">" );
                 sublayer.setName( name );
                 sublayer.setHasClippingMask( false );
             }
