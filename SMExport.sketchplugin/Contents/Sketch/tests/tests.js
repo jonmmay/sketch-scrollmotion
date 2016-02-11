@@ -95,21 +95,212 @@ function runTests( context ) {
 		"test util.Object": {
 			"test for existence": function() {
 				assert.ok( typeof util.Object === "object", "'util.Object' exists" );
+
+				assert.ok( typeof util.Object.create === "function", "'util.Object' create method exists" );
+				assert.ok( typeof util.Object.extend === "function", "'util.Object' extend method exists" );
+				assert.ok( typeof util.Object.instanceOf === "function", "'util.Object' instanceOf method exists" );
+				assert.ok( typeof util.Object.init === "function", "'util.Object' init method exists" );
+			},
+			"test extending from object": function() {
+				var object = Object.create()
+					ExtendedObject = util.Object.extend( {} ),
+					foo = Object.create( { bar: "baz" } );
+
+				assert.ok( ExtendedObject.instanceOf( object ), "object is extended from Object" );
+				assert.ok( ExtendedObject.instanceOf( util.Object ), "object is extended from util.Object" );
+				assert.ok( !ExtendedObject.instanceOf( foo ), "object is not extended from an Object instance" );
+			},
+			"test graceful handling of invalid parameters": function() {
+				var ExtendEmpty = util.Object.extend();
+
+				assert.ok( ExtendEmpty.instanceOf( util.Object ), "object is extended from util.Object" );
+			},
+			"test extending from object": function() {
+				var inited = false,
+					ExtendedObject = util.Object.extend( {
+						"init": function( ctx ) {
+							this._super( ctx );
+							inited = true;
+						}
+					} ),
+					extendedObject = ExtendedObject.create( context );
+
+				assert.ok( inited, "extended object can initiate code" );
+				assert.ok( !!extendedObject.context, "instance can access plugin context object" );
+				assert.ok( !!extendedObject.doc, "instance can access plugin document" );
+				assert.ok( !!extendedObject.plugin, "instance can access plugin plugin" );
+				assert.ok( !!extendedObject.selection, "instance can access plugin selection" );
+				assert.ok( !!extendedObject.command, "instance can access plugin command" );
+			},
+			"test graceful extending from object without calling super init": function() {
+				var inited = false,
+					ExtendedObject = util.Object.extend( {
+						"init": function() {
+							inited = true;
+						}
+					} ),
+					extendedObject = ExtendedObject.create( context );
+
+				assert.ok( inited, "extended object can initiate code" );
+				assert.ok( !!!extendedObject.context, "instance cannot access plugin context object" );
+				assert.ok( !!!extendedObject.doc, "instance cannot access plugin document" );
+				assert.ok( !!!extendedObject.plugin, "instance cannot access plugin plugin" );
+				assert.ok( !!!extendedObject.selection, "instance cannot access plugin selection" );
+				assert.ok( !!!extendedObject.command, "instance cannot access plugin command" );
+			},
+			"test calling super": function() {
+				var superMessage,
+					messageForSuper = "foo bar",
+					ExtendedParent = util.Object.extend( {
+						"init": function() {
+						},
+						"doSomething": function( message ) {
+							superMessage = message;
+						}
+					} ),
+					ExtendedChild = ExtendedParent.extend( {
+						"init": function() {
+						},
+						"doSomething": function( message ) {
+							this._super( message );
+						}
+					} ),
+					child = ExtendedChild.create();
+
+				child.doSomething( messageForSuper );
+
+				assert.strictEqual( messageForSuper, superMessage, "object extension can call super methods" );
 			}
 		},
 		"test util.Command": {
 			"test for existence": function() {
 				assert.ok( typeof util.Command === "object", "'util.Command' exists" );
+				assert.ok( util.Command.instanceOf( util.Object ), "util.Command is extended from util.Object" );
+
+				var value = 1,
+					command = util.Command.create( function( val ) {
+						this.value += val;
+					}, function( val ) {
+						this.value -= val;
+					}, value );
+
+				assert.strictEqual( command.value, value, "Value is unchanged" );
+
+				command.execute( 2 );
+				assert.strictEqual( command.value, 3, "Value is changed" );
+
+				command.undo( 2 );
+				assert.strictEqual( command.value, value, "Value is unchanged" );
 			}
 		},
 		"test util.forEach": {
 			"test for existence": function() {
 				assert.ok( typeof util.forEach === "function", "'util.forEach' exists" );
+			},
+			"test forEach cocoa object" : function() {
+				var object = [NSDictionary dictionaryWithObjectsAndKeys:"foo","bar","baz","qux",nil],
+					keys = [ "foo", "baz" ],
+					vals = [ "bar", "qux" ];
+
+				util.forEach( object, function( val, key ) {
+					// Remove val
+					vals.splice( vals.indexOf( val ), 1 );
+
+					// Remove key
+					keys.splice( vals.indexOf( key ), 1 );
+				} );
+
+				assert.strictEqual( vals.length, 0, "All values accounted for in loop" );
+				assert.strictEqual( keys.length, 0, "All keys accounted for in loop" );
+			},
+			"test forEach cocoa array" : function() {
+				var array = [NSArray arrayWithObjects:"foo","bar","baz","qux"];
+
+				util.forEach( array, function( val, index ) {
+					assert.strictEqual( val, [array objectAtIndex:index], "Value accounted for in loop" );
+				} );
+			},
+			"test forEach js object" : function() {
+				var object = {
+						foo: "bar",
+						baz: "qux"
+					},
+					keys = [ "foo", "baz" ],
+					vals = [ "bar", "qux" ];
+
+				util.forEach( object, function( val, key ) {
+					// Remove val
+					vals.splice( vals.indexOf( val ), 1 );
+
+					// Remove key
+					keys.splice( vals.indexOf( key ), 1 );
+				} );
+
+				assert.strictEqual( vals.length, 0, "All values accounted for in loop" );
+				assert.strictEqual( keys.length, 0, "All keys accounted for in loop" );
+			},
+			"test forEach js array" : function() {
+				var array = [ "foo", "bar", "baz", "qux" ];
+
+				util.forEach( array, function( val, index ) {
+					assert.strictEqual( val, array[ index ], "Value accounted for in loop" );
+				} );
 			}
 		},
 		"test util.values": {
 			"test for existence": function() {
 				assert.ok( typeof util.values === "function", "'util.values' exists" );
+			},
+			"test values cocoa object" : function() {
+				// Value, key ...
+				var object = [NSDictionary dictionaryWithObjectsAndKeys:"foo","bar","baz","qux",nil],
+					values;
+
+				values = util.values( object );
+
+				assert.ok( Array.isArray( values ), "values is an array" );
+				assert.strictEqual( values.length, 2, "values consists of objects values" );
+				assert.equal( values[ 0 ], "foo", "values value" );
+				assert.equal( values[ 1 ], "baz", "values value" );
+			},
+			"test values cocoa array" : function() {
+				var array = [NSArray arrayWithObjects:"foo","bar","baz","qux"],
+					values = util.values( array );
+
+				assert.ok( Array.isArray( values ), "values is an array" );
+				assert.strictEqual( values.length, 4, "values consists of objects values" );
+				assert.equal( values[ 0 ], "foo", "values value" );
+				assert.equal( values[ 1 ], "bar", "values value" );
+				assert.equal( values[ 2 ], "baz", "values value" );
+				assert.equal( values[ 3 ], "qux", "values value" );
+			},
+			"test values js object" : function() {
+				var object = {
+						foo: "fooVal",
+						bar: 0
+					},
+					object2 = Object.create( object ),
+					values;
+
+				object2.baz = function() {};
+				object2.qux = "quxVal";
+
+				values = util.values( object2 );
+
+				assert.ok( Array.isArray( values ), "values is an array" );
+				assert.strictEqual( values.length, 1, "values consists of objects own properties' values, minus functions" );
+				assert.strictEqual( values[ 0 ], "quxVal", "values value" );
+			},
+			"test values js array" : function() {
+				var array = [ "foo", "bar", "baz", "qux" ],
+					values = util.values( array );
+
+				assert.ok( Array.isArray( values ), "values is an array" );
+				assert.strictEqual( values.length, 4, "values consists of objects values" );
+				assert.strictEqual( values[ 0 ], "foo", "values value" );
+				assert.strictEqual( values[ 1 ], "bar", "values value" );
+				assert.strictEqual( values[ 2 ], "baz", "values value" );
+				assert.strictEqual( values[ 3 ], "qux", "values value" );
 			}
 		},
 		"test util.stringifyJSON": {
@@ -210,206 +401,206 @@ function runTests( context ) {
 		}
 	};
 
-	/**
-		* @desc Config testing
-	*/
-	suite[ "test Config script" ] = ( function( config ) {
-		return {
-			"test Config": function() {
-				assert.ok( typeof Config === "object", "Config is an object" );
-				assert.ok( Config.instanceOf( util.Object ), "Config is extended from util.object" );
-			},
-			"test instance of Config": function() {
-				assert.ok( !!config.context, "instance can access plugin context object" );
-				assert.ok( !!config.doc, "instance can access plugin document" );
-				assert.ok( !!config.plugin, "instance can access plugin plugin" );
-				assert.ok( !!config.selection, "instance can access plugin selection" );
-				assert.ok( !!config.command, "instance can access plugin command" );
-			},
-			"test access to sketch version": function() {},
-			"test access to document name": function() {},
-			"test image extension": function() {},
-			"test export folder path": function() {},
-			"test document path": function() {},
-			"test plugin path": function() {},
-			"test resources path": function() {},
-			"test settings path": function() {},
-			"test accessing settings data": {
-				"test getting settings object": function() {},
-				"test getting settings key value": function() {},
-				"test setting settings": function() {},
-				"test syncing with default settings": function() {}
-			},
-			"test export scale factors": function() {}
-		};
-	} )( Config.create( context ) );
+	// /**
+	// 	* @desc Config testing
+	// */
+	// suite[ "test Config script" ] = ( function( config ) {
+	// 	return {
+	// 		"test Config": function() {
+	// 			assert.ok( typeof Config === "object", "Config is an object" );
+	// 			assert.ok( Config.instanceOf( util.Object ), "Config is extended from util.Object" );
+	// 		},
+	// 		"test instance of Config": function() {
+	// 			assert.ok( !!config.context, "instance can access plugin context object" );
+	// 			assert.ok( !!config.doc, "instance can access plugin document" );
+	// 			assert.ok( !!config.plugin, "instance can access plugin plugin" );
+	// 			assert.ok( !!config.selection, "instance can access plugin selection" );
+	// 			assert.ok( !!config.command, "instance can access plugin command" );
+	// 		},
+	// 		"test access to sketch version": function() {},
+	// 		"test access to document name": function() {},
+	// 		"test image extension": function() {},
+	// 		"test export folder path": function() {},
+	// 		"test document path": function() {},
+	// 		"test plugin path": function() {},
+	// 		"test resources path": function() {},
+	// 		"test settings path": function() {},
+	// 		"test accessing settings data": {
+	// 			"test getting settings object": function() {},
+	// 			"test getting settings key value": function() {},
+	// 			"test setting settings": function() {},
+	// 			"test syncing with default settings": function() {}
+	// 		},
+	// 		"test export scale factors": function() {}
+	// 	};
+	// } )( Config.create( context ) );
 
-	/**
-		* @desc CS testing
-	*/
-	suite[ "test CS script" ] = ( function( cs ) {
-		return {
-			"test Content Spec": function() {
-				assert.ok( typeof ContentSpec === "object", "ContentSpec is an object" );
-				assert.ok( ContentSpec.instanceOf( util.Object ), "ContentSpec is extended from util.object" );
-			},
-			"test instance of Content Spec": function() {
-				assert.ok( !!cs.context, "instance can access plugin context object" );
-				assert.ok( !!cs.doc, "instance can access plugin document" );
-				assert.ok( !!cs.plugin, "instance can access plugin plugin" );
-				assert.ok( !!cs.selection, "instance can access plugin selection" );
-				assert.ok( !!cs.command, "instance can access plugin command" );
-			},
-			"test initializing": {
+	// /**
+	// 	* @desc CS testing
+	// */
+	// suite[ "test CS script" ] = ( function( cs ) {
+	// 	return {
+	// 		"test Content Spec": function() {
+	// 			assert.ok( typeof ContentSpec === "object", "ContentSpec is an object" );
+	// 			assert.ok( ContentSpec.instanceOf( util.Object ), "ContentSpec is extended from util.Object" );
+	// 		},
+	// 		"test instance of Content Spec": function() {
+	// 			assert.ok( !!cs.context, "instance can access plugin context object" );
+	// 			assert.ok( !!cs.doc, "instance can access plugin document" );
+	// 			assert.ok( !!cs.plugin, "instance can access plugin plugin" );
+	// 			assert.ok( !!cs.selection, "instance can access plugin selection" );
+	// 			assert.ok( !!cs.command, "instance can access plugin command" );
+	// 		},
+	// 		"test initializing": {
 
-			},
-			"test initializing with JSON": ( function( altCS ) {
-				return {
-					// altCS.initWithJSON	
-				};
-			} )( ContentSpec.create( context ) ),
-			"test getting CS Stubs": {
-				// getCSStubByResourcePath
-			},
-			"test CS metadata": {
-				"test schema": function() {},
-				"test reset css": function() {},
-				"test start page": function() {
+	// 		},
+	// 		"test initializing with JSON": ( function( altCS ) {
+	// 			return {
+	// 				// altCS.initWithJSON	
+	// 			};
+	// 		} )( ContentSpec.create( context ) ),
+	// 		"test getting CS Stubs": {
+	// 			// getCSStubByResourcePath
+	// 		},
+	// 		"test CS metadata": {
+	// 			"test schema": function() {},
+	// 			"test reset css": function() {},
+	// 			"test start page": function() {
 
-				},
-				"test add font metadata": function() {}
-			},
-			"test getting CS keys by key name": function() {},
-			"test getting pageset ids": function() {},
-			"test getting pages ids": function() {},
-			"test getting overlays ids": function() {},
-			"test CS screensupport": function() {
+	// 			},
+	// 			"test add font metadata": function() {}
+	// 		},
+	// 		"test getting CS keys by key name": function() {},
+	// 		"test getting pageset ids": function() {},
+	// 		"test getting pages ids": function() {},
+	// 		"test getting overlays ids": function() {},
+	// 		"test CS screensupport": function() {
 
-			},
-			"test generating unique overlayId": function() {},
-			"test generating unique pageId": function() {},
-			"test making new overlay": {},
-			"test making new page": {},
-			"test adding overlay to CS": function() {},
-			"test adding page to CS": function() {},
-			"test getting pageset by id": function() {},
-			"test getting page by id": function() {},
-			"test getting overlay by id": function() {},
-			"test getting type of overlay": function() {}
+	// 		},
+	// 		"test generating unique overlayId": function() {},
+	// 		"test generating unique pageId": function() {},
+	// 		"test making new overlay": {},
+	// 		"test making new page": {},
+	// 		"test adding overlay to CS": function() {},
+	// 		"test adding page to CS": function() {},
+	// 		"test getting pageset by id": function() {},
+	// 		"test getting page by id": function() {},
+	// 		"test getting overlay by id": function() {},
+	// 		"test getting type of overlay": function() {}
 
-		};
-	} )( ContentSpec.create( context ) );
+	// 	};
+	// } )( ContentSpec.create( context ) );
 
-	/**
-		* @desc View testing
-	*/
-	suite[ "test View script" ] = ( function( view ) {
-		// Make layers;
+	// /**
+	// 	* @desc View testing
+	// */
+	// suite[ "test View script" ] = ( function( view ) {
+	// 	// Make layers;
 
-		return {
-			"test View": function() {
-				assert.ok( typeof View === "object", "View is an object" );
-				assert.ok( View.instanceOf( util.Object ), "View is extended from util.object" );
-			},
-			"test instance of View": function() {
-				assert.ok( !!view.context, "instance can access plugin context object" );
-				assert.ok( !!view.doc, "instance can access plugin document" );
-				assert.ok( !!view.plugin, "instance can access plugin plugin" );
-				assert.ok( !!view.selection, "instance can access plugin selection" );
-				assert.ok( !!view.command, "instance can access plugin command" );
-			},
-			"test wrapping layers": ( function() {
-				// Make views
+	// 	return {
+	// 		"test View": function() {
+	// 			assert.ok( typeof View === "object", "View is an object" );
+	// 			assert.ok( View.instanceOf( util.Object ), "View is extended from util.Object" );
+	// 		},
+	// 		"test instance of View": function() {
+	// 			assert.ok( !!view.context, "instance can access plugin context object" );
+	// 			assert.ok( !!view.doc, "instance can access plugin document" );
+	// 			assert.ok( !!view.plugin, "instance can access plugin plugin" );
+	// 			assert.ok( !!view.selection, "instance can access plugin selection" );
+	// 			assert.ok( !!view.command, "instance can access plugin command" );
+	// 		},
+	// 		"test wrapping layers": ( function() {
+	// 			// Make views
 
-				return {
-					"test access to layer": function() {},
-					"test access to layer id": function() {},
-					"test access to layer name": function() {},
-					"test access to layer class name": function() {},
-					"test if layer has children": function() {},
-					"test if layer has a clipping mask": function() {},
-					"test access to view parent": function() {},
+	// 			return {
+	// 				"test access to layer": function() {},
+	// 				"test access to layer id": function() {},
+	// 				"test access to layer name": function() {},
+	// 				"test access to layer class name": function() {},
+	// 				"test if layer has children": function() {},
+	// 				"test if layer has a clipping mask": function() {},
+	// 				"test access to view parent": function() {},
 
-					"test access to layer parent": function() {},
-					"test get layer kind": function() {},
-					"test check if artboard": function() {},
-					"test check if layer": function() {},
-					"test check if layer group or artboard": function() {},
-					"test check if view should be ignored": function() {},
-					"test check if view should be flattened": function() {},
-					"test check if view should be extracted": function() {},
-					"test check if view should not be traversed": function() {},
-					"test check if layer name begins with...": function() {},
-					"test check if layer name ends with...": function() {},
+	// 				"test access to layer parent": function() {},
+	// 				"test get layer kind": function() {},
+	// 				"test check if artboard": function() {},
+	// 				"test check if layer": function() {},
+	// 				"test check if layer group or artboard": function() {},
+	// 				"test check if view should be ignored": function() {},
+	// 				"test check if view should be flattened": function() {},
+	// 				"test check if view should be extracted": function() {},
+	// 				"test check if view should not be traversed": function() {},
+	// 				"test check if layer name begins with...": function() {},
+	// 				"test check if layer name ends with...": function() {},
 					
-					"test get sanitized layer name": function() {},
-					"test get layer name attributes": function() {},
-					"test add layer name attribute": function() {},
-					"test clear layer name attributes": function() {},
+	// 				"test get sanitized layer name": function() {},
+	// 				"test get layer name attributes": function() {},
+	// 				"test add layer name attribute": function() {},
+	// 				"test clear layer name attributes": function() {},
 					
-					"test get data attached to layer": function() {},
-					"test set data attached to layer": function() {},
-					"test clear data attached to layer": function() {},
-					"test get Content Spec attached to layer": function() {},
-					"test set Content Spec attached to layer": function() {},
-					"test clear Content Spec attached to layer": function() {},
+	// 				"test get data attached to layer": function() {},
+	// 				"test set data attached to layer": function() {},
+	// 				"test clear data attached to layer": function() {},
+	// 				"test get Content Spec attached to layer": function() {},
+	// 				"test set Content Spec attached to layer": function() {},
+	// 				"test clear Content Spec attached to layer": function() {},
 
-					"test get layer artboard": function() {},
-					"test get layer artboard size": function() {},
-					"test check if layer has children": function() {},
-					"test get layer children": function() {},
+	// 				"test get layer artboard": function() {},
+	// 				"test get layer artboard size": function() {},
+	// 				"test check if layer has children": function() {},
+	// 				"test get layer children": function() {},
 					
-					"test disable layer hidden attribute": function() {},
-					"test enable layer hidden attribute": function() {},
-					"test check if layer is hidden": function() {},
-					"test check if layer has hidden children": function() {},
+	// 				"test disable layer hidden attribute": function() {},
+	// 				"test enable layer hidden attribute": function() {},
+	// 				"test check if layer is hidden": function() {},
+	// 				"test check if layer has hidden children": function() {},
 					
-					"test disable layer mask attribute": function() {},
-					"test enable layer mask attribute": function() {},
-					"test check if layer is a clipping mask": function() {},
-					"test check if clipping mask view should be extracted": function() {},
-					"test check if layer has a clipping mask": function() {},
-					"test get layer clipping mask": function() {},
+	// 				"test disable layer mask attribute": function() {},
+	// 				"test enable layer mask attribute": function() {},
+	// 				"test check if layer is a clipping mask": function() {},
+	// 				"test check if clipping mask view should be extracted": function() {},
+	// 				"test check if layer has a clipping mask": function() {},
+	// 				"test get layer clipping mask": function() {},
 					
-					"test get layer layout relative to another layer": function() {},
-					"test get layer layout including styles": function() {},
-					"test get layer layout without styles": function() {},
-					"test get layer absolute layout": function() {},
+	// 				"test get layer layout relative to another layer": function() {},
+	// 				"test get layer layout including styles": function() {},
+	// 				"test get layer layout without styles": function() {},
+	// 				"test get layer absolute layout": function() {},
 
-					"test get border styles": function() {},
-					"test get shadow styles": function() {},
-					"test duplicate layer": function() {},
-					"test remove layer from parent": function() {}
-				};
-			} )()
-		};
-	} )( View.create( context ) );
+	// 				"test get border styles": function() {},
+	// 				"test get shadow styles": function() {},
+	// 				"test duplicate layer": function() {},
+	// 				"test remove layer from parent": function() {}
+	// 			};
+	// 		} )()
+	// 	};
+	// } )( View.create( context ) );
 
-	/**
-		* @desc ViewBindingController testing
-	*/
-	suite[ "test ViewBindingController script" ] = ( function( viewBindingControl ) {
-		return {
-			"test layer binding registry": function() {
-				// viewBindingControl.layerKindRegistry
+	// /**
+	// 	* @desc ViewBindingController testing
+	// */
+	// suite[ "test ViewBindingController script" ] = ( function( viewBindingControl ) {
+	// 	return {
+	// 		"test layer binding registry": function() {
+	// 			// viewBindingControl.layerKindRegistry
 
-				// accessing registered bindings
-			},
-			"test layer name binding registry": function() {
-				// viewBindingControl.bindingRegistry
+	// 			// accessing registered bindings
+	// 		},
+	// 		"test layer name binding registry": function() {
+	// 			// viewBindingControl.bindingRegistry
 
-				// access registered bindings
-			},
-			"test apply bindings to layers": function() {
-				// viewBindingControl.applyBindings
-			}
-		};
-	} )( new ViewBindingController() );
+	// 			// access registered bindings
+	// 		},
+	// 		"test apply bindings to layers": function() {
+	// 			// viewBindingControl.applyBindings
+	// 		}
+	// 	};
+	// } )( new ViewBindingController() );
 
-	/**
-		* @desc html parser testing
-	*/
-	suite[ "test html parser script" ] = {};
+	// /**
+	// 	* @desc html parser testing
+	// */
+	// suite[ "test html parser script" ] = {};
 	
 	test.runAll( suite );
 

@@ -125,6 +125,7 @@ var util = ( function() {
                     prototype;
 
                 prototype = new _super.instance();
+                properties = ( typeof properties === "object" ) ? properties : {};
 
                 Object.defineProperty( properties, "_super", { value: this,
                                                                writable: true,
@@ -264,7 +265,7 @@ var util = ( function() {
                 valArr.push( val );
             }
             // JavaScript
-            else if( obj.hasOwnProperty( key ) && typeof val !== "function" ) {
+            else if( ( Array.isArray( obj ) || obj.hasOwnProperty( key ) ) && typeof val !== "function" ) {
                 valArr.push( val );
             }
         } );
@@ -291,7 +292,7 @@ var util = ( function() {
             return [string stringByReplacingOccurrencesOfString:@"\\/" withString:@"/"];
         }
 
-        return null
+        return null;
     };
 
     /**
