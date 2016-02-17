@@ -522,9 +522,6 @@ var ImportScrollMotion = ( function( bindingNames ) {
         layouts.y = layouts.verticalAlign === "center" ? layouts.y -= layouts.height / 2 :
                     layouts.verticalAlign === "bottom" ? layouts.y -= layouts.height : layouts.y;
 
-        if( cs.displayName === "Milk" ) {
-            log( layouts );
-        }
         return {
             x: layouts.x,
             y: layouts.y
@@ -579,8 +576,10 @@ var ImportScrollMotion = ( function( bindingNames ) {
         while( node !== null ) {
             if( !node.attrs || !node.attrs.style ) {
                 node = node.getParentNode();
+                continue;
             }
-            if( node.attrs.style[ styleName ] ) {
+
+            if( node.attrs && node.attrs.style && node.attrs.style[ styleName ] ) {
                 return node.attrs.style[ styleName ];
             }
             node = node.getParentNode();

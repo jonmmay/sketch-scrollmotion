@@ -274,25 +274,29 @@ var util = ( function() {
 
     /**
         * @desc Stringify a Cocoa JSON object
-        * @param {object} obj -
+        * @param {NSDictionary|object} obj -
         * @param {boolean} prettyPrinted - Whether string includes line breaks and indentations
         * @return {NSString|null} Stringified object; else null
     */
     util.stringifyJSON = function( obj, prettyPrinted ) {
+        if( ( obj.class && !( [obj isKindOfClass:[NSDictionary class]] || [obj isKindOfClass:[NSArray class]] ) ) ||
+            typeof obj !== "object" ) {
+            return null;
+        }
+
         var err = [[MOPointer alloc] init],
             prettySetting = prettyPrinted ? NSJSONWritingPrettyPrinted : 0,
             jsonData = [NSJSONSerialization dataWithJSONObject:obj options:prettySetting error:err],
             string;
 
         if( [err value] ) {
-            throw "Stringify JSON error, " + [err value];
+            util.debug.error( "Stringify JSON error, " + [err value] );
+            return null;
         } else {
              string = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
              // Removes escape forward slashes
             return [string stringByReplacingOccurrencesOfString:@"\\/" withString:@"/"];
         }
-
-        return null;
     };
 
     /**

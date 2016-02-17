@@ -306,11 +306,136 @@ function runTests( context ) {
 		"test util.stringifyJSON": {
 			"test for existence": function() {
 				assert.ok( typeof util.stringifyJSON === "function", "'util.stringifyJSON' exists" );
+			},
+			"test stringifying cocoa JSON": function() {
+				function deserializeString( nsstring ) {
+					var data = [nsstring dataUsingEncoding:NSUTF8StringEncoding],
+						obj = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+
+					return obj;
+				}
+
+				var array = [NSArray arrayWithObjects:"baz","qux"],
+					number = [NSNumber numberWithInt:2],
+					dict2 = [NSDictionary dictionaryWithObject:number forKey:"baz"],
+					dictionary = [NSDictionary dictionaryWithObjectsAndKeys:"bar","foo",dict2,"baz",array,"qux",nil],
+					
+					stringifiedNSDict = util.stringifyJSON( dictionary ),
+					actualNSDict = deserializeString( stringifiedNSDict ),
+					expectedNSDict = dictionary,
+
+					stringifiedNSArr = util.stringifyJSON( array ),
+					actualNSArr = deserializeString( stringifiedNSArr ),
+					expectedNSArr = array;
+
+					assert.ok( [actualNSDict isEqual:expectedNSDict], "stringifies NSDictionary JSON" );
+					assert.ok( [actualNSArr isEqual:expectedNSArr], "stringifies NSArray JSON" );
+
+			},
+			// Not intended for parsing JS JSON; use JSON.parse
+			"test stringifying js JSON": function() {
+				var stringifiedObj = util.stringifyJSON( {"foo":"bar","baz":{"baz":2},"qux":["baz","qux"]} ),
+					stringifiedArr = util.stringifyJSON( ["baz","qux"] );
+
+					assert.ok( [stringifiedObj isKindOfClass:[NSString class]], "stringifies object JSON" );
+					assert.ok( [stringifiedArr isKindOfClass:[NSString class]], "stringifies array JSON" );
+
+			},
+			"test stringifying JSON with invalid parameters": function() {
+				var paramEmpty = "",
+					
+					actual = util.stringifyJSON( paramEmpty ),
+					expected = null;
+
+					assert.ok( actual == expected, "returns null when passed invalid parameter" );
 			}
 		},
 		"test util.merge": {
 			"test for existence": function() {
 				assert.ok( typeof util.merge === "function", "'util.merge' exists" );
+			},
+			"test merging cocoa object": function() {
+				var array1 = [NSArray arrayWithObjects:"baz","qux"],
+					number1a = [NSNumber numberWithInt:0],
+					number1b = [NSNumber numberWithInt:1],
+					dict1 = [NSDictionary dictionaryWithObjectsAndKeys:number1a,"baz",number1b,"qux",nil],
+					dictionary1 = [NSDictionary dictionaryWithObjectsAndKeys:"old","obj1","bar","foo",dict1,"baz",array1,"qux",nil],
+
+					array2 = [NSArray arrayWithObjects:"new","qux"],
+					number2 = [NSNumber numberWithInt:2],
+					dict2 = [NSDictionary dictionaryWithObject:number2 forKey:"baz"],
+					dictionary2 = [NSDictionary dictionaryWithObjectsAndKeys:"new","obj2","foo","foo",dict2,"baz",array2,"qux",nil],
+					actual = util.merge( dictionary1, dictionary2 );
+
+					assert.ok( [( actual.obj1 ) isEqual:"old"], "Root values are preserves if unique" );
+					assert.ok( [( actual.obj2 ) isEqual:"new"], "New unique values are merged" );
+					assert.ok( [( actual.foo ) isEqual:"foo"], "Common key string value is merged" );
+					assert.ok( [( actual.baz.baz ) isEqual:2], "Common key object value is merged" );
+					assert.equal( actual.baz.qux, undefined, "Merge is superficial" );
+					assert.ok( [( actual.qux[ 0 ] ) isEqual:"new"], "Common key array value is merged" );
+			},
+			"test merging js object": function() {
+				var obj1 = {
+						"foo": "bar",
+						"baz": {
+							"baz": 0,
+							"qux": 1
+						},
+						"qux": [
+							"baz",
+							"qux"
+						],
+						"obj1": "old"
+					},
+					obj2 = {
+						"foo": "foo",
+						"baz": {
+							"baz": 2
+						},
+						"qux": [
+							"new",
+							"qux"
+						],
+						"obj2": "new"
+					},
+					actual = util.merge( obj1, obj2 );
+
+					assert.strictEqual( actual.obj1, "old", "Root values are preserves if unique" );
+					assert.strictEqual( actual.obj2, "new", "New unique values are merged" );
+					assert.strictEqual( actual.foo, "foo", "Common key string value is merged" );
+					assert.strictEqual( actual.baz.baz, 2, "Common key object value is merged" );
+					assert.strictEqual( actual.baz.qux, undefined, "Merge is superficial" );
+					assert.strictEqual( actual.qux[ 0 ], "new", "Common key array value is merged" );
+			},
+			"test merging multiple js objects": function() {
+				var obj1 = {
+						foo: "obj1",
+						bar: 0,
+						boolean: false
+					},
+					obj2 = {
+						foo: "obj2",
+						baz: 1,
+						boolean: true
+					},
+					obj3 = {
+						foo: "obj3",
+						qux: 2
+					},
+					obj4 = {
+						foo: "obj4",
+						hoge: 3
+					},
+					actual = util.merge( obj1, obj2, obj3, obj4 );
+
+				log( actual );
+
+				assert.strictEqual( actual.foo, "obj4", "Common key value are overwritten" );
+				assert.strictEqual( actual.boolean, true, "Common key value are overwritten" );
+				assert.strictEqual( actual.bar, 0, "Unique values are preserved" );
+				assert.strictEqual( actual.baz, 1, "Unique values are preserved" );
+				assert.strictEqual( actual.qux, 2, "Unique values are preserved" );
+				assert.strictEqual( actual.hoge, 3, "Unique values are preserved" );
 			}
 		},
 		"test util.commonProperties": {

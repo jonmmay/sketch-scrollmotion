@@ -117,6 +117,7 @@ var ContentSpec = ( function( options ) {
         while( node !== null ) {
             if( !node.attrs || !node.attrs.style ) {
                 node = node.getParentNode();
+                continue;
             }
             if( node.attrs.style[ styleName ] ) {
                 return node.attrs.style[ styleName ];
