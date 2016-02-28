@@ -19,25 +19,21 @@ You can [Download Zip](https://github.com/jonmmay/sketch-scrollmotion/archive/ma
 ## Get interactive
 
 ### Buttons
-* Identify a Group layer as a button with touch states by appending `[btn]` to the layer name
+* Identify a Group layer as a button with touch states by prepending `[B]` to the layer name. Better yet, select a group layer or many group layers use the plugin command `Edit Button...` to quickly configure your buttons. 
 
 ![alt text](https://github.com/jonmmay/sketch-scrollmotion/blob/master/Basic%20Button.gif?raw=true "Basic Button")
 
-![alt text](https://raw.githubusercontent.com/jonmmay/sketch-scrollmotion/master/Basic%20Button%20Toggle.gif "Basic Button with toggle")
-
 ![alt text](https://github.com/jonmmay/sketch-scrollmotion/blob/master/Image%20Button.gif?raw=true "Image Button")
 
-![alt text](https://github.com/jonmmay/sketch-scrollmotion/blob/master/Image%20Button%20Toggle.gif?raw=true "Image Button with toggle")
-
 #### Container
-* Identify a Group layer as a scrollable container by appending `[scroll]` to the layer name
+* Identify a Group layer as a scrollable container by prepending `[C]` to the layer name. Or similarly to buttons, use the plugin command `Edit Container...` to make light work of creating containers.
 
 ![alt text](https://github.com/jonmmay/sketch-scrollmotion/blob/master/Container.gif?raw=true "Container")
 
 ## Ignore layers
-* Ignore a layer by appending `-` to the layer name. The plugin will work around the layer so you don't have to delete your art
+* Ignore a layer by prepending `-` to the layer name. The plugin will work around the layer so you don't have to delete your art
   * Ignoring a layer will ignore all layers in the layer group
-* Flatten a layer by appending `[flat]` to the layer name. The plugin will export all layers in the layer group as a flat bitmap. I'm working on supporting `*` as an alternative.
+* Flatten a layer by prepending `*` to the layer name. The plugin will export all layers in the layer group as a flat bitmap.
   * You cannot flatten an Artboard
 
 ## Export for SmartStudio

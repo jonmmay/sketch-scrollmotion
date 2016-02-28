@@ -1,0 +1,52 @@
+{
+    "schema": "http://www.scrollmotion.com/contentspec/schema/3.0/",
+    "metaData": {
+        "applicationStartPage": "",
+        "shortTitle": "",
+        "_checkLogin": 1,
+        "resetTextCss": "",
+        "customFonts": [],
+        "fonts": [],
+        "_version": "",
+        "_applicationLoginPage": "",
+        "startPage": "",
+        "title": "",
+        "flurryAPIKey": ""
+    },
+    "pageSets": {},
+    "pages": {},
+    "overlays": {},
+    "actions": {},
+    "animations": {
+        "fadeIn": {
+            "displayName": "Fade In",
+            "type": "Animation",
+            "properties": [
+                {
+                    "animationFunction": "EaseInOut",
+                    "autoreverses": false,
+                    "duration": 0.5,
+                    "property": "alpha",
+                    "repeatCount": 0,
+                    "toValue": 1
+                }
+            ]
+        },
+        "fadeOut": {
+            "displayName": "Fade Out",
+            "type": "Animation",
+            "properties": [
+                {
+                    "animationFunction": "EaseInOut",
+                    "duration": 0.5,
+                    "property": "alpha",
+                    "toValue": 0
+                }
+            ]
+        }
+    },
+    "screenSupport": {
+        "screens": [],
+        "useScreenRatio": true
+    }
+}

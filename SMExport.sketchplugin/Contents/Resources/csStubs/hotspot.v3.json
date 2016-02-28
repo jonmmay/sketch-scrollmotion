@@ -1,0 +1,17 @@
+{
+    "widget": "hotspot",
+    "overlayId": "",
+    "type": "button",
+    "relative": "parent",
+    "borderAlpha": 0,
+    "borderWidth": "0px",
+    "borderColor": "#0099BB",
+    "cornerRadius": "0px",
+    "alpha": 1,
+    "hidden": false,
+    "toggle": false,
+    "layouts": {
+    },
+    "displayName": "",
+    "actions": []
+}

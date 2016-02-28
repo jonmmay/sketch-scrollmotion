@@ -1,0 +1,441 @@
+@import "util.js";
+@import "View.js";
+// Page set
+    // Set as start page set
+
+// Page
+    // Set as start page
+
+function createLabel( frame, text, font ) {
+    var label = [[NSTextField alloc] initWithFrame:frame];
+
+    font = font || [NSFont systemFontOfSize:[NSFont systemFontSize]];
+    
+    [label setStringValue:text];
+    [label setFont:font];
+    [label setBezeled:false];
+    [label setDrawsBackground:false];
+    [label setEditable:false];
+    [label setSelectable:false];
+
+    return label
+}
+function createCheckbox( text, checked, frame ) {
+    var checkbox = [[NSButton alloc] initWithFrame:frame],
+        allowsMixedState = checked == "mixed";
+
+    checked = allowsMixedState ? NSMixedState : ( checked == false ) ? NSOffState : NSOnState;
+    
+    [checkbox setButtonType:NSSwitchButton];
+    [checkbox setBezelStyle:0];
+    [checkbox setTitle:text];
+    checkbox.allowsMixedState = allowsMixedState;
+    [checkbox setState:checked];
+
+    return checkbox;
+}
+function createSelect( frame, currentValue ) {
+    var combo = [[NSComboBox alloc] initWithFrame:frame];
+    [combo addItemsWithObjectValues:[ currentValue ]];
+
+    return combo;
+}
+function createPopUpButton( frame, items ) {
+    var popUpButton = [[NSPopUpButton alloc] initWithFrame:frame pullsDown:0];
+
+    if( items ) {
+        util.forEach( items, function( item ) {
+            [popUpButton addItemWithTitle:item];        
+        } );
+    }
+
+    return popUpButton;
+}
+function createScrollingLabel( frame, text, font ) {
+    var scrollview = [[NSScrollView alloc] initWithFrame:frame],
+        contentSize = [scrollview contentSize],
+        textview = [[NSTextView alloc] initWithFrame:NSMakeRect( 0, 0, contentSize.width, 0 )];
+
+    font = font || [NSFont systemFontOfSize:[NSFont systemFontSize]];
+
+    [scrollview setBorderType:NSNoBorder];
+    [scrollview setHasVerticalScroller:true];
+    [scrollview setHasHorizontalScroller:false];
+    [scrollview setAutoresizingMask:NSViewHeightSizable];
+
+    [textview setString:text];
+    [textview setEditable:false];
+    [[textview textStorage] setFont:font];
+    // [textview setMinSize:NSMakeSize( 0.0, contentSize.height )];
+    // [textview setMaxSize:NSMakeSize( Number.MAX_VALUE, Number.MAX_VALUE )];
+    [textview setVerticallyResizable:true];
+    [textview setHorizontallyResizable:false];
+    // [textview setAutoresizingMask:NSViewWidthSizable];
+    [textview sizeToFit];
+
+    if( [scrollview frame].size.height > [textview frame].size.height ) {
+        [scrollview setFrame:NSMakeRect( 0, 0, contentSize.width, [textview frame].size.height)];
+        [scrollview setHasVerticalScroller:false];
+    }
+
+    [[textview textContainer] setContainerSize:NSMakeSize( contentSize.width, Number.MAX_VALUE )];
+    // [[textview textContainer] setWidthTracksTextView:true];
+
+    [scrollview setDocumentView:textview];
+
+    return {
+        scrollView: scrollview,
+        textView: textview
+    };
+}
+
+
+// example getSizeOfString("May", [NSFont systemFontOfSize:[NSFont systemFontSize]]) );
+function getSizeOfString( string, font ) {
+    var attributes;
+    
+    font = font || [NSFont systemFontOfSize:[NSFont systemFontSize]];
+    attributes = [NSDictionary dictionaryWithObjectsAndKeys:font, NSFontAttributeName, nil];
+
+    return [[[NSAttributedString new] initWithString:string attributes:attributes] size];
+}
+
+function tagViewWithBinding( view, bindStr ) {
+    if( !view.getNameAttributes()[ bindStr ] ) {
+        view.name = view.getSanitizedName();
+        view.addNameAttributes( bindStr );
+    }
+}
+function uniqueValuesInArray( arr ) {
+    return arr.length > 0 ? arr.reduce( function( p, c ) {
+        if( p.indexOf( c ) < 0 ) { p.push( c ); }
+        return p;
+    }, [] ) : [];
+}
+
+function smButton( context ) {
+	var doc = context.document,
+        selection = context.selection,
+        selectedLayers = ( [selection count] > 0 ) ? selection : null,
+        transformedLayers = [],
+        toggleValues = [],
+        isToggled,
+        view = View.create( context );
+    
+    function buttonInspector( views, isToggled ) {
+        var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 460, 160 )],
+            alert = [[NSAlert alloc] init],
+            alertVal,
+            iconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
+            icon = [[NSImage alloc] initWithData:iconData],
+
+            viewNames = views.map( function( view ) {
+                return view.name;
+            } ),
+            alertTitle = "ScrollMotion Button",
+            alertDescription = "Edit properties on the selected layer:\n" + viewNames.join( "\n" ),
+            
+            toggleSwitch = createCheckbox( "Toggle", isToggled, NSMakeRect( 0, 0, 250, 18 ) );
+
+        if( viewNames.length > 1 ) {
+            alertDescription = alertDescription.replace( /(layer)/, "$1s" );
+        }
+
+        [accessory addSubview:toggleSwitch];
+
+        [toggleSwitch sizeToFit];
+        accessory.frame = NSMakeRect( 0, 0, [toggleSwitch frame].size.width, [toggleSwitch frame].size.height );
+
+        [alert setMessageText:alertTitle];
+        [alert setInformativeText:alertDescription];
+        [alert addButtonWithTitle:"OK"];
+        [alert addButtonWithTitle:"Cancel"];
+        [alert setAccessoryView:accessory];
+        [alert setIcon:icon];
+
+        alertVal = [alert runModal];
+
+        if( alertVal === NSAlertFirstButtonReturn ) {
+            views.forEach( function( view ) {
+                var isToggled = [toggleSwitch state] ? true : false;
+
+                if( [toggleSwitch state] != NSMixedState ) {
+                    view.setLayerValueForKey( isToggled, "toggle" );    
+                }
+                
+                tagViewWithBinding( view, "B" );
+            } );    
+        }
+    }
+
+    if( selectedLayers ) {
+        util.forEach( selectedLayers, function( layer ) {
+            var newView = view.make( layer );
+            
+            transformedLayers.push( newView );
+        } );
+        toggleValues = transformedLayers.map( function( view ) {
+            var val = view.getLayerValueForKey( "toggle" );
+
+            return ( typeof val === "boolean" ) ? val : false;
+        } );
+
+        isToggled = ( toggleValues.indexOf( false ) > -1 && toggleValues.indexOf( true ) > -1 ) ? "mixed" : toggleValues[ 0 ];
+        buttonInspector( transformedLayers, isToggled );
+        doc.showMessage( "Done" );
+    } else {
+        doc.showMessage( "Ahh 💩... Select a layer to make a button." );
+    }
+}
+function smContainer( context ) {
+    var doc = context.document,
+        selection = context.selection,
+        selectedLayers = ( [selection count] > 0 ) ? selection : null,
+        transformedLayers = [],
+        layerTypes = [],
+        pagingValues = [],
+        clippedToBoundsValues = [],
+        tapThroughValues= [],
+        draggableValues = [],
+        bounceValues = [],
+        scrollDirectionValues = [],
+        scrollBarValues = [],
+        view = View.create( context );
+
+    function containerInspector( views, props ) {
+        var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 230, 184 )],
+            alert = [[NSAlert alloc] init],
+            alertVal,
+            iconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
+            icon = [[NSImage alloc] initWithData:iconData],
+            viewNames = views.map( function( view ) {
+                return view.name;
+            } ),
+            alertTitle = "ScrollMotion Container",
+            alertDescription = "Edit properties on the selected layer:\n" + viewNames.join( "\n" ),
+            
+            sDirText = "Scroll Direction:",
+            sDirLabel = createLabel( NSMakeRect( 0, 154, getSizeOfString( sDirText ).width + 10, 26 ), sDirText, [NSFont systemFontOfSize:12.0] ),
+            sDirValues = createPopUpButton( NSMakeRect( [sDirLabel frame].size.width, 158, 250, 26 ), [ "horizontal", "vertical", "both", "none" ] ),
+
+            sStyleText = "Scroll Bar:",
+            sStyleLabel = createLabel( NSMakeRect( 0, 124, getSizeOfString( sStyleText ).width + 10, 26 ), sStyleText, [NSFont systemFontOfSize:12.0] ),
+            sStyleValues = createPopUpButton( NSMakeRect( [sStyleLabel frame].size.width, 128, 250, 26 ), [ "black", "white", "none" ] ),
+            
+            pagingSwitch = createCheckbox( "Paging", props.paging, NSMakeRect( 0, 96, 250, 18 ) ),
+            clipToBoundsSwitch = createCheckbox( "Clip to Bounds", props.clipToBounds, NSMakeRect( 0, 72, 250, 18 ) ),
+            tapThroughSwitch = createCheckbox( "Tap Through", props.tapThrough, NSMakeRect( 0, 48, 250, 18 ) ),
+            draggableSwitch = createCheckbox( "Draggable", props.draggable, NSMakeRect( 0, 24, 250, 18 ) ),
+            bounceSwitch = createCheckbox( "Bounce", props.bounces, NSMakeRect( 0, 0, 250, 18 ) );
+
+        if( viewNames.length > 1 ) {
+            alertDescription = alertDescription.replace( /(layer)/, "$1s" );
+        }
+
+        // var scrollview = createScrollingLabel( NSMakeRect( 0, 0, 230, 100 ), viewNames.join( "\n" ), [NSFont systemFontOfSize:11.0] );
+        // [accessory addSubview:scrollview]
+
+        [sDirValues selectItemWithTitle:props.scrollDirection];
+        [sStyleValues selectItemWithTitle:props.scrollerStyle];
+
+        [accessory addSubview:sDirLabel];
+        [accessory addSubview:sDirValues];
+        [accessory addSubview:sStyleLabel];
+        [accessory addSubview:sStyleValues];
+
+        [accessory addSubview:tapThroughSwitch];
+        [accessory addSubview:clipToBoundsSwitch];
+        [accessory addSubview:draggableSwitch];
+        [accessory addSubview:pagingSwitch];
+        [accessory addSubview:bounceSwitch];
+
+        [sDirValues sizeToFit];
+        [sStyleValues sizeToFit];
+        [tapThroughSwitch sizeToFit];
+        [clipToBoundsSwitch sizeToFit];
+        [draggableSwitch sizeToFit];
+        [pagingSwitch sizeToFit];
+        [bounceSwitch sizeToFit];
+
+        [alert setMessageText:alertTitle];
+        [alert setInformativeText:alertDescription];
+        [alert addButtonWithTitle:"OK"];
+        [alert addButtonWithTitle:"Cancel"];
+        [alert setAccessoryView:accessory];
+        [alert setIcon:icon];
+
+        alertVal = [alert runModal];
+
+        if( alertVal === NSAlertFirstButtonReturn ) {
+            if( alertVal === NSAlertFirstButtonReturn ) {
+                views.forEach( function( view ) {
+                    var isPaging = [pagingSwitch state] ? true : false,
+                        isClippedToBounds = [clipToBoundsSwitch state] ? true : false,
+                        isTapThrough = [tapThroughSwitch state] ? true : false,
+                        isDraggable = [draggableSwitch state] ? true : false,
+                        isBounce = [bounceSwitch state] ? true : false,
+                        scrollDir = [sDirValues titleOfSelectedItem],
+                        scrollStyle = [sStyleValues titleOfSelectedItem];
+
+                    if( [pagingSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isPaging, "paging" );
+                    }
+                    if( [clipToBoundsSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isClippedToBounds, "clipToBounds" );
+                    }
+                    if( [tapThroughSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isTapThrough, "tapThrough" );
+                    }
+                    if( [draggableSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isDraggable, "draggable" );
+                    }
+                    if( [bounceSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isBounce, "userScrollingBounces" );
+                    }
+                    if( scrollDir != nil ) {
+                        view.setLayerValueForKey( scrollDir, "userScrolling" );
+                    }
+                    if( scrollStyle != nil ) {
+                        view.setLayerValueForKey( scrollStyle, "scrollerStyle" );
+                    }
+
+                    tagViewWithBinding( view, "C" );
+                } );    
+            }
+        }
+    }
+
+    if( selectedLayers ) {
+        util.forEach( selectedLayers, function( layer ) {
+            var newView = view.make( layer );
+            
+            transformedLayers.push( newView );
+        } );
+        layerTypes = transformedLayers.map( function( view ) {
+            return kind = view.isFolder() && !view.isArtboard();
+        } );
+
+        // Ensure only layerGroups are selected
+        // Set defaults below
+        if( layerTypes.indexOf( false ) === -1 ) {
+            pagingValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "paging" );
+
+                return ( typeof val === "boolean" ) ? val : false;
+            } );
+            clippedToBoundsValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "clipToBounds" );
+
+                return ( typeof val === "boolean" ) ? val : false;
+            } );
+            tapThroughValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "tapThrough" );
+
+                return ( typeof val === "boolean" ) ? val : false;
+            } );
+            draggableValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "draggable" );
+
+                return ( typeof val === "boolean" ) ? val : false;
+            } );
+            bounceValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "userScrollingBounces" );
+
+                return ( typeof val === "boolean" ) ? val : true;
+            } );
+            scrollDirectionValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "userScrolling" );
+
+                return ( typeof val === "string" ) ? val : "horizontal";
+            } );
+            scrollBarValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "scrollerStyle" );
+
+                return ( typeof val === "string" ) ? val : "black";
+            } );
+
+            containerInspector( transformedLayers, {
+                paging: ( uniqueValuesInArray( pagingValues ).length > 1 ) ? "mixed" : pagingValues[ 0 ],
+                clipToBounds: ( uniqueValuesInArray( clippedToBoundsValues ).length > 1 ) ? "mixed" : clippedToBoundsValues[ 0 ],
+                tapThrough: ( uniqueValuesInArray( tapThroughValues ).length > 1 ) ? "mixed" : tapThroughValues[ 0 ],
+                draggable: ( uniqueValuesInArray( draggableValues ).length > 1 ) ? "mixed" : draggableValues[ 0 ],
+                bounces: ( uniqueValuesInArray( bounceValues ).length > 1 ) ? "mixed" : bounceValues[ 0 ],
+                scrollDirection: ( uniqueValuesInArray( scrollDirectionValues ).length > 1 ) ? nil : scrollDirectionValues[ 0 ],
+                scrollerStyle: ( uniqueValuesInArray( scrollBarValues ).length > 1 ) ? nil : scrollBarValues[ 0 ],
+            } );
+            doc.showMessage( "Done" );
+        } else {
+            doc.showMessage( "Only a layer group can be made a container." );
+        }
+    } else {
+        doc.showMessage( "Ahh 💩... Select a layer group to make a container." );
+    }
+}
+function toggleSelectionToIgnore( context ) {
+    var doc = context.document,
+        selection = context.selection,
+        selectedLayers = ( [selection count] > 0 ) ? selection : null,
+        transformedLayers = [],
+        toggleValues = [],
+        ignoreRegex = /^(-\s*)|(\s*-)$/,
+        view = View.create( context );
+
+    if( selectedLayers ) {
+        util.forEach( selectedLayers, function( layer ) {
+            var newView = view.make( layer );
+            
+            transformedLayers.push( newView );
+            toggleValues.push( ignoreRegex.test( newView.name ) );
+        } );
+
+        if( toggleValues.indexOf( false ) > -1 ) {
+            // All layers should be tagged to be ignored
+
+            transformedLayers.forEach( function( view ) {
+                // Ignore layers not already tagged
+                if( !ignoreRegex.test( view.name ) ) {
+                    view.addNameAttributes( "-" );
+                }
+            } );
+
+        } else {
+            // All layers should not be tagged to be ignored
+            transformedLayers.forEach( function( view ) {
+               [( view.layer ) setName:( view.name.replace( ignoreRegex, "" ) )];
+            } );
+        }
+    } else {
+            doc.showMessage( "Select layers to exclude from export." );
+        }
+}
+
+
+// function importPages( context ) {
+//     var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 230, 184 )],
+//         alert = [[NSAlert alloc] init],
+//         alertVal,
+//         testCS = "page1,page2,page3,page4,page5,pageset1,pageset2".split( "," );
+
+//     var scrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect( 0, 0, 200, 200 )],
+//         // matrix = [[NSMatrix alloc] initWithFrame:NSMakeRect( 0, 0, 200, 100 )
+//         //     mode:NSListModeMatrix
+//         //     cellClass:[NSButtonCell class]
+//         //     numberOfRows:testCS.length
+//         //     numberOfColumns:1
+//         // ];
+    
+//     // [accessory addSubview:matrix];
+//     // [accessory addSubview:scrollView];
+//     [alert setAccessoryView:accessory];
+
+//     [alert setMessageText:"Select Pages to Import"];
+
+//     alertVal = [alert runModal];
+// }
+
+
+
+
+
+
+

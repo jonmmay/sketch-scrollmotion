@@ -1,0 +1,158 @@
+/*
+ * ScrollMotion Reset CSS for Web Based Text
+ * Version 3.14
+ *
+ * Schema: http://www.scrollmotion.com/contentspec/schema/3.8/
+ *
+ * Created by Jonathan Romanowski
+ *
+ * Edited by Donald Hyde (07/31/2015)
+ *
+ * Changes in 3.14:
+ * - Set default span vertical-align to baseline
+ * - Added br tags to the defaults
+ * - Changes sup and sub to new positions and vertical-align to baseline
+ * - Removed formatting on ul
+ * - Added new formatting to ol, moving the nuber closer to the text
+ */
+
+.SM-TextReset html, .SM-TextReset body, .SM-TextReset div, .SM-TextReset span, .SM-TextReset br, .SM-TextReset applet, .SM-TextReset object, .SM-TextReset iframe, .SM-TextReset h1, .SM-TextReset h2, .SM-TextReset h3, .SM-TextReset h4, .SM-TextReset h5, .SM-TextReset h6, .SM-TextReset p, .SM-TextReset blockquote, .SM-TextReset pre, .SM-TextReset a, .SM-TextReset abbr, .SM-TextReset acronym, .SM-TextReset address, .SM-TextReset big, .SM-TextReset cite, .SM-TextReset code, .SM-TextReset el, .SM-TextReset dfn, .SM-TextReset em, .SM-TextReset img, .SM-TextReset ins, .SM-TextReset kbd, .SM-TextReset q, .SM-TextReset s, .SM-TextReset samp, .SM-TextReset small, .SM-TextReset strike, .SM-TextReset strong, .SM-TextReset sub, .SM-TextReset sup, .SM-TextReset tt, .SM-TextReset var, .SM-TextReset b, .SM-TextReset u, .SM-TextReset i, .SM-TextReset center, .SM-TextReset dl, .SM-TextReset dt, .SM-TextReset dd, /*.SM-TextReset ol, .SM-TextReset ul,*/ .SM-TextReset li, .SM-TextReset fieldset, .SM-TextReset form, .SM-TextReset label, .SM-TextReset legend, .SM-TextReset caption, .SM-TextReset article, .SM-TextReset aside, .SM-TextReset canvas, .SM-TextReset details, .SM-TextReset embed, .SM-TextReset figure, .SM-TextReset figcaption, .SM-TextReset footer, .SM-TextReset header, .SM-TextReset hgroup, .SM-TextReset menu, .SM-TextReset nav, .SM-TextReset output, .SM-TextReset ruby, .SM-TextReset section, .SM-TextReset summary, .SM-TextReset time, .SM-TextReset mark, .SM-TextReset audio, .SM-TextReset video {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    vertical-align: top;
+    text-rendering:optimizeLegibility;
+}
+
+.SM-TextReset span {
+    max-width: 100%;
+    background-color: inherit;
+    vertical-align: top;
+}
+
+.SM-TextReset sup,  .SM-TextReset sub {
+    /*vertical-align: baseline;*/
+    font-size: 0.6em;
+    line-height: 0.6em;
+}
+
+.SM-TextReset sup {
+    top: 0em;
+    vertical-align: top;
+}
+
+.SM-TextReset sub {
+    bottom: 0em;
+    vertical-align: bottom;
+}
+
+.SM-TextReset table, .SM-TextReset tbody, .SM-TextReset tfoot, .SM-TextReset thead, .SM-TextReset tr, .SM-TextReset th, .SM-TextReset td {
+    margin: 0;
+    padding: 0;
+    vertical-align: top;
+}
+
+.SM-TextReset > html {
+    font-family: Arial, sans-serif;
+}
+
+.SM-TextReset article, .SM-TextReset aside, .SM-TextReset details, .SM-TextReset figcaption, .SM-TextReset figure, .SM-TextReset footer, .SM-TextReset header, .SM-TextReset hgroup, .SM-TextReset menu, .SM-TextReset nav, .SM-TextReset section {
+    display: block;
+}
+
+.SM-TextReset blockquote, .SM-TextReset q {
+    quotes: none;
+    padding: 5px 0 5px 15px;
+    margin: 15px 0 15px;
+    border-left: 5px solid #eeeeee;
+}
+
+.SM-TextReset blockquote, .SM-TextReset blockquote * {
+    font-size: 12px;
+    font-style: italic;
+    font-family: Georgia, Times, "Times New Roman", serif;
+}
+
+.SM-TextReset p,
+.SM-TextReset div {
+    text-align: left;
+}
+
+.SM-TextReset h1, .SM-TextReset h2, .SM-TextReset h3, .SM-TextReset h4, .SM-TextReset h5, .SM-TextReset h6 {
+    font-weight: bold;
+    display: block;
+}
+
+.SM-TextReset h1 {
+    font-size: 24px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.SM-TextReset h2 {
+    font-size: 18px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.SM-TextReset h3 {
+    font-size: 14px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.SM-TextReset h4 {
+    font-size: 12px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.SM-TextReset h5 {
+    font-size: 10px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.SM-TextReset h6 {
+    font-size: 8px;
+    margin-top: 28px;
+    margin-bottom: 28px;
+}
+
+.SM-TextReset ul {
+    list-style: disc;
+}
+
+.SM-TextReset sup, .SM-TextReset sub {
+    position: relative;
+}
+
+.SM-TextReset ol, .SM-TextReset ul {
+    display: block;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.SM-TextReset table {
+    border-collapse: separate;
+    border-spacing: 1px;
+    font-family: georgia;
+    font-size: 12px;
+}
+
+.SM-TextReset {
+    text-rendering:optimizeLegibility;
+    word-wrap: break-word;
+    line-height: 1.2;
+    font-size: 0;
+    font-family: Arial, sans-serif;
+}
+
+.SM-TextReset ol {
+    padding-left: 50px;
+}
+
+.SM-TextReset ol > li > span {
+    position: relative;
+    left: -10px;
+}
