@@ -109,6 +109,7 @@ function createWebview( URL ) {
 
 function onRun( context ) {
 	// https://github.com/jonmmay/sketch-scrollmotion/issues
-	createWebview( "https://github.com/jonmmay/sketch-scrollmotion/issues" );
+	[[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:"https://github.com/jonmmay/sketch-scrollmotion/issues"]];
+	// createWebview( "https://github.com/jonmmay/sketch-scrollmotion/issues" );
 
 }

@@ -1,0 +1,19 @@
+{
+    "widget": "image",
+    "images": [""],
+    "overlayId": "",
+    "type": "image",
+    "relative": "parent",
+    "scale": 1,
+    "alpha": 1,
+    "hidden": false,
+    "borderAlpha": 0,
+    "borderWidth": "0px",
+    "borderColor": "#999999",
+    "cornerRadius": "0px",
+    "clickThrough": false,
+    "draggable": false,
+    "layouts": {
+    },
+    "displayName": ""
+}
