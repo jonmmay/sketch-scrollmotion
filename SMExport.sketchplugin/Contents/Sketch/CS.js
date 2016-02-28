@@ -119,7 +119,7 @@ var ContentSpec = ( function( options ) {
                 node = node.getParentNode();
                 continue;
             }
-            if( node.attrs.style[ styleName ] ) {
+            if( node.attrs && node.attrs.style && node.attrs.style[ styleName ] ) {
                 return node.attrs.style[ styleName ];
             }
             node = node.getParentNode();

@@ -337,7 +337,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                     bgImage;
 
                 [frame setWidth:numRoundHalfUp( screen.width )];
-                [frame setHeight:numRoundHalfUp( screen.height )]
+                [frame setHeight:numRoundHalfUp( screen.height )];
 
                 artboard.name = cs.displayName;
                 artboard.hasBackgroundColor = true;

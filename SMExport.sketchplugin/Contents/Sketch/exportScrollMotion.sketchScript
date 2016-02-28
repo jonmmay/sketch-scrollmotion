@@ -353,15 +353,33 @@ var ExportScrollMotion = ( function() {
                 boundImageAssetHandler( view, function( src, filename ) {
                     overlay.setKeyValue( "images", [ src ] );
                     
-                    bindObj.exportFiles.push( util.Command.create( util.noop, util.noop, {
-                        getView: function() { return view },
-                        target: filename
+                    bindObj.exportFiles.push( util.Command.create( 
+                        // Create artboard specifically for exporting layer
+                        function() {
+                            var dupView = view.duplicate(),
+                                dupFrame = [( dupView.layer ) frame],
+                                artboard = [MSArtboardGroup new],
+                                artFrame = [artboard frame];
+
+                            view = viewBind.make( artboard );
+
+                            [( dupView.layer ) moveToLayer:artboard beforeLayer:null];
+                            [dupFrame setX:0];
+                            [dupFrame setY:0];
+
+                            [artFrame setWidth:[dupFrame width]];
+                            [artFrame setHeight:[dupFrame height]];
+
+                            [( doc.currentPage() ) addLayers:[ artboard ]];
+                        },
+
+                        // Delete artboard
+                        function() {
+                            view.removeFromParent();
+                        }, {
+                            getView: function() { return view },
+                            target: filename
                     } ) );
-                    
-                    // bindObj.exportFiles.push( {
-                    //     getView: function() { return view; },
-                    //     target: filename
-                    // } );
                 } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
@@ -561,36 +579,58 @@ var ExportScrollMotion = ( function() {
                                     overlay.setKeyValue( buttonStateName, [ src ] );
 
                                     bindObj.exportFiles.push( util.Command.create( 
-                                        // Group layers
+                                        // Create artboard specifically for exporting layer
                                         function() {
+                                            var artboard = [MSArtboardGroup new],
+                                                artFrame = [artboard frame],
+                                                group = [[MSLayerGroup alloc] init],
+                                                gFrame = [group frame],
+                                                dupView,
+                                                dupFrame,
+                                                exportFrame;
+
+                                            view = viewBind.make( artboard );
+
+                                            // Set group name to first state layer name
+                                            group.name = stateViews[ state ][ 0 ].name;
+                                            
+                                            // Move multiple layers into a single group
                                             if( stateViews[ state ].length > 1 ) {
-                                                var group = [[MSLayerGroup alloc] init];
-                                                group.name = stateViews[ state ][ 0 ].name;
-                                                
-                                                [( stateViews[ state ][ 0 ].getLayerParent().layer ) insertLayers:[ group ] beforeLayer:( stateViews[ state ][ 0 ].layer )];
-                                                stateViews[ state ].forEach( function( view ) {
-                                                    [( view.layer ) moveToLayer:group beforeLayer:null];
+                                                stateViews[ state ].forEach( function( sview ) {
+                                                    dupView = sview.duplicate();
+
+                                                    [( dupView.layer ) moveToLayer:group beforeLayer:null];
                                                 } );
                                                 [group resizeToFitChildrenWithOption:true];
-                                                stateViews[ state ][ 0 ] = viewBind.make( group, stateViews[ state ][ 0 ].parentGroup );
-                                                stateView = stateViews[ state ][ 0 ];
-                                            } 
+                                                [group moveToLayer:artboard beforeLayer:null];
+                                                [gFrame setX:0];
+                                                [gFrame setY:0];
+
+                                                exportFrame = gFrame;
+                                            } else {
+                                                dupView = stateViews[ state ][ 0 ].duplicate();
+                                                dupFrame = [( dupView.layer) frame];
+
+                                                [( dupView.layer ) moveToLayer:artboard beforeLayer:null];
+                                                [dupFrame setX:0];
+                                                [dupFrame setY:0];
+
+                                                exportFrame = dupFrame;
+                                            }
+
+                                            [artFrame setWidth:[exportFrame width]];
+                                            [artFrame setHeight:[exportFrame height]];
+
+                                            [( doc.currentPage() ) addLayers:[ artboard ]];
                                         },
 
-                                        // Ungroup layers
+                                        // Delete artboard
                                         function() {
-                                            if( stateView.getLayerKind() === "LayerGroup" ) {
-                                                [( stateView.layer ) ungroup];    
-                                            }
+                                            view.removeFromParent();
                                         }, {
-                                            getView: function() { return stateView; },
+                                            getView: function() { return view; },
                                             target: filename
-                                    } ) );
-                                    
-                                    // bindObj.exportFiles.push( {
-                                    //     getView: function() { return stateView; },
-                                    //     target: filename
-                                    // } );
+                                    } ) );                                    
                                 } );
                             }
                         } );

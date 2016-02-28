@@ -526,39 +526,96 @@ function runTests( context ) {
 		}
 	};
 
-	// /**
-	// 	* @desc Config testing
-	// */
-	// suite[ "test Config script" ] = ( function( config ) {
-	// 	return {
-	// 		"test Config": function() {
-	// 			assert.ok( typeof Config === "object", "Config is an object" );
-	// 			assert.ok( Config.instanceOf( util.Object ), "Config is extended from util.Object" );
-	// 		},
-	// 		"test instance of Config": function() {
-	// 			assert.ok( !!config.context, "instance can access plugin context object" );
-	// 			assert.ok( !!config.doc, "instance can access plugin document" );
-	// 			assert.ok( !!config.plugin, "instance can access plugin plugin" );
-	// 			assert.ok( !!config.selection, "instance can access plugin selection" );
-	// 			assert.ok( !!config.command, "instance can access plugin command" );
-	// 		},
-	// 		"test access to sketch version": function() {},
-	// 		"test access to document name": function() {},
-	// 		"test image extension": function() {},
-	// 		"test export folder path": function() {},
-	// 		"test document path": function() {},
-	// 		"test plugin path": function() {},
-	// 		"test resources path": function() {},
-	// 		"test settings path": function() {},
-	// 		"test accessing settings data": {
-	// 			"test getting settings object": function() {},
-	// 			"test getting settings key value": function() {},
-	// 			"test setting settings": function() {},
-	// 			"test syncing with default settings": function() {}
-	// 		},
-	// 		"test export scale factors": function() {}
-	// 	};
-	// } )( Config.create( context ) );
+	/**
+		* @desc Config testing
+	*/
+	suite[ "test Config script" ] = ( function( config ) {
+		return {
+			"test Config": function() {
+				assert.ok( typeof Config === "object", "Config is an object" );
+				assert.ok( Config.instanceOf( util.Object ), "Config is extended from util.Object" );
+			},
+			"test instance of Config": function() {
+				assert.ok( !!config.context, "instance can access plugin context object" );
+				assert.ok( !!config.doc, "instance can access plugin document" );
+				assert.ok( !!config.plugin, "instance can access plugin plugin" );
+				assert.ok( !!config.selection, "instance can access plugin selection" );
+				assert.ok( !!config.command, "instance can access plugin command" );
+			},
+			"test access to sketch version": {
+				"test for existence": function() {
+					assert.ok( typeof config.getSketchVersion === "function", "'config.getSketchVersion' exists" );
+				}
+			},
+			"test access to document name": {
+				"test for existence": function() {
+					assert.ok( typeof config.getDocumentName  === "function", "'config.getDocumentName' exists" );
+				}
+			},
+			"test image extension": {
+				"test for existence": function() {
+					assert.ok( typeof config.getImageExtension  === "function", "'config.getImageExtension' exists" );
+				}
+			},
+			"test export folder path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getExportFolderPath  === "function", "'config.getExportFolderPath' exists" );
+				}
+			},
+			"test document path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getDocumentPath  === "function", "'config.getDocumentPath' exists" );
+				}
+			},
+			"test plugin path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getPluginPath  === "function", "'config.getPluginPath' exists" );
+				}
+			},
+			"test resources path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getResourcesPath  === "function", "'config.getResourcesPath' exists" );
+				}
+			},
+			"test settings path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getSettingsPath  === "function", "'config.getSettingsPath' exists" );
+				}
+			},
+			"test Documents settings path": {
+				"test for existence": function() {
+					assert.ok( typeof config.getDocumentsSettingsPath  === "function", "'config.getDocumentsSettingsPath' exists" );
+				}
+			},
+			"test accessing settings data": {
+				"test getting settings object": {
+					"test for existence": function() {
+						assert.ok( typeof config.getSettingsManifest  === "function", "'config.getSettingsManifest' exists" );
+					}
+				},
+				"test getting settings key value": {
+					"test for existence": function() {
+						assert.ok( typeof config.getSettingsKeyValue  === "function", "'config.getSettingsKeyValue' exists" );
+					}
+				},
+				"test setting settings": {
+					"test for existence": function() {
+						assert.ok( typeof config.setSettingsManifest  === "function", "'config.setSettingsManifest' exists" );
+					}
+				},
+				"test syncing with default settings": {
+					"test for existence": function() {
+						assert.ok( typeof config.syncSettingsWithDefault  === "function", "'config.syncSettingsWithDefault' exists" );
+					}
+				}
+			},
+			"test export scale factors": {
+				"test for existence": function() {
+					assert.ok( typeof config.getExportScaleFactors  === "function", "'config.getExportScaleFactors' exists" );
+				}
+			}
+		};
+	} )( Config.create( context ) );
 
 	// /**
 	// 	* @desc CS testing
