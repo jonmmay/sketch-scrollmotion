@@ -891,7 +891,8 @@ var ExportScrollMotion = ( function() {
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
                 var layerView = viewBind.make( layer );
-                    
+                
+                layerView.clearLayerCS();    
                 if( !layerView.shouldBeIgnored() ) {
                     if( layerView.isArtboard() ) {
                         eligibleArboardViews.push( layerView );
