@@ -612,7 +612,38 @@ var View = ( function() {
 
         [command setValue:"{}" forKey:ATTRIBUTES_KEY onLayer:( this.layer )];
       
-        return this;  
+        return this;
+    };
+
+    /**
+        * @desc Clear key on layer
+        * @returns {object} View instance
+    */
+    View.prototype.clearLayerKey = function( key ) {
+        if( !command ) {
+            util.debug.warn( "Access to context is required for MSPluginCommand api" );
+            return this;
+        }
+
+        if( typeof key === "undefined" ) {
+            return this;
+        }
+
+        var attrs = [command valueForKey:ATTRIBUTES_KEY onLayer:( this.layer )] || "{}";
+
+        if( typeof attrs === "string" || [attrs isKindOfClass:[NSString class]] ) {
+            attrs = JSON.parse( String( attrs ) );
+        }
+
+        if( attrs[ key ] ) {
+            // Effectively deletes key when stringified
+            attrs[ key ] = undefined;
+            attrs = util.stringifyJSON( attrs );
+
+            [command setValue:attrs forKey:ATTRIBUTES_KEY onLayer:( this.layer )];
+        }
+
+        return this;
     };
 
     /**
