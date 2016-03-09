@@ -887,17 +887,22 @@ var ExportScrollMotion = ( function() {
             // viewBindingControl.bindingRegistry( "T" , function( bindObj, args ) {
             // } );
 
+            var eligibleArboardViews = [];
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
                 var layerView = viewBind.make( layer );
                     
                 if( !layerView.shouldBeIgnored() ) {
-                    eligibleViews.push( layerView );
+                    if( layerView.isArtboard() ) {
+                        eligibleArboardViews.push( layerView );
+                    } else {
+                        eligibleViews.push( layerView );    
+                    }
                 }
             } );
 
             // Process eligible layers
-            util.forEach( eligibleViews, function( layerView ) {
+            util.forEach( eligibleViews.concat( eligibleArboardViews.reverse() ), function( layerView ) {
                 var boundLayers = viewBindingControl.applyBindings( layerView );
                 boundLayers.forEach( function( layer ) {
                     transformedLayers.push( layer );
