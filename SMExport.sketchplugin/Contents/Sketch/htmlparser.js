@@ -154,7 +154,7 @@ var HTMLParser = ( function() {
 			if ( handler.start ) {
 				var attrs = [];
 	
-				rest.replace(attr, function(match, name) {
+				rest.replace( attr, function( match, name ) {
 					var value = arguments[2] ? arguments[2] :
 						arguments[3] ? arguments[3] :
 						arguments[4] ? arguments[4] :
@@ -320,259 +320,551 @@ var HTMLParser = ( function() {
 } () );
 
 var htmlToNodes = ( function( $ ) {
-	var nodes;
-	
-	function Html() {
-		var id = 0,
-			vals = [],
-			stringValue = "",
-			cache = {};
-
-		function generateUniqueId() {
-            function s4() {
-                return Math.floor( ( 1 + Math.random() ) * 0x10000 )
-                .toString( 16 )
-                .substring( 1 );
+    function normalizeHTMLEntities( str ) {
+        var entities = {
+            "&gt;": ">",
+            "&lt;": "<",
+            "&amp;": "&",
+            "&nbsp;": " "
+        };
+        
+        return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+            if( entities[ match ] ) {
+                return entities[ match ];
             }
-            return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
+        } );
+    }
+    function generateUniqueId() {
+        function s4() {
+            return Math.floor( ( 1 + Math.random() ) * 0x10000 )
+            .toString( 16 )
+            .substring( 1 );
         }
-        function normalizeHTMLEntities( str ) {
-        	var entities = {
-        		"&gt;": ">",
-        		"&lt;": "<",
-        		"&nbsp;": " ",
-        		"&amp;": "&"
-        	};
-        	
-        	return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
-        		if( entities[ match ] ) {
-        			return entities[ match ];
+        return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
+    }
+    /**
+        * @desc clone an object
+        * @param {object} obj -
+        * @returns {object|null} Copy of object parameter; else null
+    */
+    function naiveClone( obj ) {
+        if( typeof( obj ) === "object" ) {
+            return JSON.parse( JSON.stringify( obj ) ); 
+        }
+        return null;
+    }
+    
+    function Html() {
+        var nodeValues = [],
+            stringValue = "",
+            tmpNode = {};
+
+        function nodeHelper( node, attributes ) {
+            Object.defineProperties( node, {
+                "_isClosed": {
+                    enumerable: false,
+                    configurable: true,
+                    writable: true,
+                    value: false
+                },
+                "_parentNode": {
+                    enumerable: false,
+                    configurable: true,
+                    writable: true,
+                    value: null
+                },
+                "_childrenNodes": {
+                    enumerable: false,
+                    configurable: true,
+                    writable: true,
+                    value: []
+                },
+                "_inheritedAttributes": {
+                    enumerable: false,
+                    configurable: true,
+                    writable: true,
+                    value: attributes
+                }
+            } );
+        }
+        function Node( tag, attributes ) {
+            this.id = generateUniqueId();
+            
+            this.tag = tag;
+            this.attributes = attributes;
+            this.index = null;
+            this.length = null;
+            this.stringValue = "";
+
+            // Clone is required to avoid modifying attributes object
+            nodeHelper( this, naiveClone( attributes ) );
+        }
+
+        Node.prototype.getParentNode = function() {
+            if( !this._parentNode ) { return null; }
+            
+            var i = 0, 
+            	len = nodeValues.length;
+            
+            for( i ; i < len; i++ ) {
+                if( nodeValues[ i ].id === this._parentNode ) {
+                    return nodeValues[ i ];
+                }
+            }
+        };
+        Node.prototype.getChildrenNodes = function() {
+            var arr = [], 
+            	len = nodeValues.length;
+            
+            this._childrenNodes.forEach( function( nodeId ) {
+                for( var i = 0; i < len; i++ ) {
+                    if( nodeValues[ i ].id === nodeId ) {
+                        arr.push( nodeValues[ i ] );
+                        return;
+                    }
+                }
+            } );
+            return arr;
+        };
+        Node.prototype.resolveInheritedAttributes = function() {
+        	// Explicitly define inheritedAttributes on child nodes
+        	function resolveChildren( node, nodes ) {
+        		nodes = nodes || [];
+
+        		var children = node.getChildrenNodes(),
+        			attrs = node._inheritedAttributes,
+        			embeddedNodeIds = [];
+
+	        	if( children.length > 0 ) {
+	        		children.forEach( function( child ) {
+	        			Object.keys( attrs ).forEach( function( attrKey ) {
+	        				var attr = attrs[ attrKey ],
+	        					key;
+
+	        				if( !child._inheritedAttributes[ attrKey ] ) {
+        						child._inheritedAttributes[ attrKey ] = {};
+        					}
+
+	        				for( key in attr ) {
+	        					child._inheritedAttributes[ attrKey ][ key ] = attr[ key ];
+	        				}
+	        			} );
+
+	        			resolveChildren( child, nodes );
+	        		} );
+	        	}
+
+	        	if( children.length === 0 || node.stringValue.length > 0 ) {
+	        		nodes.push( node );
+	        	}
+	        	
+	        	nodes.forEach( function( node ) {
+	        		if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
+	        			embeddedNodeIds = embeddedNodeIds.concat( node._childrenNodes );
+	        		}
+	        	} );
+
+	        	// Sort by index
+	        	return nodes.sort( function( a, b ) { return a.index - b.index; } )
+		        	// Remove embedded nodes
+		        	.filter( function( node ) {
+		        		return embeddedNodeIds.indexOf( node.id ) < 0;
+		        	} );
+	        }
+
+	        return resolveChildren( this, [] );
+        };
+
+        this.process = function( type, value, forceClose ) {
+            var HtmlType = {
+            	end: function() {
+	            	var i;
+
+	            	// Close node and reset tmpNode
+	                if( tmpNode.id && tmpNode.tag === value.tag ) {
+	                    tmpNode._isClosed = true;
+	                    tmpNode.length = stringValue.length - tmpNode.index;
+	                    
+	                    nodeValues.push( tmpNode );
+	                    tmpNode = {};
+	                } 
+
+	                // Traverse stored nodes for open node
+	                else {
+	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
+	                        if( !nodeValues[ i ]._isClosed ) {
+	                            nodeValues[ i ]._isClosed = true;
+	                            nodeValues[ i ].length = stringValue.length - nodeValues[ i ].index;
+	                            break;
+	                        }
+	                    }
+	                }
+	            },
+	            start: function() {
+	            	var i;
+
+	            	// If starting new tag while tag is open, store node and reset tmpNode
+	                if( tmpNode.id ) {
+	                    nodeValues.push( tmpNode );
+	                    tmpNode = {};
+	                }
+
+	                tmpNode = new Node( value.tag, value.attrs );
+	                tmpNode.index = stringValue.length;
+
+	                // Identify parent and children nodes
+	                for( i = nodeValues.length - 1; i >= 0; i-- ) {
+	                    if( !nodeValues[ i ]._isClosed ) {
+	                        if( !tmpNode._parentNode ) {
+	                            tmpNode._parentNode = nodeValues[ i ].id;
+	                            nodeValues[ i ]._childrenNodes.push( tmpNode.id );
+	                        }
+	                    }
+	                }
+
+	                // Force close unary tag
+	                if( forceClose ) {
+	                    tmpNode._isClosed = true;
+	                    tmpNode.length = stringValue.length - tmpNode.index;
+	                    
+	                    nodeValues.push( tmpNode );
+	                    tmpNode = {};
+	                }
+	            },
+	            chars: function() {
+	            	var i, j;
+
+	            	// Normalize encoded entities
+	                value = normalizeHTMLEntities( value );
+
+	                // Temp node hasn't been initiated
+	                if( !tmpNode.id ) {
+
+	                	// Traverse nodes for last open node
+	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
+	                        if( !nodeValues[ i ]._isClosed ) {
+	                        	var openNode = nodeValues[ i ];
+
+	                            // Identifier for embedded node; can have siblings
+	                            for( j = i; j < nodeValues.length; j++ ) {
+	                                
+	                            	// Embed node id in string for reference
+	                                if( nodeValues[ j ]._isClosed && nodeValues[ j ]._parentNode === openNode.id
+	                                	// Id is not already embedded
+	                                	&& openNode.stringValue.indexOf( nodeValues[ j ].id ) < 0 ) {                                    
+	                                    	openNode.stringValue += ( "{{" + nodeValues[ j ].id + "}}" );
+	                                }
+	                            }
+	                            nodeValues[ i ].stringValue += value;
+	                            break;
+	                        }
+	                    }
+	                } else {
+	                	// Remove zero width space
+	                    tmpNode.stringValue += value.replace( /\u200B/g, "" );
+	                }
+	                
+	                // Remove zero width space
+	                stringValue += value.replace( /\u200B/g, "" );
+	            },
+	            comment: function() {}
+            };
+
+            HtmlType[ type ]();
+        };
+        this.results = function() {
+            return nodeValues;    
+        };
+        this.stringValue = function() {
+            return stringValue;
+        };
+        this.getStringStyles = function() {
+        	var nodes = [];
+
+        	nodeValues.filter( function( node ) {
+        		// Filter out all children nodes
+        		return !!!node.getParentNode();
+        	} ).forEach( function( node ) {
+        		nodes = nodes.concat( node.resolveInheritedAttributes() );
+        	} );
+
+        	// Loop through nodes; split nodes with embedded styles; return reduced node data
+        	for( var i = 0; i < nodes.length; i++ ) {
+
+        		// Node with embedded nodes
+	        	if( ( /{{\w{32}}}/ ).test( nodes[ i ].stringValue ) ) {
+        			// Split string by string value and node references
+        			var slices = nodes[ i ].stringValue.split( /({{\w{32}}})/ )
+
+        				// Remove empty string values
+        				.filter( Boolean )
+
+        				// Replace references with node
+	        			.map( function( slice ) {
+	        				var node = {},
+								id = slice.match( /{{(\w{32})}}/ );
+							
+							if( id ) {
+								id = id[ 1 ];
+
+								nodeValues.some( function( embeddedNode ) {
+		        					if( embeddedNode.id === id ) {
+		        						node = embeddedNode;
+		        						return true;
+		        					}
+		        				} );
+							} else {
+								node = slice;
+							}
+
+		        			return node;
+	        			} )
+
+	        			// Reduce nodes to necessary information
+						.map( function( slice, sliceIndex, sliceArr ) {
+							var node = {},
+								style = nodes[ i ]._inheritedAttributes.style ?
+											nodes[ i ]._inheritedAttributes.style : {},
+								
+								// For recalculating stringValue index
+								index = 0,
+								indexValue = 0;
+							
+							// Slice from original node
+							if( typeof slice === "string" ) {
+								// Get slice index
+								while( index < sliceIndex  ) {
+									indexValue += typeof sliceArr[ index ] === "object" ? sliceArr[ index ].stringValue.length : sliceArr[ index ].length ;
+									index++;
+								}
+
+								node = {
+	    							index: indexValue,
+	    							length: slice.length,
+	    							style: style,
+	    							stringValue: slice
+	    						};
+							}
+
+							// Slice is an embedded node
+							else {
+								style = slice._inheritedAttributes.style ?
+										slice._inheritedAttributes.style : {};
+
+								node = {
+	    							index: slice.index,
+	    							length: slice.length,
+	    							style: style,
+	    							stringValue: slice.stringValue
+	    						};
+							}
+
+		        			return node;
+						} );
+
+					// Inject slices
+					Array.prototype.splice.apply( nodes, [ i, 1 ].concat( slices ) );
+					// Update index
+					i = slices.length - 1;
+        		} else {
+        			var style = nodes[ i ]._inheritedAttributes.style ?
+									nodes[ i ]._inheritedAttributes.style : {};
+
+					// Reduce nodes to necessary information
+        			nodes[ i ] = {
+        				index: nodes[ i ].index,
+						length: nodes[ i ].length,
+						style: style,
+						stringValue: nodes[ i ].stringValue
+        			};
+        		}
+	        }
+
+        	return nodes;
+        }
+        this.getLineBreaks = function() {
+        	var breaks = [];
+
+        	nodeValues.forEach( function( node ) {
+        		if( node.tag === "div" ) {
+        			breaks.push( node.index );
         		}
         	} );
+
+        	// Remove first instance if 0
+        	if( breaks[ 0 ] === 0 ) { breaks.shift(); }
+
+        	return breaks;
         }
+    }
 
-		function nodeHelper( node ) {
-			Object.defineProperties( node, {
-				"_isClosed": {
-					enumerable: false,
-				  	configurable: true,
-				  	writable: true,
-				  	value: false
-				},
-				"_parentNode": {
-					enumerable: false,
-				  	configurable: true,
-				  	writable: true,
-				  	value: null
-				},
-				"_childrenNodes": {
-					enumerable: false,
-				  	configurable: true,
-				  	writable: true,
-				  	value: []
-				}
-			} );
-		}
-		
-		function Node( tag, attrs ) {
-			this.id = generateUniqueId();
-			this.tag = tag;
-			this.attrs = attrs;
-			this.location = null;
-			this.length = null;
-			this.stringValue = "";
+    return {
+        run: function( str ) {
+            var nodes = new Html();
 
-			nodeHelper( this );
-		}
+            $( str, {
+                start: function( tag, attrs, unary ) {
+                    var attributes = {};
+                    attrs.forEach( function( attr ) {
+                        attr.value.replace( new RegExp( "([-A-Za-z0-9_]+):\\s*([^;]*);" , "gi" ) , function() {
+                            if( !attributes[ attr.name ] ) { attributes[ attr.name ] = {}; }
+                            attributes[ attr.name ][ arguments[ 1 ] ] = arguments[ 2 ];
+                        } );
+                    } );
 
-		Node.prototype.getParentNode = function() {
-			if( !this._parentNode ) { return null; }
-			var i = 0, len = vals.length;
-			for( i ; i < len; i++ ) {
-				if( vals[ i ].id === this._parentNode ) {
-					return vals[ i ];
-				}
-			}
-		};
-		Node.prototype.getChildrenNodes = function() {
-			var arr = [], len = vals.length;
-			
-			this._childrenNodes.forEach( function( nodeId ) {
-				for( var i = 0; i < len; i++ ) {
-					if( vals[ i ].id === nodeId ) {
-						arr.push( vals[ i ] );
-						return;
-					}
-				}
-			} );
-			return arr;
-		};
-		
-		this.process = function( type, val, forceClose ) {
-			var i, j;
-			if( type === "end" ) {
-				// Close node and reset cache
-				if( cache.id && cache.tag === val.tag ) {
-					cache._isClosed = true;
-					cache.length = stringValue.length - cache.location;
-					vals.push( cache );
-					cache = {};
-				} else {
-					for( i = vals.length - 1; i >= 0; i-- ) {
-						if( !vals[ i ]._isClosed ) {
-							vals[ i ]._isClosed = true;
-							vals[ i ].length = stringValue.length - vals[ i ].location;
-							break;
-						}
-					}
-				}
-			} else if( type === "start" ) {
-				if( cache.id ) {
-					vals.push( cache );
-					cache = {};
-				}
-				cache = new Node( val.tag, val.attrs );
-				cache.location = stringValue.length;
+                    nodes.process( "start", {
+                        tag: tag,
+                        attrs: attributes
+                    }, unary );
+                },
+                end: function( tag ) {
+                    nodes.process( "end", { tag: tag } );
+                },
+                chars: function( text ) {
+                    nodes.process( "chars", text );
+                },
+                comment: function( text ) {}
+            } );
 
-				// Identify parent nodes
-				for( i = vals.length - 1; i >= 0; i-- ) {
-					if( !vals[ i ]._isClosed ) {
-						if( !cache._parentNode ) {
-							cache._parentNode = vals[ i ].id;
-							vals[ i ]._childrenNodes.push( cache.id );
-						}
-					}
-				}
+            return nodes;
+        }
+    };
+} )( HTMLParser );
 
-				if( forceClose ) {
-					cache._isClosed = true;
-					cache.length = stringValue.length - cache.location;
-					vals.push( cache );
-					cache = {};
-				}
-			} else if( type === "chars" ) {
-				val = normalizeHTMLEntities( val );
 
-				if( !cache.id ) {
-					for( i = vals.length - 1; i >= 0; i-- ) {
-						if( !vals[ i ]._isClosed ) {
+var html = "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
+	html2 = "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+	a = htmlToNodes.run( html ),
+	b = htmlToNodes.run( html2 );
 
-							// Identifier for embedded node; can have siblings
-							if( vals[ i ].stringValue.length > 0 ) {
-								for( j = i; j < vals.length; j++ ) {
-									if( vals[ j ]._isClosed && vals[ j ]._parentNode === vals[ i ].id ) {
-										vals[ i ].stringValue += ( "{{" + vals[ j ].id + "}}" );
-									}
-								}
-							}
-							vals[ i ].stringValue += val;
-							break;
-						}
-					}
-				} else {
-					cache.stringValue += val;
-				}
-				
-				stringValue += val;
-			}
-		};
-		this.results = function() {
-			return vals;	
-		};
-		this.stringValue = function() {
-			return stringValue;
-		};
-	}
-
-	return {
-		run: function( str ) {
-			nodes = new Html();
-
-			$( str, {
-				start: function( tag, attrs, unary ) {
-					var attributes = {};
-					attrs.forEach( function( attr ) {
-						attr.value.replace( new RegExp( "([-A-Za-z0-9_]+):\\s*([^;]*);" , "gi" ) , function() {
-							if( !attributes[ attr.name ] ) { attributes[ attr.name ] = {}; }
-							attributes[ attr.name ][ arguments[ 1 ] ] = arguments[ 2 ];
-						} );
-					} );
-
-					nodes.process( "start", {
-						tag: tag,
-						attrs: attributes
-					}, unary );
-				},
-				end: function( tag ) {
-					nodes.process( "end", { tag:tag } );
-				},
-				chars: function( text ) {
-					nodes.process( "chars", text );
-				},
-				comment: function( text ) {}
-			} );
-
-			return this;
-		},
-		results: function() {
-			return nodes.results();
-		},
-		stringValue: function() {
-			return nodes.stringValue();
-		}
-	};
-} ( HTMLParser ) );
-
-// var html = "<div style=\"text-align: left; line-height: 16px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);font-size:14px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie &amp;&lt;&gt; &nbsp; &nbsp;</span><span style=\"color:#FF0000;\"><span style=\"font-family: ArialMT, Arial;\">accessorized</span></span><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> with a fancy bag, but her <span style=\"letter-spacing:-1px;\">smock</span> looked</span></span></span></div><div style=\"text-align: left; line-height: 16px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> inexpensive. I’ve begun to realize why Jacques makes experts fed up. I had to look up “Hova.” Wow! Expect a bump in frequency of Jay-Z pangrams! Having a few saxophone players is required to make a jazz combo. Jim fantasized about having sex with a large quantity of pancakes.</span></span></div>";
-// var aa = htmlToNodes.run( html ).stringValue(); 
-// var a = htmlToNodes.run( html ).results();
-
-// a.forEach( function( val ) {
-// 	console.log( val );
+// b.results().forEach( function( node ) {
+// 	console.log( node );
 // } );
 
+// a.getStringStyles().forEach( function( node ) {
+// 	console.log( node );
+// } );
 
-// function spliceSlice( str, index, count, add ) {
-//   return str.slice( 0, index ) + ( add || "" ) + str.slice( index + count );
-// }
-// function stringWithBreaks( str, nodes ) {
-// 	if( typeof str !== "string" ) { throw new Error( "No string" ); }
-// 	var breaks = [], i;
-// 	nodes.forEach( function( node ) {
-// 		var i = ( node.tag === "div" ) ? node.location : -1;
-// 		if( i >= 0 ) { breaks.push( i ); }
-// 	} );
+var c = [
+    {
+        "index": 0,
+        "length": 7,
+        "style": {
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'",
+            "color": "#000000",
+            "text-align": "left"
+        },
+        "stringValue": "Jacquie"
+    },
+    {
+        "index": 7,
+        "length": 19,
+        "style": {
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'",
+            "color": "#000000",
+            "text-align": "left"
+        },
+        "stringValue": " accessorized with "
+    },
+    {
+        "index": 26,
+        "length": 1,
+        "style": {
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'",
+            "color": "#000000",
+            "text-align": "left"
+        },
+        "stringValue": "a"
+    },
+    {
+        "index": 27,
+        "length": 12,
+        "style": {
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'",
+            "color": "#000000",
+            "text-align": "left"
+        },
+        "stringValue": " fancy bag, "
+    },
+    {
+        "index": 39,
+        "length": 33,
+        "style": {
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'",
+            "color": "#000000",
+            "text-align": "left"
+        },
+        "stringValue": "but her smock looked inexpensive."
+    }
+];
 
-// 	// Remove first div instance
-// 	breaks = breaks.splice( 1, breaks.length );
+// Html-based text helpers
+function encodeSpecialCharacters( str ) {
+    var chars = {
+        ">": "&gt;",
+        "<": "&lt;",
+        "&": "&amp;",
+        
+        // Sequential spaces, '  '
+        "  ": " &nbsp;"
+    };
 
-// 	// Insert breaks from end of string
-// 	for( i = breaks.length - 1; i >= 0; i-- ) {
-// 		str = spliceSlice( str, breaks[ i ], 0, "\n" );
-// 	}
-// 	return str;
-// }
-// console.log( stringWithBreaks( aa , a ));
+    return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+        if( chars[ match ] ) {
+            return chars[ match ];
+        }
+    } );
+}
 
-// function traverseNodes( node , i ) {
-// 	if( node === undefined ) { return null; }
+var startTag = /^<([-A-Za-z0-9_]+)((?:\s+\w+(?:\s*=\s*(?:(?:\u0022[^\u0022]*\u0022)|(?:\u0027[^\u0027]*\u0027)|[^>\s]+))?)*)\s*(\/?)>/,
+	endTag = /^<\/([-A-Za-z0-9_]+)[^>]*>/,
+	attr = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:\u0022((?:\\.|[^\u0022])*)\u0022)|(?:\u0027((?:\\.|[^\u0027])*)\u0027)|([^>\s]+)))?/g;
 
-// 	var parentNode = node.getParentNode(),
-// 		childrenNodes = node.getChildrenNodes(),
-// 		siblingsNum = ( parentNode ) ? parentNode.getChildrenNodes().length : 0;
-// 	i = i || 0;
+function isHtml( str ) {
+	return ( typeof str === "string" ) ? startTag.test( str ) || endTag.test( str ) : false;
+}
 
-// 	// Traverse siblings
-// 	while( node.stringValue.length === 0 && ( i < siblingsNum - 1 || childrenNodes.length > 0 ) ) {
-// 		// Traverse children
-// 		while( node.stringValue.length === 0 && childrenNodes.length > 0 ) {
-// 			return traverseNodes( childrenNodes[ 0 ] , 0 );
-// 		}
 
-// 		i++;
-// 		return traverseNodes( parentNode.getChildrenNodes()[ i ], i );
-// 	}
 
-// 	return ( node.stringValue.length > 0 ) ? node : null;
-// }
-// console.log( traverseNodes( a[ 0 ] ) );
+function setTextAlign( textAlign, html ) {
+	if( !isHtml( html ) ) { return; }
+
+	textAlign = [ "left", "center", "right", "justify" ].indexOf( textAlign ) ? textAlign : "left";
+
+	return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";
+}
+
+function setCustomFont( fontFamily, html ) {
+	if( !isHtml( html ) ) { return; }
+	
+	fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
+
+	return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
+}
+function setTextStyles( styles, html ) {
+	if( !isHtml( html ) || Object.prototype.toString.call( styles ) !== "[object Object]" ) { return; }
+
+	var stylesStr = Object.keys( styles ).map( function( key ) {
+		return key + ":" + styles[ key ] + ";";
+	} ).join( "" );
+
+	return "<span style=\"" + stylesStr + "\">" + html + "</span>";
+}
+
+console.log( setTextStyles( {
+	"font-size": "24px",
+	"font-family": "ArialMT,'Arial'",
+	"color": "#000000"
+}, "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
+// console.log( setCustomFont( "Merriweather-Light,'Merriweather'", "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
+// console.log( setTextAlign( "center", "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
+
+// c.forEach( function( node ) {
+// 	console.log( setTextAlign( "center", node.stringValue ) );
+// } );
+

@@ -7,7 +7,10 @@
 function runTests( context ) {
 	var startDate = new Date(),
 		endDate,
-		suite = {};
+		suite = {},
+
+		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.19/",
+		csResetCSS = "reset3.14.1.css";
 	log( "##### Started | " + startDate.toLocaleTimeString() + " #####" );
 
 	
@@ -617,172 +620,449 @@ function runTests( context ) {
 		};
 	} )( Config.create( context ) );
 
-	// /**
-	// 	* @desc CS testing
-	// */
-	// suite[ "test CS script" ] = ( function( cs ) {
-	// 	return {
-	// 		"test Content Spec": function() {
-	// 			assert.ok( typeof ContentSpec === "object", "ContentSpec is an object" );
-	// 			assert.ok( ContentSpec.instanceOf( util.Object ), "ContentSpec is extended from util.Object" );
-	// 		},
-	// 		"test instance of Content Spec": function() {
-	// 			assert.ok( !!cs.context, "instance can access plugin context object" );
-	// 			assert.ok( !!cs.doc, "instance can access plugin document" );
-	// 			assert.ok( !!cs.plugin, "instance can access plugin plugin" );
-	// 			assert.ok( !!cs.selection, "instance can access plugin selection" );
-	// 			assert.ok( !!cs.command, "instance can access plugin command" );
-	// 		},
-	// 		"test initializing": {
+	/**
+		* @desc CS testing
+	*/
+	suite[ "test CS script" ] = ( function( cs ) {
+		return {
+			"test Content Spec": function() {
+				assert.ok( typeof ContentSpec === "object", "ContentSpec is an object" );
+				assert.ok( ContentSpec.instanceOf( util.Object ), "ContentSpec is extended from util.Object" );
+			},
+			"test instance of Content Spec": function() {
+				assert.ok( !!cs.context, "instance can access plugin context object" );
+				assert.ok( !!cs.doc, "instance can access plugin document" );
+				assert.ok( !!cs.plugin, "instance can access plugin plugin" );
+				assert.ok( !!cs.selection, "instance can access plugin selection" );
+				assert.ok( !!cs.command, "instance can access plugin command" );
+			},
+			"test initializing": {
 
-	// 		},
-	// 		"test initializing with JSON": ( function( altCS ) {
-	// 			return {
-	// 				// altCS.initWithJSON	
-	// 			};
-	// 		} )( ContentSpec.create( context ) ),
-	// 		"test getting CS Stubs": {
-	// 			// getCSStubByResourcePath
-	// 		},
-	// 		"test CS metadata": {
-	// 			"test schema": function() {},
-	// 			"test reset css": function() {},
-	// 			"test start page": function() {
+			},
+			"test initializing with JSON": ( function( altCS ) {
+				return {
+					// altCS.initWithJSON	
+				};
+			} )( ContentSpec.create( context ) ),
+			"test getting CS Stubs": {
+				// getCSStubByResourcePath
+			},
+			"test CS metadata": {
+				"test schema": function() {
+					assert.ok( typeof cs.getSchema === "function", "'cs.getSchema' exists" );
 
-	// 			},
-	// 			"test add font metadata": function() {}
-	// 		},
-	// 		"test getting CS keys by key name": function() {},
-	// 		"test getting pageset ids": function() {},
-	// 		"test getting pages ids": function() {},
-	// 		"test getting overlays ids": function() {},
-	// 		"test CS screensupport": function() {
-
-	// 		},
-	// 		"test generating unique overlayId": function() {},
-	// 		"test generating unique pageId": function() {},
-	// 		"test making new overlay": {},
-	// 		"test making new page": {},
-	// 		"test adding overlay to CS": function() {},
-	// 		"test adding page to CS": function() {},
-	// 		"test getting pageset by id": function() {},
-	// 		"test getting page by id": function() {},
-	// 		"test getting overlay by id": function() {},
-	// 		"test getting type of overlay": function() {}
-
-	// 	};
-	// } )( ContentSpec.create( context ) );
-
-	// /**
-	// 	* @desc View testing
-	// */
-	// suite[ "test View script" ] = ( function( view ) {
-	// 	// Make layers;
-
-	// 	return {
-	// 		"test View": function() {
-	// 			assert.ok( typeof View === "object", "View is an object" );
-	// 			assert.ok( View.instanceOf( util.Object ), "View is extended from util.Object" );
-	// 		},
-	// 		"test instance of View": function() {
-	// 			assert.ok( !!view.context, "instance can access plugin context object" );
-	// 			assert.ok( !!view.doc, "instance can access plugin document" );
-	// 			assert.ok( !!view.plugin, "instance can access plugin plugin" );
-	// 			assert.ok( !!view.selection, "instance can access plugin selection" );
-	// 			assert.ok( !!view.command, "instance can access plugin command" );
-	// 		},
-	// 		"test wrapping layers": ( function() {
-	// 			// Make views
-
-	// 			return {
-	// 				"test access to layer": function() {},
-	// 				"test access to layer id": function() {},
-	// 				"test access to layer name": function() {},
-	// 				"test access to layer class name": function() {},
-	// 				"test if layer has children": function() {},
-	// 				"test if layer has a clipping mask": function() {},
-	// 				"test access to view parent": function() {},
-
-	// 				"test access to layer parent": function() {},
-	// 				"test get layer kind": function() {},
-	// 				"test check if artboard": function() {},
-	// 				"test check if layer": function() {},
-	// 				"test check if layer group or artboard": function() {},
-	// 				"test check if view should be ignored": function() {},
-	// 				"test check if view should be flattened": function() {},
-	// 				"test check if view should be extracted": function() {},
-	// 				"test check if view should not be traversed": function() {},
-	// 				"test check if layer name begins with...": function() {},
-	// 				"test check if layer name ends with...": function() {},
+					assert.strictEqual( cs.getSchema(), csSchemaVer, "Schema version found" );
+				},
+				"test reset css": function() {
+					assert.ok( typeof cs.getResetCss === "function", "'cs.getResetCss' exists" );
 					
-	// 				"test get sanitized layer name": function() {},
-	// 				"test get layer name attributes": function() {},
-	// 				"test add layer name attribute": function() {},
-	// 				"test clear layer name attributes": function() {},
+					assert.strictEqual( cs.getResetCss(), csResetCSS, "Reset css version found" );
+				},
+				"test start page": function() {
+					assert.ok( typeof cs.getStartPage === "function", "'cs.getStartPage' exists" );
+					assert.ok( typeof cs.setStartPage === "function", "'cs.setStartPage' exists" );
+
+					// Set start page and retrieve start page
+				},
+				"test add font metadata": function() {
+					assert.ok( typeof cs.addFontMetaData === "function", "'cs.addFontMetaData' exists" );
+				}
+			},
+			"test getting CS keys by key name": function() {
+				assert.ok( typeof cs.getContentSpecKeysByKey === "function", "'cs.getContentSpecKeysByKey' exists" );
+			},
+			"test getting pageset ids": function() {
+				assert.ok( typeof cs.getPageSetsIds === "function", "'cs.getPageSetsIds' exists" );
+			},
+			"test getting pages ids": function() {
+				assert.ok( typeof cs.getPagesIds === "function", "'cs.getPagesIds' exists" );
+			},
+			"test getting overlays ids": function() {
+				assert.ok( typeof cs.getOverlaysIds === "function", "'cs.getOverlaysIds' exists" );
+			},
+			"test CS screensupport": function() {
+				assert.ok( typeof cs.getScreenSupportScreens === "function", "'cs.getScreenSupportScreens' exists" );
+				assert.ok( typeof cs.addScreenSupportScreen === "function", "'cs.addScreenSupportScreen' exists" );
+
+				// Set screen support screen and retrieve screen support screen
+			},
+			"test generating unique overlayId": function() {
+				assert.ok( typeof cs.generateOverlayId === "function", "'cs.generateOverlayId' exists" );
+			},
+			"test generating unique pageId": function() {
+				assert.ok( typeof cs.generatePageId === "function", "'cs.generatePageId' exists" );
+			},
+			// "test making new overlay": {},
+			// "test making new page": {},
+			"test adding overlay to CS": function() {
+				assert.ok( typeof cs.appendOverlay === "function", "'cs.appendOverlay' exists" );
+			},
+			"test adding page to CS": function() {
+				assert.ok( typeof cs.appendPage === "function", "'cs.appendPage' exists" );
+			},
+			"test getting pageset by id": function() {
+				assert.ok( typeof cs.getPageSet === "function", "'cs.getPageSet' exists" );
+			},
+			"test getting page by id": function() {
+				assert.ok( typeof cs.getPage === "function", "'cs.getPage' exists" );
+			},
+			"test getting overlay by id": function() {
+				assert.ok( typeof cs.getOverlay === "function", "'cs.getOverlay' exists" );
+			},
+			"test getting type of overlay": function() {
+				assert.ok( typeof cs.typeofOverlay === "function", "'cs.typeofOverlay' exists" );
+			}
+		};
+	} )( ContentSpec.create( context ) );
+
+	/**
+		* @desc View testing
+	*/
+	suite[ "test View script" ] = ( function( view ) {
+		// Make layers;
+
+		return {
+			"test View": function() {
+				assert.ok( typeof View === "object", "View is an object" );
+				assert.ok( View.instanceOf( util.Object ), "View is extended from util.Object" );
+			},
+			"test instance of View": function() {
+				assert.ok( !!view.context, "instance can access plugin context object" );
+				assert.ok( !!view.doc, "instance can access plugin document" );
+				assert.ok( !!view.plugin, "instance can access plugin plugin" );
+				assert.ok( !!view.selection, "instance can access plugin selection" );
+				assert.ok( !!view.command, "instance can access plugin command" );
+			},
+			// "test wrapping layers": ( function() {
+			// 	// Make views
+
+			// 	return {
+			// 		"test access to layer": function() {},
+			// 		"test access to layer id": function() {},
+			// 		"test access to layer name": function() {},
+			// 		"test access to layer class name": function() {},
+			// 		"test if layer has children": function() {},
+			// 		"test if layer has a clipping mask": function() {},
+			// 		"test access to view parent": function() {},
+
+			// 		"test access to layer parent": function() {},
+			// 		"test get layer kind": function() {},
+			// 		"test check if artboard": function() {},
+			// 		"test check if layer": function() {},
+			// 		"test check if layer group or artboard": function() {},
+			// 		"test check if view should be ignored": function() {},
+			// 		"test check if view should be flattened": function() {},
+			// 		"test check if view should be extracted": function() {},
+			// 		"test check if view should not be traversed": function() {},
+			// 		"test check if layer name begins with...": function() {},
+			// 		"test check if layer name ends with...": function() {},
 					
-	// 				"test get data attached to layer": function() {},
-	// 				"test set data attached to layer": function() {},
-	// 				"test clear data attached to layer": function() {},
-	// 				"test get Content Spec attached to layer": function() {},
-	// 				"test set Content Spec attached to layer": function() {},
-	// 				"test clear Content Spec attached to layer": function() {},
-
-	// 				"test get layer artboard": function() {},
-	// 				"test get layer artboard size": function() {},
-	// 				"test check if layer has children": function() {},
-	// 				"test get layer children": function() {},
+			// 		"test get sanitized layer name": function() {},
+			// 		"test get layer name attributes": function() {},
+			// 		"test add layer name attribute": function() {},
+			// 		"test clear layer name attributes": function() {},
 					
-	// 				"test disable layer hidden attribute": function() {},
-	// 				"test enable layer hidden attribute": function() {},
-	// 				"test check if layer is hidden": function() {},
-	// 				"test check if layer has hidden children": function() {},
+			// 		"test get data attached to layer": function() {},
+			// 		"test set data attached to layer": function() {},
+			// 		"test clear data attached to layer": function() {},
+			// 		"test get Content Spec attached to layer": function() {},
+			// 		"test set Content Spec attached to layer": function() {},
+			// 		"test clear Content Spec attached to layer": function() {},
+
+			// 		"test get layer artboard": function() {},
+			// 		"test get layer artboard size": function() {},
+			// 		"test check if layer has children": function() {},
+			// 		"test get layer children": function() {},
 					
-	// 				"test disable layer mask attribute": function() {},
-	// 				"test enable layer mask attribute": function() {},
-	// 				"test check if layer is a clipping mask": function() {},
-	// 				"test check if clipping mask view should be extracted": function() {},
-	// 				"test check if layer has a clipping mask": function() {},
-	// 				"test get layer clipping mask": function() {},
+			// 		"test disable layer hidden attribute": function() {},
+			// 		"test enable layer hidden attribute": function() {},
+			// 		"test check if layer is hidden": function() {},
+			// 		"test check if layer has hidden children": function() {},
 					
-	// 				"test get layer layout relative to another layer": function() {},
-	// 				"test get layer layout including styles": function() {},
-	// 				"test get layer layout without styles": function() {},
-	// 				"test get layer absolute layout": function() {},
+			// 		"test disable layer mask attribute": function() {},
+			// 		"test enable layer mask attribute": function() {},
+			// 		"test check if layer is a clipping mask": function() {},
+			// 		"test check if clipping mask view should be extracted": function() {},
+			// 		"test check if layer has a clipping mask": function() {},
+			// 		"test get layer clipping mask": function() {},
+					
+			// 		"test get layer layout relative to another layer": function() {},
+			// 		"test get layer layout including styles": function() {},
+			// 		"test get layer layout without styles": function() {},
+			// 		"test get layer absolute layout": function() {},
 
-	// 				"test get border styles": function() {},
-	// 				"test get shadow styles": function() {},
-	// 				"test duplicate layer": function() {},
-	// 				"test remove layer from parent": function() {}
-	// 			};
-	// 		} )()
-	// 	};
-	// } )( View.create( context ) );
+			// 		"test get border styles": function() {},
+			// 		"test get shadow styles": function() {},
+			// 		"test duplicate layer": function() {},
+			// 		"test remove layer from parent": function() {}
+			// 	};
+			// } )()
+		};
+	} )( View.create( context ) );
 
-	// /**
-	// 	* @desc ViewBindingController testing
-	// */
-	// suite[ "test ViewBindingController script" ] = ( function( viewBindingControl ) {
-	// 	return {
-	// 		"test layer binding registry": function() {
-	// 			// viewBindingControl.layerKindRegistry
+	/**
+		* @desc ViewBindingController testing
+	*/
+	suite[ "test ViewBindingController script" ] = ( function( viewBindingControl ) {
+		return {
+			"test layer binding registry": function() {
+				assert.ok( typeof viewBindingControl.layerKindRegistry === "function", "'viewBindingControl.layerKindRegistry' exists" );
 
-	// 			// accessing registered bindings
-	// 		},
-	// 		"test layer name binding registry": function() {
-	// 			// viewBindingControl.bindingRegistry
+				// accessing registered bindings
+			},
+			"test layer name binding registry": function() {
+				assert.ok( typeof viewBindingControl.bindingRegistry === "function", "'viewBindingControl.bindingRegistry' exists" );
 
-	// 			// access registered bindings
-	// 		},
-	// 		"test apply bindings to layers": function() {
-	// 			// viewBindingControl.applyBindings
-	// 		}
-	// 	};
-	// } )( new ViewBindingController() );
+				// access registered bindings
+			},
+			"test apply bindings to layers": function() {
+				assert.ok( typeof viewBindingControl.applyBindings === "function", "'viewBindingControl.applyBindings' exists" );
+			}
+		};
+	} )( new ViewBindingController() );
 
 	// /**
 	// 	* @desc html parser testing
 	// */
-	// suite[ "test html parser script" ] = {};
+	suite[ "test html parser script" ] = ( function( htmlToNodes ) {
+		function traverseNodes( node , i ) {
+	        if( node === undefined ) { return null; }
+
+	        var parentNode = node.getParentNode(),
+	            childrenNodes = node.getChildrenNodes(),
+	            siblingsNum = ( parentNode ) ? parentNode.getChildrenNodes().length : 0;
+	        
+	        i = i || 0;
+
+	        // Traverse siblings
+	        while( node.stringValue.length === 0 && ( i < siblingsNum - 1 || childrenNodes.length > 0 ) ) {
+	            // Traverse children
+	            while( node.stringValue.length === 0 && childrenNodes.length > 0 ) {
+	                return traverseNodes( childrenNodes[ 0 ] , 0 );
+	            }
+
+	            i++;
+	            return traverseNodes( parentNode.getChildrenNodes()[ i ], i );
+	        }
+
+	        return ( node.stringValue.length > 0 ) ? node : null;
+	    }
+	    function firstInstanceofStyleInNodes( styleName , nodes ) {
+	        if( nodes.length === 0 ) { return null; } // Provide more informative warning
+	        var node = traverseNodes( nodes[ 0 ] );
+
+	        while( node !== null ) {
+	            if( !node.attrs || !node.attrs.style ) {
+	                node = node.getParentNode();
+	                continue;
+	            }
+
+	            if( node.attrs && node.attrs.style && node.attrs.style[ styleName ] ) {
+	                return node.attrs.style[ styleName ];
+	            }
+	            node = node.getParentNode();
+	        }
+	        return null;
+	    }
+
+	    /**
+	        * @desc Convert string containing RGB color data to hex
+	        * @param {string}
+	        * @returns {string} hex color
+	    */
+	    function hexColorFromString( str ) {
+	        // Return str if already hex color
+	        if( ( /^#[0-9a-fA-F]{6}$/i ).test( str ) ) {
+	            return str;
+	        }
+
+	        // Sketch doesn't like Regex
+	        var res = new RegExp( "\\(([^\\)]*)\\)" ).exec( str ),
+	            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null,
+	            hex = rgb && rgb.length === 3 ? 
+	                    util.rgbToHex( parseInt( rgb[ 0 ] ), parseInt( rgb[ 1 ] ), parseInt( rgb[ 2 ] ) ) :
+	                    "#000000";
+	        
+	        return hex;
+	    }
+
+	    // 3.18
+		var ver_3180 = {
+			value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
+			default: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></div>",
+			carriageReturn: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
+			color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></div>",
+			customFont_color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+			variableSpacing_leftAligned: "<div style=\"text-align: left; line-height: 21px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+			variableSpacing_centerAligned: "<div style=\"line-height: 21px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+			variableSpacing_rightAligned: "<div style=\"line-height: 21px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+			variableSpacing_justifyAligned: "<div style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+			underline: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><u><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></u></span></div>",
+			strikethrough: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><strike><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></strike></span></div>",
+			superscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sup><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sup></span></div>",
+			subscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sub><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sub></span></div>"
+		};
+
+		return {
+			// 3.18
+			"test 3.18 text": {
+				"test getting text string value": function() {
+					var htmlString;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							htmlString = htmlToNodes.run( ver_3180[ key ] ).stringValue();
+														
+							assert.strictEqual( htmlString, ver_3180.value, "Version 3.18 " + key + " string value can be parsed" );
+						}
+					}
+				},
+				"test getting text font family": function() {
+					var nodes,
+						fontFamily;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							fontFamily = firstInstanceofStyleInNodes( "font-family", nodes );
+
+							if( key === "customFont_color" ) {
+								assert.strictEqual( fontFamily, "Merriweather-Light,'Merriweather'", "Version 3.18 " + key + " font-family value found" );
+							} else if( key === "color" ||
+									   key === "variableSpacing_leftAligned" ||
+									   key === "variableSpacing_centerAligned" ||
+									   key === "variableSpacing_rightAligned" ||
+									   key === "variableSpacing_justifyAligned" ) {
+								
+								// For some reason font-family is formatted differently
+								assert.strictEqual( fontFamily, "ArialMT, Arial", "Version 3.18 " + key + " font-family value found" );
+							} else {
+								assert.strictEqual( fontFamily, "ArialMT,'Arial'", "Version 3.18 " + key + " font-family value found" );
+							}
+						}
+					}
+				},
+				"test getting text font size": function() {
+					var nodes,
+						fontSize;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							fontSize = firstInstanceofStyleInNodes( "font-size", nodes );
+
+							if( key === "variableSpacing_leftAligned" ||
+								key === "variableSpacing_centerAligned" ||
+								key === "variableSpacing_rightAligned" ||
+								key === "variableSpacing_justifyAligned" ) {
+
+								assert.strictEqual( fontSize, "18px", "Version 3.18 " + key + " font-size value found" );
+							} else {
+								assert.strictEqual( fontSize, "24px", "Version 3.18 " + key + " font-size value found" );
+							}
+						}
+					}
+				},
+				"test getting text line height": function() {
+					var nodes,
+						lineHeight;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							lineHeight = firstInstanceofStyleInNodes( "line-height", nodes );
+
+							if( key === "variableSpacing_leftAligned" ||
+								key === "variableSpacing_centerAligned" ||
+								key === "variableSpacing_rightAligned" ||
+								key === "variableSpacing_justifyAligned" ) {
+
+								assert.strictEqual( lineHeight, "21px", "Version 3.18 " + key + " line-height value found" );
+							} else {
+								assert.strictEqual( lineHeight, null, "Version 3.18 " + key + " uses auto line-height" );
+							}
+						}
+					}
+				},
+				"test getting text letter spacing": function() {
+					var nodes,
+						letterSpacing;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							letterSpacing = firstInstanceofStyleInNodes( "letter-spacing", nodes );
+
+							if( key === "variableSpacing_leftAligned" ||
+								key === "variableSpacing_centerAligned" ) {
+
+								assert.strictEqual( letterSpacing, "1px", "Version 3.18 " + key + " letter-spacing value found" );
+							} else if( key === "variableSpacing_rightAligned" ||
+									   key === "variableSpacing_justifyAligned" ) {
+
+								assert.strictEqual( letterSpacing, "-1px", "Version 3.18 " + key + " letter-spacing value found" );
+							} else {
+								assert.strictEqual( letterSpacing, null, "Version 3.18 " + key + " uses auto letter-spacing" );
+							}
+						}
+					}
+				},
+				"test getting text alignment": function() {
+					var nodes,
+						align;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							align = firstInstanceofStyleInNodes( "text-align", nodes );
+
+							if( key === "variableSpacing_centerAligned" ) {
+								assert.strictEqual( align, "center", "Version 3.18 " + key + " text-align value found" );
+							} else if( key === "variableSpacing_rightAligned" ) {
+								assert.strictEqual( align, "right", "Version 3.18 " + key + " text-align value found" );
+							} else if( key === "variableSpacing_justifyAligned" ) {
+								assert.strictEqual( align, "justify", "Version 3.18 " + key + " text-align value found" );
+							} else {
+								assert.strictEqual( align, "left", "Version 3.18 " + key + " uses default left text-align" );
+							}
+						}
+					}
+				},
+				"test getting text color": function() {
+					var nodes,
+						color;
+
+					for( var key in ver_3180 ) {
+						if( key !== "value" ) {
+							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
+							color = firstInstanceofStyleInNodes( "color", nodes );
+
+							if( key === "color" ||
+								key === "customFont_color" ) {
+								
+								assert.strictEqual( color, "#FF0000", "Version 3.18 " + key + " color value found" );
+							} else if( key === "variableSpacing_leftAligned" ||
+									   key === "variableSpacing_centerAligned" ||
+									   key === "variableSpacing_rightAligned" ||
+									   key === "variableSpacing_justifyAligned" ) {
+
+								// "rgb(0, 0, 0)"
+								assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " color value found" );
+							} else {
+								assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " uses default black color" );
+							}
+						}
+					}
+				},
+				"test special characters": function() {
+					// &, sequential spaces, <, >
+				},
+				"test line breaks": function() {
+					
+				}
+			}
+		};
+	} )( htmlToNodes );
 	
 	test.runAll( suite );
 

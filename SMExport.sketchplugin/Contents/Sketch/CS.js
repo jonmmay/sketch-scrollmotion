@@ -1,7 +1,7 @@
 @import "util.js";
 @import "htmlparser.js";
 
-// TO DO: Are content spec helpers required to be non-enumerable?
+// TO DO: Reformate htmlToNodes
 
 var ContentSpec = ( function( options ) {
 	var resetTextCss = ( options && options.resetCSS ) ? options.resetCSS : "reset3.11.css",
@@ -70,24 +70,365 @@ var ContentSpec = ( function( options ) {
 
         return object;
     }
-    
-    function defineNonEnumerableProperties( obj, props ) {
-        for( var key in props ) {
-            defineNonEnumerableProperty( obj, key, props[ key ] );
-        }
-        return obj;
-    }
-    function defineNonEnumerableProperty( obj, name, value ){
-        var config = {
-            value: value,
-            writable: true,
-            enumerable: false,
-            configurable: true
+
+
+    // Html-based text helpers
+    function encodeSpecialCharacters( str ) {
+        var chars = {
+            ">": "&gt;",
+            "<": "&lt;",
+            "&": "&amp;",
+            
+            // Sequential spaces, '  '
+            "  ": " &nbsp;"
         };
-        
-        Object.defineProperty( obj, name, config );
-        return obj;
+
+        return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+            if( chars[ match ] ) {
+                return chars[ match ];
+            }
+        } );
     }
+    var htmlToNodes = ( function( $ ) {
+            var nodes;
+
+            function normalizeHTMLEntities( str ) {
+                var entities = {
+                    "&gt;": ">",
+                    "&lt;": "<",
+                    "&amp;": "&",
+                    "&nbsp;": " "
+                };
+                
+                return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+                    if( entities[ match ] ) {
+                        return entities[ match ];
+                    }
+                } );
+            }
+            function generateUniqueId() {
+                function s4() {
+                    return Math.floor( ( 1 + Math.random() ) * 0x10000 )
+                    .toString( 16 )
+                    .substring( 1 );
+                }
+                return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
+            }
+            
+            function Html() {
+                var id = 0,
+                    vals = [],
+                    stringValue = "",
+                    cache = {};
+
+                function nodeHelper( node ) {
+                    Object.defineProperties( node, {
+                        "_isClosed": {
+                            enumerable: false,
+                            configurable: true,
+                            writable: true,
+                            value: false
+                        },
+                        "_parentNode": {
+                            enumerable: false,
+                            configurable: true,
+                            writable: true,
+                            value: null
+                        },
+                        "_childrenNodes": {
+                            enumerable: false,
+                            configurable: true,
+                            writable: true,
+                            value: []
+                        }
+                    } );
+                }
+                function Node( tag, attrs ) {
+                    this.id = generateUniqueId();
+                    this.tag = tag;
+                    this.attrs = attrs;
+                    this.index = null;
+                    this.length = null;
+                    this.stringValue = "";
+
+                    nodeHelper( this );
+                }
+
+                Node.prototype.getParentNode = function() {
+                    if( !this._parentNode ) { return null; }
+                    var i = 0, len = vals.length;
+                    for( i ; i < len; i++ ) {
+                        if( vals[ i ].id === this._parentNode ) {
+                            return vals[ i ];
+                        }
+                    }
+                };
+                Node.prototype.getChildrenNodes = function() {
+                    var arr = [], len = vals.length;
+                    
+                    this._childrenNodes.forEach( function( nodeId ) {
+                        for( var i = 0; i < len; i++ ) {
+                            if( vals[ i ].id === nodeId ) {
+                                arr.push( vals[ i ] );
+                                return;
+                            }
+                        }
+                    } );
+                    return arr;
+                };
+                
+                this.process = function( type, val, forceClose ) {
+                    var i, j;
+                    if( type === "end" ) {
+                        // Close node and reset cache
+                        if( cache.id && cache.tag === val.tag ) {
+                            cache._isClosed = true;
+                            cache.length = stringValue.length - cache.index;
+                            vals.push( cache );
+                            cache = {};
+                        } else {
+                            for( i = vals.length - 1; i >= 0; i-- ) {
+                                if( !vals[ i ]._isClosed ) {
+                                    vals[ i ]._isClosed = true;
+                                    vals[ i ].length = stringValue.length - vals[ i ].index;
+                                    break;
+                                }
+                            }
+                        }
+                    } else if( type === "start" ) {
+                        if( cache.id ) {
+                            vals.push( cache );
+                            cache = {};
+                        }
+                        cache = new Node( val.tag, val.attrs );
+                        cache.index = stringValue.length;
+
+                        // Identify parent nodes
+                        for( i = vals.length - 1; i >= 0; i-- ) {
+                            if( !vals[ i ]._isClosed ) {
+                                if( !cache._parentNode ) {
+                                    cache._parentNode = vals[ i ].id;
+                                    vals[ i ]._childrenNodes.push( cache.id );
+                                }
+                            }
+                        }
+
+                        if( forceClose ) {
+                            cache._isClosed = true;
+                            cache.length = stringValue.length - cache.index;
+                            vals.push( cache );
+                            cache = {};
+                        }
+                    } else if( type === "chars" ) {
+                        val = normalizeHTMLEntities( val );
+
+                        if( !cache.id ) {
+                            for( i = vals.length - 1; i >= 0; i-- ) {
+                                if( !vals[ i ]._isClosed ) {
+
+                                    // Identifier for embedded node; can have siblings
+                                    if( vals[ i ].stringValue.length > 0 ) {
+                                        for( j = i; j < vals.length; j++ ) {
+                                            if( vals[ j ]._isClosed && vals[ j ]._parentNode === vals[ i ].id ) {
+                                                vals[ i ].stringValue += ( "{{" + vals[ j ].id + "}}" );
+                                            }
+                                        }
+                                    }
+                                    vals[ i ].stringValue += val;
+                                    break;
+                                }
+                            }
+                        } else {
+                            cache.stringValue += val;
+                        }
+                        
+                        stringValue += val;
+                    }
+                };
+                this.results = function() {
+                    return vals;    
+                };
+                this.stringValue = function() {
+                    // Remove zero width space
+                    return stringValue.replace(/\u200B/g,"");
+                };
+            }
+
+            return {
+                run: function( str ) {
+                    nodes = new Html();
+
+                    $( str, {
+                        start: function( tag, attrs, unary ) {
+                            var attributes = {};
+                            attrs.forEach( function( attr ) {
+                                attr.value.replace( new RegExp( "([-A-Za-z0-9_]+):\\s*([^;]*);" , "gi" ) , function() {
+                                    if( !attributes[ attr.name ] ) { attributes[ attr.name ] = {}; }
+                                    attributes[ attr.name ][ arguments[ 1 ] ] = arguments[ 2 ];
+                                } );
+                            } );
+
+                            nodes.process( "start", {
+                                tag: tag,
+                                attrs: attributes
+                            }, unary );
+                        },
+                        end: function( tag ) {
+                            nodes.process( "end", { tag:tag } );
+                        },
+                        chars: function( text ) {
+                            nodes.process( "chars", text );
+                        },
+                        comment: function( text ) {}
+                    } );
+
+                    return this;
+                },
+                results: function() {
+                    return nodes.results();
+                },
+                stringValue: function() {
+                    return nodes.stringValue();
+                }
+            };
+        } ( HTMLParser ) ),
+        htmlTextHelpers = {
+            _parsedText: {},
+            _textNodes: [],
+            _textStringValue: "",
+            _resetParsedText: function() { 
+                this._parsedText = {};
+                this._textNodes = [];
+            },
+            _cacheParsedText: function() {
+                this._resetParsedText();
+                this._parsedText = htmlToNodes.run( this.spec.text );
+                this._textNodes = this._parsedText.results();
+                this._textStringValue = this._parsedText.stringValue();
+            },
+            setText: function( text ) {
+                setBasicText.call( this, text );
+                this._cacheParsedText();
+
+                return this;
+            },
+            setHtmlText: function( html ) {
+                this.spec.text = html;
+                this._cacheParsedText();
+
+                return this;
+            },
+            getStringValue: function() {
+                return this._textStringValue;
+            },
+            getHtmlNodes: function() {
+                return this._textNodes;
+            },
+
+            getTextAlign: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "text-align", this._textNodes ) :
+                    null;
+            },
+            getLineHeight: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "line-height", this._textNodes ) :
+                    null;
+            },
+            getLetterSpacing: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "letter-spacing", this._textNodes ) :
+                    null;
+            },
+            getColor: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "color", this._textNodes ) :
+                    null;
+            },
+            getFontSize: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "font-size", this._textNodes ) :
+                    null;
+            },
+            getFontFamily: function() {
+                return ( this._textNodes.length > 0 ) ?
+                    firstInstanceofStyleInNodes( "font-family", this._textNodes ) :
+                    null;
+            },
+
+            setTextAlign: function( textAlign ) {
+                replaceTextAlign.call( this, textAlign );
+                this._cacheParsedText();
+                
+                return this;
+            },
+            setLineHeight: function( lineHeight ) {
+                replaceLineHeight.call( this, lineHeight );
+                this._cacheParsedText();
+
+                return this;
+            },
+            setLetterSpacing: function( letterSpacing ) {
+                replaceLetterSpacing.call( this, letterSpacing );
+                this._cacheParsedText();
+
+                return this;
+            },
+            setColor: function( hex ) {
+                replaceColor.call( this, hex );
+                this._cacheParsedText();
+
+                return this;
+            },
+            setFontSize: function( fontSize ) {
+                replaceFontSize.call( this, fontSize );
+                this._cacheParsedText();
+
+                return this;
+            },
+            setCustomFont: function( font, fontFamily ) {
+                var textAlign = this.getTextAlign(),
+                    lineHeight = this.getLineHeight(),
+                    letterSpacing = this.getLetterSpacing(),
+                    color = this.getColor(),
+                    fontSize = this.getFontSize();
+
+                setCustomText.call( this, this._textStringValue );
+                replaceFontFamily.call( this, font, fontFamily );
+
+                // Reapply styles
+                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
+                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
+                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
+                if( color ) { replaceColor.call( this, color ); }
+                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
+
+                this._cacheParsedText();
+
+                return this;
+            },
+
+            resetToDefaultFont: function() {
+                var textAlign = this.getTextAlign(),
+                    lineHeight = this.getLineHeight(),
+                    letterSpacing = this.getLetterSpacing(),
+                    color = this.getColor(),
+                    fontSize = this.getFontSize();
+
+                setBasicText.call( this, this._textStringValue );
+
+                // Reapply styles
+                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
+                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
+                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
+                if( color ) { replaceColor.call( this, color ); }
+                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
+
+                this._cacheParsedText();
+
+                return this;
+            }
+        };
 
     function traverseNodes( node , i ) {
         if( node === undefined ) { return null; }
@@ -163,7 +504,8 @@ var ContentSpec = ( function( options ) {
         } );
     }
 
-    var csHelpers = defineNonEnumerableProperties( {}, {
+
+    var csHelpers = {
             setKeyValue: function( key, value ) {
                 if( typeof key !== "string" && typeof value === "undefined" ) {
                     return;
@@ -182,8 +524,8 @@ var ContentSpec = ( function( options ) {
 
                 return this;
             }
-        } ),
-        overlayHelpers = extend( {}, csHelpers, defineNonEnumerableProperties( {}, {
+        },
+        overlayHelpers = extend( {}, csHelpers, {
             setLayouts: function( orientation, data ) {
                 var key;
                 
@@ -202,16 +544,16 @@ var ContentSpec = ( function( options ) {
             setOverlayId: function( id ) {
                 this.spec.overlayId = id;
             }
-        } ) ),
-        pageHelpers = extend( {}, csHelpers, defineNonEnumerableProperties( {}, {
+        } ),
+        pageHelpers = extend( {}, csHelpers, {
             getPageId: function() {
                 return this.spec.pageId;
             },
             setPageId: function( id ) {
                 this.spec.pageId = id;
             }
-        } ) ),
-        containerHelpers = defineNonEnumerableProperties( {}, {
+        } ),
+        containerHelpers = {
             addReferenceByOverlayId: function( id ) {
                 if( typeof id !== "undefined" ) {
                     if( this.spec.overlays instanceof Array ) {
@@ -233,127 +575,7 @@ var ContentSpec = ( function( options ) {
 
                 return this;
             }
-        } ),
-        htmlTextHelpers = defineNonEnumerableProperties( {}, {
-            _parsedText: {},
-            _textNodes: [],
-            _textStringValue: "",
-            _resetParsedText: function() { 
-                this._parsedText = {};
-                this._textNodes = [];
-            },
-            _cacheParsedText: function( text ) {
-                this._resetParsedText();
-                this._parsedText = htmlToNodes.run( text );
-                this._textNodes = this._parsedText.results();
-                this._textStringValue = this._parsedText.stringValue();
-            },
-            setText: function( text ) {
-                setBasicText.call( this, text );
-                this._cacheParsedText( text );
-
-                return this;
-            },
-            
-            getTextAlign: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "text-align", this._textNodes ) :
-                    null;
-            },
-            getLineHeight: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "line-height", this._textNodes ) :
-                    null;
-            },
-            getLetterSpacing: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "letter-spacing", this._textNodes ) :
-                    null;
-            },
-            getColor: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "color", this._textNodes ) :
-                    null;
-            },
-            getFontSize: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "font-size", this._textNodes ) :
-                    null;
-            },
-
-            setTextAlign: function( textAlign ) {
-                replaceTextAlign.call( this, textAlign );
-                this._cacheParsedText( this.text );
-                
-                return this;
-            },
-            setLineHeight: function( lineHeight ) {
-                replaceLineHeight.call( this, lineHeight );
-                this._cacheParsedText( this.text );
-
-                return this;
-            },
-            setLetterSpacing: function( letterSpacing ) {
-                replaceLetterSpacing.call( this, letterSpacing );
-                this._cacheParsedText( this.text );
-
-                return this;
-            },
-            setColor: function( hex ) {
-                replaceColor.call( this, hex );
-                this._cacheParsedText( this.text );
-
-                return this;
-            },
-            setFontSize: function( fontSize ) {
-                replaceFontSize.call( this, fontSize );
-                this._cacheParsedText( this.text );
-
-                return this;
-            },
-            setCustomFont: function( font, fontFamily ) {
-                var textAlign = this.getTextAlign(),
-                    lineHeight = this.getLineHeight(),
-                    letterSpacing = this.getLetterSpacing(),
-                    color = this.getColor(),
-                    fontSize = this.getFontSize();
-
-                setCustomText.call( this, this._textStringValue );
-                replaceFontFamily.call( this, font, fontFamily );
-
-                // Reapply styles
-                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
-                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
-                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
-                if( color ) { replaceColor.call( this, color ); }
-                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
-
-                this._cacheParsedText( this.text );
-
-                return this;
-            },
-
-            resetToDefaultFont: function() {
-                var textAlign = this.getTextAlign(),
-                    lineHeight = this.getLineHeight(),
-                    letterSpacing = this.getLetterSpacing(),
-                    color = this.getColor(),
-                    fontSize = this.getFontSize();
-
-                setBasicText.call( this, this._textStringValue );
-
-                // Reapply styles
-                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
-                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
-                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
-                if( color ) { replaceColor.call( this, color ); }
-                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
-
-                this._cacheParsedText( this.text );
-
-                return this;
-            }
-        } ),
+        },
         csStubs = {
             image_button: function( stubHandler ) {
                 return extend( {
@@ -402,7 +624,7 @@ var ContentSpec = ( function( options ) {
             }
         };
 
-    var cs = util.Object.extend( {
+    return util.Object.extend( {
         init: function( ctx ) {
             this._super( ctx );
             
@@ -431,7 +653,7 @@ var ContentSpec = ( function( options ) {
         getCSStubByResourcePath: function( path ) {
             var plugin = this.plugin,
                 url = [plugin urlForResourceNamed:path],
-                json = getJSONObjectWithData( getFileData( url ), true );
+                json = getJSONObjectWithData( getFileData( url ) );
 
             // Convert JSON for use with JavaScript
             if( json ) {
@@ -456,7 +678,7 @@ var ContentSpec = ( function( options ) {
             var pageIds = this.getPagesIds(),
                 pageSetIds = this.getPageSetsIds();
 
-            if( pageIds.indexOf( id ) > 0 || pageSetIds.indexOf( id ) ) {
+            if( pageIds.indexOf( id ) > 0 || pageSetIds.indexOf( id ) > 0 ) {
                 this.spec.metaData.startPage = id;
             } else {
                 debug.warn( "Page or Pageset id <" + id + "> must exist in the Content Spec" );
@@ -607,18 +829,6 @@ var ContentSpec = ( function( options ) {
                         }
                     } );
                 }
-                // if( overlay.overlays && [( overlay.overlays ) isKindOfClass:[NSMutableArray class]] ) {
-                //     var i = 0,
-                //         len = [( overlay.overlays ) count],
-                //         subOverlay;
-                    
-                //     for( i; i < len; i++ ) {
-                //         subOverlay = this.getOverlay( String( overlay.overlays[ i ].overlayId ) );
-                //         if( subOverlay ) {
-                //             overlay.overlays[ i ] = util.merge( util.naiveClone( subOverlay ) , util.naiveClone( overlay.overlays[ i ] ) );
-                //         }
-                //     }
-                // }
                 
                 return overlay;
             }
@@ -639,18 +849,6 @@ var ContentSpec = ( function( options ) {
                         }
                     } );
                 }
-                // if( page.overlays && [( page.overlays ) isKindOfClass:[NSMutableArray class]] ) {
-                //     var i = 0,
-                //         len = [( page.overlays ) count],
-                //         overlay;
-                    
-                //     for( i; i < len; i++ ) {
-                //         overlay = this.getOverlay( String( page.overlays[ i ].overlayId ) );
-                //         if( overlay ) {
-                //             page.overlays[ i ] = util.merge( util.naiveClone( overlay ), util.naiveClone( page.overlays[ i ] ) );
-                //         }
-                //     }
-                // } 
                 
                 return page;
             }
@@ -671,18 +869,7 @@ var ContentSpec = ( function( options ) {
                         }
                     } );
                 }
-                // if( pageSet.pages && [( pageSet.pages ) isKindOfClass:[NSMutableArray class]] ) {
-                //     var i = 0,
-                //         len = [( pageSet.pages ) count],
-                //         page;
-                    
-                //     for( i; i < len; i++ ) {
-                //         page = this.getPage( String( pageSet.pages[ i ] ) );
-                //         if( page ) {
-                //             pageSet.pages[ i ] = page;
-                //         }
-                //     }
-                // }
+
                 return pageSet;
             }
             return null;
@@ -717,9 +904,7 @@ var ContentSpec = ( function( options ) {
             return type;
         }
     } );
-
-    return cs;
 } )( {
-    schemaVersion: "3.19",
+    schemaVersion: "3.18",
     resetCSS: "reset3.14.1.css"
 } );

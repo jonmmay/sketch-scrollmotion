@@ -2,7 +2,6 @@
 @import "config.js";
 @import "View.js";
 @import "CS.js";
-@import "htmlparser.js";
 
 // TO DO: bindingNames should use view.addNameAttributes
 // TO DO: Check color value for incoming HTML: hex or rgb
@@ -259,36 +258,34 @@ var ImportScrollMotion = ( function( bindingNames ) {
                     pos = getPosition( cs, screen.orientation ),
                     color,
 
-                    // Provide better error handling for nodes
-                    parsedHtml = htmlToNodes.run( cs.text ),
-                    htmlNodes = parsedHtml.results(),
-                    htmlStrVal = parsedHtml.stringValue(),
+                    // Use CS functions to parse html
+                    textOverlay = this.cs.make( "text_complex" ).setHtmlText( cs.text ),
+                    stringVal = textOverlay.getStringValue(),
                     
                     // For text layer naming
                     indexOfSpace,
                     maxChars = 21,
 
-                    fontFamily = firstInstanceofStyleInNodes( "font-family", htmlNodes ),
-                    fontSize = firstInstanceofStyleInNodes( "font-size", htmlNodes ),
-                    lnHeight = firstInstanceofStyleInNodes( "line-height", htmlNodes ),
-                    charSpace = firstInstanceofStyleInNodes( "letter-spacing", htmlNodes ),
-                    txtAlign = firstInstanceofStyleInNodes( "text-align", htmlNodes ),
-                    txtColor = firstInstanceofStyleInNodes( "color", htmlNodes ),
-                    txtAlpha = cs.alpha,
-                    paragraphStyle;
+                    fontFamily = textOverlay.getFontFamily(),
+                    fontSize = textOverlay.getFontSize(),
+                    lnHeight = textOverlay.getLineHeight(),
+                    charSpace = textOverlay.getLetterSpacing(),
+                    txtAlign = textOverlay.getTextAlign(),
+                    txtColor = textOverlay.getColor(),
+                    txtAlpha = cs.alpha;
 
                 // Return null if no text value
-                if( htmlStrVal.length === 0 ) { return null; }
+                if( stringVal.length === 0 ) { return null; }
 
                 [textLayer setTextBehaviour:1]; // Auto (0), Fixed (1)
 
                 // Name layer
-                indexOfSpace = ( htmlStrVal.length < maxChars ) ? htmlStrVal.length : 
-                               htmlStrVal.substring( 0, maxChars ).lastIndexOf( " " );
-                textLayer.name = cs.displayName || htmlStrVal.substring( 0, ( ( indexOfSpace !== -1 ) ? indexOfSpace : maxChars ) ).trim();
+                indexOfSpace = ( stringVal.length < maxChars ) ? stringVal.length : 
+                               stringVal.substring( 0, maxChars ).lastIndexOf( " " );
+                textLayer.name = cs.displayName || stringVal.substring( 0, ( ( indexOfSpace !== -1 ) ? indexOfSpace : maxChars ) ).trim();
                 
                 // Set text
-                textLayer.stringValue = stringWithBreaks( htmlStrVal, htmlNodes );
+                textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getHtmlNodes() );
 
                 if( fontFamily ) {
                     log( fontFamilyName( fontFamily ) );
@@ -312,8 +309,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 [textLayer setTextAlignment:( txtAlign > -1 ? txtAlign : textAlign.indexOf( "left" ) )];
 
                 // Check if rgb or hex
-                // txtColor = rgbFromString( txtColor );
-                // txtColor = ( txtColor ) ? util.rgbToHex( txtColor.r, txtColor.g, txtColor.b ) : "#000000";
+                txtColor = hexColorFromString( txtColor );
                 color = [MSColor colorWithSVGString:txtColor];
                 [textLayer setTextColor:color];
 
@@ -595,7 +591,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
         var breaks = [], i;
         
         nodes.forEach( function( node ) {
-            var i = ( node.tag === "div" ) ? node.location : -1;
+            var i = ( node.tag === "div" ) ? node.index : -1;
             
             if( i >= 0 ) { breaks.push( i ); }
         } );
@@ -636,19 +632,24 @@ var ImportScrollMotion = ( function( bindingNames ) {
     }
 
     /**
-        * @desc Convert string containing RGB color data to object
+        * @desc Convert string containing RGB color data to hex
         * @param {string}
-        * @returns {object|null} Object with red, green, and blue values; else null if invalid
+        * @returns {string} hex color
     */
-    function rgbFromString( str ) {
+    function hexColorFromString( str ) {
+        // Return str if already hex color
+        if( ( /^#[0-9a-fA-F]{6}$/i ).test( str ) ) {
+            return str;
+        }
+
+        // Sketch doesn't like Regex
         var res = new RegExp( "\\(([^\\)]*)\\)" ).exec( str ),
-            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null;
+            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null,
+            hex = rgb && rgb.length === 3 ? 
+                    util.rgbToHex( parseInt( rgb[ 0 ] ), parseInt( rgb[ 1 ] ), parseInt( rgb[ 2 ] ) ) :
+                    "#000000";
         
-        return ( rgb && rgb.length === 3 ) ? {
-            r: parseInt( rgb[ 0 ] ),
-            g: parseInt( rgb[ 1 ] ),
-            b: parseInt( rgb[ 2 ] )
-        } : null;
+        return hex;
     }
 
     var layersFromCs = util.Object.extend( {
@@ -689,9 +690,10 @@ var ImportScrollMotion = ( function( bindingNames ) {
 
             if( type ) {
                 // Merge content spec with stub
-                csObj = util.merge( this.cs.make( type ), cs );
+                csObj = util.merge( {}, this.cs.make( type ).value(), cs );
 
                 // Assign context with access to this.view for writing setting layer properties
+                // access to this.cs
                 layer = csTypes[ type ].call( this, csObj, path, {
                     "fonts": [
                         {
@@ -709,7 +711,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 // Save content spec to layer
                 if( layer ) {
                     this.view.make( layer ).setLayerCS( csObj );    
-                }       
+                }
 
                 return layer;
             } else {
@@ -744,228 +746,6 @@ function onRun( context ) {
         var page = doc.currentPage(),
             fileManager = [NSFileManager defaultManager],
             desktopURL = [fileManager URLsForDirectory:NSDesktopDirectory inDomains:NSUserDomainMask][ 0 ];   
-
-        function testImage() {
-            var image = importSM.processCS( {
-                "widget": "image",
-                "images": [
-                    "back_arrow_tap.png"
-                ],
-                "overlayId": "overlay1",
-                "type": "image",
-                "relative": "parent",
-                "scale": 1,
-                "alpha": 1,
-                "hidden": false,
-                "borderAlpha": 0,
-                "borderWidth": "0px",
-                "borderColor": "#999999",
-                "cornerRadius": "0px",
-                "clickThrough": false,
-                "draggable": false,
-                "layouts": {
-                    "landscape": {
-                        "width": "192px",
-                        "height": "192px",
-                        "x": "12px",
-                        "y": "12px",
-                        "verticalAlign": "top",
-                        "horizontalAlign": "left"
-                    }
-                },
-                "displayName": "Object 1"
-            }, [desktopURL fileSystemRepresentation] );
-
-            if( image ) {
-                [page addLayers:[ image ]];
-            }
-        }
-        function testBasicButton() {
-            var btn = importSM.processCS( {
-                "widget": "button",
-                "overlayId": "overlay1",
-                "displayName": "button",
-                "type": "button",
-                "text": "ScrollMotion",
-                "borderAlpha": 1,
-                "cgBorderColor": "#FF0000",
-                "cgBorderWidth": "2px",
-                "cgButtonColor": "#FFFFFF",
-                "cgButtonPressedAlpha": 1,
-                "cgButtonPressedColor": "#0099BB",
-                "cgButtonShineEffect": false,
-                "cgUseInteriorBorder": false,
-                "cgCornerRadius": "10px",
-                "font": "Arial-BoldMT",
-                "fontColor": "#0099BB",
-                "fontPressedColor": "#FFFFFF",
-                "fontSize": "1.1em",
-                "relative": "parent",
-                "toggle": false,
-                "hidden": false,
-                "scale": 1,
-                "alpha": 1,
-                "multiline": true,
-                "fixedSize": true,
-                "textAlign": "center",
-                "textPadding": "10px",
-                "clipToBounds": true,
-                "layouts": {
-                    "landscape": {
-                        "width": "180px",
-                        "height": "44px",
-                        "horizontalAlign": "left",
-                        "verticalAlign": "top",
-                        "x": "422px",
-                        "y": "362px"
-                    }
-                }
-            }, [desktopURL fileSystemRepresentation] );
-
-            [page addLayers:[ btn ]];
-        }
-        function testImageButton() {
-            var btn = importSM.processCS( {
-                "widget": "image_button",
-                "overlayId": "overlay3",
-                "type": "button",
-                "scale": 1,
-                "scaleMode": "fill",
-                "alpha": 1,
-                "relative": "parent",
-                "cornerRadius": "0px",
-                "borderAlpha": 0,
-                "borderWidth": "0px",
-                "borderColor": "#999999",
-                "toggle": false,
-                "hidden": false,
-                "layouts": {
-                    "landscape": {
-                        "width": "100px",
-                        "height": "100px",
-                        "x": "365.5px",
-                        "y": "288px",
-                        "verticalAlign": "top",
-                        "horizontalAlign": "left"
-                    }
-                },
-                "displayName": "Object 3",
-                "actions": [],
-                "images": [
-                    "back_arrow_tap.png"
-                ],
-                "imagesDown": [
-                    "2.png"
-                ],
-                "imagesOn": [
-                    "1.png"
-                ],
-                "imagesDownOn": [
-                    "1.png"
-                ]
-            }, [desktopURL fileSystemRepresentation] );
-
-            if( btn ) {
-                [page addLayers:[ btn ]];
-            }
-        }
-        function testContainer( context ) {
-            var container = importSM.processCS( {
-                "widget": "container",
-                "overlayId": "overlay2",
-                "type": "container",
-                "relative": "parent",
-                "scale": 1,
-                "alpha": 1,
-                "hidden": false,
-                "backgroundColor": "#FFFFFF",
-                "backgroundAlpha": 1,
-                "backgroundRepeat": "repeat-none",
-                "backgroundPosition": "center-center",
-                "borderWidth": "1px",
-                "borderColor": "#999999",
-                "borderAlpha": 1,
-                "cornerRadius": "10px",
-                "clickThrough": false,
-                "clipToBounds": true,
-                "draggable": false,
-                "contentWidth": "0px",
-                "contentHeight": "0px",
-                "userScrolling": "none",
-                "scrollerStyle": "black",
-                "paging": false,
-                "contentOffsetX": "0px",
-                "contentOffsetY": "0px",
-                "userScrollingBounces": true,
-                "layouts": {
-                    "landscape": {
-                        "x": "449px",
-                        "y": "17px",
-                        "width": "500px",
-                        "height": "350px",
-                        "verticalAlign": "top",
-                        "horizontalAlign": "left"
-                    }
-                },
-                "displayName": "Object 2",
-                "overlays": [
-                    {
-                        "overlayId": "overlay1"
-                    }
-                ]
-            }, [desktopURL fileSystemRepresentation] );
-
-            if( container ) {
-                [page addLayers:[ container ]];
-            }
-        }
-        function testText( context ) {
-            var text = importSM.processCS( {
-                "alpha": 0.5,
-                "bounces": false,
-                "displayName": "Object 1",
-                "hidden": false,
-                "html": true,
-                "layouts": {
-                    "landscape": {
-                        "height": "336px",
-                        "horizontalAlign": "left",
-                        "verticalAlign": "top",
-                        "width": "350px",
-                        "x": "22px",
-                        "y": "21px"
-                    }
-                },
-                "overlayId": "overlay1",
-                "plugin": "text_complex.smp",
-                "relative": "parent",
-                "size": "0em",
-                "text": "<div style=\"text-align: left; line-height: 16px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);font-size:14px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie </span><span style=\"color:#FF0000;\"><span style=\"font-family: ArialMT, Arial;\">accessorized</span></span><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> with a fancy bag, but her <span style=\"letter-spacing:-1px;\">smock</span> looked</span></span></span></div><div style=\"text-align: left; line-height: 16px;\"><span style=\"font-size:14px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\"> inexpensive. I’ve begun to realize why Jacques makes experts fed up. I had to look up “Hova.” Wow! Expect a bump in frequency of Jay-Z pangrams! Having a few saxophone players is required to make a jazz combo. Jim fantasized about having sex with a large quantity of pancakes.</span></span></div>",
-                "type": "text",
-                "userScrolling": "none",
-                "widget": "text_complex"
-            }, [desktopURL fileSystemRepresentation] );
-
-            [page addLayers:[ text ]];
-        }
-        function testPage( context ) {
-            var artboard = importSM.processCS( {
-                "backgroundColor": "#FFFFFF",
-                "overlays": [
-                    {
-                        "overlayId": "object1"
-                    }
-                ],
-                "pageId": "page1",
-                "title": "",
-                "backgroundImageScaleMode": "center",
-                "displayName": "New Artboard"
-            }, [desktopURL fileSystemRepresentation] );
-
-            if( artboard ) {
-                [page addLayers:[ artboard ]];
-            }
-        }
 
         function getFileData( url ) {
             if( url && [url isKindOfClass:[NSURL class]] ) {
