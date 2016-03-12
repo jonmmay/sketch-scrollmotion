@@ -327,12 +327,12 @@ var ExportScrollMotion = ( function() {
                 page.setKeyValue( "displayName", view.getSanitizedName() );
                 
                 // Merge preexisting content spec properties
-                if( layerCS ) {
-                    // Set preexisting page id
-                    id = layerCS.pageId ? layerCS.pageId : id ;
+                // if( layerCS ) {
+                //     // Set preexisting page id
+                //     id = layerCS.pageId ? layerCS.pageId : id ;
 
-                    page.setValue( util.merge( layerCS, page.value() ) );
-                }
+                //     page.setValue( util.merge( layerCS, page.value() ) );
+                // }
 
                 page.setPageId( id );
 
@@ -394,17 +394,17 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                if( layerCS ) {
-                    // Set preexisting overlay id
-                    id = layerCS.overlayId ? layerCS.overlayId : id ;
+                // if( layerCS ) {
+                //     // Clear layer content spec if overlay is a different type
+                //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                //         layerCS = view.clearLayerCS().getLayerCS();
+                //     } else {
+                //         // Set preexisting overlay id
+                //         id = layerCS.overlayId ? layerCS.overlayId : id;
+                //     }
 
-                    // Clear layer content spec if overlay is a different type
-                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                        layerCS = view.clearLayerCS().getLayerCS();
-                    }
-
-                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                }
+                //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                // }
 
                 overlay.setOverlayId( id );
 
@@ -471,17 +471,17 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                if( layerCS ) {
-                    // Set preexisting overlay id
-                    id = layerCS.overlayId ? layerCS.overlayId : id ;
+                // if( layerCS ) {
+                //     // Clear layer content spec if overlay is a different type
+                //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                //         layerCS = view.clearLayerCS().getLayerCS();
+                //     } else {
+                //         // Set preexisting overlay id
+                //         id = layerCS.overlayId ? layerCS.overlayId : id;
+                //     }
 
-                    // Clear layer content spec if overlay is a different type
-                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                        layerCS = view.clearLayerCS().getLayerCS();
-                    }
-
-                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                }
+                //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                // }
 
                 overlay.setOverlayId( id );
 
@@ -760,18 +760,18 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    if( layerCS ) {
-                        // Set preexisting overlay id
-                        id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    // if( layerCS ) {
+                    //     // Clear layer content spec if overlay is a different type
+                    //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                    //         // layerCS = util.commonProperties( overlay.value(), layerCS );
+                    //         layerCS = view.clearLayerCS().getLayerCS();
+                    //     } else {
+                    //         // Set preexisting overlay id
+                    //         id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    //     }
 
-                        // Clear layer content spec if overlay is a different type
-                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                            // layerCS = util.commonProperties( overlay.value(), layerCS );
-                            layerCS = view.clearLayerCS().getLayerCS();
-                        }
-
-                        overlay.setValue( util.merge( layerCS, layerCSActions, overlay.value() ) );
-                    }
+                    //     overlay.setValue( util.merge( layerCS, layerCSActions, overlay.value() ) );
+                    // }
 
                     overlay.setOverlayId( id );
 
@@ -843,17 +843,17 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    if( layerCS ) {
-                        // Set preexisting overlay id
-                        id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    // if( layerCS ) {
+                    //     // Clear layer content spec if overlay is a different type
+                    //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                    //         layerCS = view.clearLayerCS().getLayerCS();
+                    //     } else {
+                    //         // Set preexisting overlay id
+                    //         id = layerCS.overlayId ? layerCS.overlayId : id ;
+                    //     }
 
-                        // Clear layer content spec if overlay is a different type
-                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                            layerCS = view.clearLayerCS().getLayerCS();
-                        }
-
-                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                    }
+                    //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                    // }
 
                     overlay.setOverlayId( id );
 
@@ -869,7 +869,7 @@ var ExportScrollMotion = ( function() {
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
                 var layerView = viewBind.make( layer );
-                    
+                
                 if( !layerView.shouldBeIgnored() ) {
                     eligibleViews.push( layerView );
                 }
@@ -878,10 +878,8 @@ var ExportScrollMotion = ( function() {
             // Process eligible layers
             util.forEach( eligibleViews, function( layerView ) {
                 var boundLayers = viewBindingControl.applyBindings( layerView );
-                boundLayers.forEach( function( layer ) {
-                    transformedLayers.push( layer );
-                } );
                 
+                transformedLayers = transformedLayers.concat( boundLayers );                
             } );
 
             return transformedLayers;
@@ -1429,7 +1427,7 @@ function onRun( context ) {
 
         mapCSOverlaysToParent( transformedLayers );
         output( transformedLayers );
-        log( cs.value() );
+        log( cs.value().pages );
 
         util.debug.debug( "########## Export end ##########" );
         doc.showMessage( "Done" );
