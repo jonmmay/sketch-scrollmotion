@@ -119,11 +119,13 @@ function smButton( context ) {
         selectedLayers = ( [selection count] > 0 ) ? selection : null,
         transformedLayers = [],
         toggleValues = [],
+        imageButtonValues = [],
         isToggled,
+        isImageButton,
         view = View.create( context );
     
-    function buttonInspector( views, isToggled ) {
-        var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 460, 160 )],
+    function buttonInspector( views, isToggled, isImageButton ) {
+        var accessory = [[NSView alloc] initWithFrame:NSMakeRect( 0, 0, 460, 48 )],
             alert = [[NSAlert alloc] init],
             alertVal,
             iconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
@@ -135,16 +137,19 @@ function smButton( context ) {
             alertTitle = "ScrollMotion Button",
             alertDescription = "Edit properties on the selected layer:\n" + viewNames.join( "\n" ),
             
+            toggleImageButtonSwitch = createCheckbox( "Force image export", isImageButton, NSMakeRect( 0, 24, 250, 18 ) ), 
             toggleSwitch = createCheckbox( "Toggle", isToggled, NSMakeRect( 0, 0, 250, 18 ) );
 
         if( viewNames.length > 1 ) {
             alertDescription = alertDescription.replace( /(layer)/, "$1s" );
         }
 
+        [accessory addSubview:toggleImageButtonSwitch];
         [accessory addSubview:toggleSwitch];
 
+        [toggleImageButtonSwitch sizeToFit];
         [toggleSwitch sizeToFit];
-        accessory.frame = NSMakeRect( 0, 0, [toggleSwitch frame].size.width, [toggleSwitch frame].size.height );
+        accessory.frame = NSMakeRect( 0, 0, [toggleImageButtonSwitch frame].size.width, [accessory frame].size.height );
 
         [alert setMessageText:alertTitle];
         [alert setInformativeText:alertDescription];
@@ -157,10 +162,14 @@ function smButton( context ) {
 
         if( alertVal === NSAlertFirstButtonReturn ) {
             views.forEach( function( view ) {
-                var isToggled = [toggleSwitch state] ? true : false;
+                var isToggled = [toggleSwitch state] ? true : false,
+                    isImageButton = [toggleImageButtonSwitch state] ? true : false;
 
                 if( [toggleSwitch state] != NSMixedState ) {
                     view.setLayerValueForKey( isToggled, "toggle" );    
+                }
+                if( [toggleImageButtonSwitch state] != NSMixedState ) {
+                    view.setLayerValueForKey( isImageButton, "exportAsImage" );    
                 }
                 
                 tagViewWithBinding( view, "B" );
@@ -179,9 +188,15 @@ function smButton( context ) {
 
             return ( typeof val === "boolean" ) ? val : false;
         } );
+        imageButtonValues = transformedLayers.map( function( view ) {
+            var val = view.getLayerValueForKey( "exportAsImage" );
+
+            return ( typeof val === "boolean" ) ? val : false;
+        } );
 
         isToggled = ( toggleValues.indexOf( false ) > -1 && toggleValues.indexOf( true ) > -1 ) ? "mixed" : toggleValues[ 0 ];
-        buttonInspector( transformedLayers, isToggled );
+        isImageButton = ( imageButtonValues.indexOf( false ) > -1 && imageButtonValues.indexOf( true ) > -1 ) ? "mixed" : imageButtonValues[ 0 ];
+        buttonInspector( transformedLayers, isToggled, isImageButton );
         doc.showMessage( "Done" );
     } else {
         doc.showMessage( "Ahh 💩... Select a layer to make a button." );
@@ -195,7 +210,7 @@ function smContainer( context ) {
         layerTypes = [],
         pagingValues = [],
         clippedToBoundsValues = [],
-        tapThroughValues= [],
+        clickThroughValues= [],
         draggableValues = [],
         bounceValues = [],
         scrollDirectionValues = [],
@@ -224,7 +239,7 @@ function smContainer( context ) {
             
             pagingSwitch = createCheckbox( "Paging", props.paging, NSMakeRect( 0, 96, 250, 18 ) ),
             clipToBoundsSwitch = createCheckbox( "Clip to Bounds", props.clipToBounds, NSMakeRect( 0, 72, 250, 18 ) ),
-            tapThroughSwitch = createCheckbox( "Tap Through", props.tapThrough, NSMakeRect( 0, 48, 250, 18 ) ),
+            clickThroughSwitch = createCheckbox( "Tap Through", props.clickThrough, NSMakeRect( 0, 48, 250, 18 ) ),
             draggableSwitch = createCheckbox( "Draggable", props.draggable, NSMakeRect( 0, 24, 250, 18 ) ),
             bounceSwitch = createCheckbox( "Bounce", props.bounces, NSMakeRect( 0, 0, 250, 18 ) );
 
@@ -243,7 +258,7 @@ function smContainer( context ) {
         [accessory addSubview:sStyleLabel];
         [accessory addSubview:sStyleValues];
 
-        [accessory addSubview:tapThroughSwitch];
+        [accessory addSubview:clickThroughSwitch];
         [accessory addSubview:clipToBoundsSwitch];
         [accessory addSubview:draggableSwitch];
         [accessory addSubview:pagingSwitch];
@@ -251,7 +266,7 @@ function smContainer( context ) {
 
         [sDirValues sizeToFit];
         [sStyleValues sizeToFit];
-        [tapThroughSwitch sizeToFit];
+        [clickThroughSwitch sizeToFit];
         [clipToBoundsSwitch sizeToFit];
         [draggableSwitch sizeToFit];
         [pagingSwitch sizeToFit];
@@ -271,7 +286,7 @@ function smContainer( context ) {
                 views.forEach( function( view ) {
                     var isPaging = [pagingSwitch state] ? true : false,
                         isClippedToBounds = [clipToBoundsSwitch state] ? true : false,
-                        isTapThrough = [tapThroughSwitch state] ? true : false,
+                        isClickThrough = [clickThroughSwitch state] ? true : false,
                         isDraggable = [draggableSwitch state] ? true : false,
                         isBounce = [bounceSwitch state] ? true : false,
                         scrollDir = [sDirValues titleOfSelectedItem],
@@ -283,8 +298,8 @@ function smContainer( context ) {
                     if( [clipToBoundsSwitch state] != NSMixedState ) {
                         view.setLayerValueForKey( isClippedToBounds, "clipToBounds" );
                     }
-                    if( [tapThroughSwitch state] != NSMixedState ) {
-                        view.setLayerValueForKey( isTapThrough, "tapThrough" );
+                    if( [clickThroughSwitch state] != NSMixedState ) {
+                        view.setLayerValueForKey( isClickThrough, "clickThrough" );
                     }
                     if( [draggableSwitch state] != NSMixedState ) {
                         view.setLayerValueForKey( isDraggable, "draggable" );
@@ -328,8 +343,8 @@ function smContainer( context ) {
 
                 return ( typeof val === "boolean" ) ? val : false;
             } );
-            tapThroughValues = transformedLayers.map( function( view ) {
-                var val = view.getLayerValueForKey( "tapThrough" );
+            clickThroughValues = transformedLayers.map( function( view ) {
+                var val = view.getLayerValueForKey( "clickThrough" );
 
                 return ( typeof val === "boolean" ) ? val : false;
             } );
@@ -357,7 +372,7 @@ function smContainer( context ) {
             containerInspector( transformedLayers, {
                 paging: ( uniqueValuesInArray( pagingValues ).length > 1 ) ? "mixed" : pagingValues[ 0 ],
                 clipToBounds: ( uniqueValuesInArray( clippedToBoundsValues ).length > 1 ) ? "mixed" : clippedToBoundsValues[ 0 ],
-                tapThrough: ( uniqueValuesInArray( tapThroughValues ).length > 1 ) ? "mixed" : tapThroughValues[ 0 ],
+                clickThrough: ( uniqueValuesInArray( clickThroughValues ).length > 1 ) ? "mixed" : clickThroughValues[ 0 ],
                 draggable: ( uniqueValuesInArray( draggableValues ).length > 1 ) ? "mixed" : draggableValues[ 0 ],
                 bounces: ( uniqueValuesInArray( bounceValues ).length > 1 ) ? "mixed" : bounceValues[ 0 ],
                 scrollDirection: ( uniqueValuesInArray( scrollDirectionValues ).length > 1 ) ? nil : scrollDirectionValues[ 0 ],
@@ -402,6 +417,43 @@ function toggleSelectionToIgnore( context ) {
             // All layers should not be tagged to be ignored
             transformedLayers.forEach( function( view ) {
                [( view.layer ) setName:( view.name.replace( ignoreRegex, "" ) )];
+            } );
+        }
+    } else {
+            doc.showMessage( "Select layers to exclude from export." );
+        }
+}
+function toggleSelectionToFlatten( context ) {
+    var doc = context.document,
+        selection = context.selection,
+        selectedLayers = ( [selection count] > 0 ) ? selection : null,
+        transformedLayers = [],
+        toggleValues = [],
+        flattenRegex = /^(\*\s*)|(\s*\*)$/,
+        view = View.create( context );
+
+    if( selectedLayers ) {
+        util.forEach( selectedLayers, function( layer ) {
+            var newView = view.make( layer );
+            
+            transformedLayers.push( newView );
+            toggleValues.push( flattenRegex.test( newView.name ) );
+        } );
+
+        if( toggleValues.indexOf( false ) > -1 ) {
+            // All layers should be tagged to be ignored
+
+            transformedLayers.forEach( function( view ) {
+                // Ignore layers not already tagged
+                if( !flattenRegex.test( view.name ) ) {
+                    view.addNameAttributes( "*" );
+                }
+            } );
+
+        } else {
+            // All layers should not be tagged to be ignored
+            transformedLayers.forEach( function( view ) {
+               [( view.layer ) setName:( view.name.replace( flattenRegex, "" ) )];
             } );
         }
     } else {

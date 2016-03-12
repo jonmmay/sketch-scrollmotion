@@ -80,8 +80,8 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 if( typeof cs.clipToBounds !== "undefined" ) {
                     layerView.setLayerValueForKey( cs.clipToBounds, "clipToBounds" );
                 }
-                if( typeof cs.tapThrough !== "undefined" ) {
-                    layerView.setLayerValueForKey( cs.tapThrough, "tapThrough" );
+                if( typeof cs.clickThrough !== "undefined" ) {
+                    layerView.setLayerValueForKey( cs.clickThrough, "clickThrough" );
                 }
                 if( typeof cs.draggable !== "undefined" ) {
                     layerView.setLayerValueForKey( cs.draggable, "draggable" );
