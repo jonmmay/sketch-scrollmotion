@@ -299,9 +299,11 @@ var ExportScrollMotion = ( function() {
 
                 layersForTransformation = layers,
                 eligibleViews = [],
+                eligibleArtboardViews = [],
                 transformedLayers = [],
                 viewBind = View.create( context ),
                 viewBindingControl = new ViewBindingController(),
+                config = this.config,
                 cs = ContentSpec.create( context ),
 
                 boundImageAssetHandler = imageAssetHandler.bind( this );
@@ -327,12 +329,12 @@ var ExportScrollMotion = ( function() {
                 page.setKeyValue( "displayName", view.getSanitizedName() );
                 
                 // Merge preexisting content spec properties
-                // if( layerCS ) {
-                //     // Set preexisting page id
-                //     id = layerCS.pageId ? layerCS.pageId : id ;
+                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                    // Set preexisting page id
+                    id = layerCS.pageId ? layerCS.pageId : id ;
 
-                //     page.setValue( util.merge( layerCS, page.value() ) );
-                // }
+                    page.setValue( util.merge( layerCS, page.value() ) );
+                }
 
                 page.setPageId( id );
 
@@ -394,17 +396,17 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                // if( layerCS ) {
-                //     // Clear layer content spec if overlay is a different type
-                //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                //         layerCS = view.clearLayerCS().getLayerCS();
-                //     } else {
-                //         // Set preexisting overlay id
-                //         id = layerCS.overlayId ? layerCS.overlayId : id;
-                //     }
+                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                    // Clear layer content spec if overlay is a different type
+                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                        layerCS = view.clearLayerCS().getLayerCS();
+                    } else {
+                        // Set preexisting overlay id
+                        id = layerCS.overlayId ? layerCS.overlayId : id;
+                    }
 
-                //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                // }
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                }
 
                 overlay.setOverlayId( id );
 
@@ -471,17 +473,17 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                // if( layerCS ) {
-                //     // Clear layer content spec if overlay is a different type
-                //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                //         layerCS = view.clearLayerCS().getLayerCS();
-                //     } else {
-                //         // Set preexisting overlay id
-                //         id = layerCS.overlayId ? layerCS.overlayId : id;
-                //     }
+                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                    // Clear layer content spec if overlay is a different type
+                    if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                        layerCS = view.clearLayerCS().getLayerCS();
+                    } else {
+                        // Set preexisting overlay id
+                        id = layerCS.overlayId ? layerCS.overlayId : id;
+                    }
 
-                //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                // }
+                    overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                }
 
                 overlay.setOverlayId( id );
 
@@ -760,18 +762,18 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    // if( layerCS ) {
-                    //     // Clear layer content spec if overlay is a different type
-                    //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                    //         // layerCS = util.commonProperties( overlay.value(), layerCS );
-                    //         layerCS = view.clearLayerCS().getLayerCS();
-                    //     } else {
-                    //         // Set preexisting overlay id
-                    //         id = layerCS.overlayId ? layerCS.overlayId : id ;
-                    //     }
+                    if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                        // Clear layer content spec if overlay is a different type
+                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                            // layerCS = util.commonProperties( overlay.value(), layerCS );
+                            layerCS = view.clearLayerCS().getLayerCS();
+                        } else {
+                            // Set preexisting overlay id
+                            id = layerCS.overlayId ? layerCS.overlayId : id ;
+                        }
 
-                    //     overlay.setValue( util.merge( layerCS, layerCSActions, overlay.value() ) );
-                    // }
+                        overlay.setValue( util.merge( layerCS, layerCSActions, overlay.value() ) );
+                    }
 
                     overlay.setOverlayId( id );
 
@@ -864,17 +866,17 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    // if( layerCS ) {
-                    //     // Clear layer content spec if overlay is a different type
-                    //     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
-                    //         layerCS = view.clearLayerCS().getLayerCS();
-                    //     } else {
-                    //         // Set preexisting overlay id
-                    //         id = layerCS.overlayId ? layerCS.overlayId : id ;
-                    //     }
+                    if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                        // Clear layer content spec if overlay is a different type
+                        if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
+                            layerCS = view.clearLayerCS().getLayerCS();
+                        } else {
+                            // Set preexisting overlay id
+                            id = layerCS.overlayId ? layerCS.overlayId : id ;
+                        }
 
-                    //     overlay.setValue( util.merge( layerCS, overlay.value() ) );
-                    // }
+                        overlay.setValue( util.merge( layerCS, overlay.value() ) );
+                    }
 
                     overlay.setOverlayId( id );
 
@@ -887,22 +889,26 @@ var ExportScrollMotion = ( function() {
             // viewBindingControl.bindingRegistry( "T" , function( bindObj, args ) {
             // } );
 
-            var eligibleArboardViews = [];
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
                 var layerView = viewBind.make( layer );
                 
                 if( !layerView.shouldBeIgnored() ) {
                     if( layerView.isArtboard() ) {
-                        eligibleArboardViews.push( layerView );
+                        eligibleArtboardViews.push( layerView )
                     } else {
-                        eligibleViews.push( layerView );    
+                        eligibleViews.push( layerView );
                     }
                 }
             } );
 
+            // Reverse artboard array
+            eligibleArtboardViews = eligibleArtboardViews.reverse();
+            // Concatinate artboards to layers
+            eligibleViews = eligibleViews.concat( eligibleArtboardViews );
+
             // Process eligible layers
-            util.forEach( eligibleViews.concat( eligibleArboardViews.reverse() ), function( layerView ) {
+            util.forEach( eligibleViews, function( layerView ) {
                 var boundLayers = viewBindingControl.applyBindings( layerView );
                 
                 transformedLayers = transformedLayers.concat( boundLayers );                
@@ -980,7 +986,7 @@ function onRun( context ) {
         }
 
         // Attempt to initialize with export folder's content spec to retain data
-        if( !config.getSettingsKeyValue( "overwriteExportFolder" ) ) {
+        if( !config.getSettingsKeyValue( "cleanExport" ) ) {
             data = getFileData( csFileURL );
             
             if( data ) {
@@ -1162,6 +1168,7 @@ function onRun( context ) {
             return layers.map( function( obj ) {
                 var overlay,
                     page,
+                    id,
                     existingCS,
                     parent = obj.getParent ? obj.getParent() : null,
                     parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null;
@@ -1177,20 +1184,34 @@ function onRun( context ) {
                         // Or preexisting overlay is an alternative type
                         if( !existingCS || ( existingCS && existingCS.type !== overlay.value().type ) ) {
                             overlay.setOverlayId( cs.generateOverlayId() );
+                        } else {
+                            // Using overlay id stored on layer
+                            
+                            // Check page id against cs page ids
+                            id = cs.generateOverlayId( overlay.getOverlayId() );
+                            
+                            // Replace id if id is already used
+                            if( id !== overlay.getOverlayId() ) {
+                               overlay.setValue( cs.replaceIdWithId( overlay.value(), overlay.getOverlayId(), id ) );
+                            }
                         }
 
                         // Add overlay to content spec
                         cs.appendOverlay( overlay.value() );
 
                         // Attach content spec to layer
-                        obj.getView().setLayerCS( overlay.value() );
+                        if( obj.getView().getLayerCS() ) {
+                            obj.getView().setLayerCS( overlay.value() );
+                        }
 
                         // Add overlay reference to parent overlay/page
                         if( parentObject && parentObject.addReferenceByOverlayId ) {
                             parentObject.addReferenceByOverlayId( overlay.getOverlayId() );
 
                             // Attach content spec to layer
-                            parent.getView().setLayerCS( overlay.value() );
+                            if( parent.getView().getLayerCS() ) {
+                                parent.getView().setLayerCS( overlay.value() );
+                            }
                         }
                     } else if( obj.type === "page" ) {
                         page = obj.page;
@@ -1198,14 +1219,27 @@ function onRun( context ) {
 
                         // Generate new unique page id if preexisting page doesn't exist
                         if( !existingCS ) {
-                            page.setPageId( cs.generatePageId() );    
+                            page.setPageId( cs.generatePageId() );
+                            log( page.getPageId() );
+                        } else {
+                            // Using page id stored on layer
+
+                            // Check page id against cs page ids
+                            id = cs.generatePageId( page.getPageId() );
+                            
+                            // Replace id if id is already used
+                            if( id !== page.getPageId() ) {
+                               page.setValue( cs.replaceIdWithId( page.value(), page.getPageId(), id ) );
+                            }
                         }
                         
                         // Add page to content spec
                         cs.appendPage( page.value() );
 
                         // Attach content spec to layer
-                        obj.getView().setLayerCS( page.value() );
+                        if( obj.getView().getLayerCS() ) {
+                            obj.getView().setLayerCS( page.value() );
+                        }
 
                         // Set start page if none exists
                         if( !startPageId ) {
@@ -1351,7 +1385,7 @@ function onRun( context ) {
             util.debug.debug( "Saving to path: " + targetFolderPath );
 
             // 1. Remove export folder based on userSettings
-            if( config.getSettingsKeyValue( "overwriteExportFolder" ) && [fileManager fileExistsAtPath:targetFolderPath] ) {
+            if( config.getSettingsKeyValue( "cleanExport" ) && [fileManager fileExistsAtPath:targetFolderPath] ) {
                 [fileManager removeItemAtPath:targetFolderPath error:nil];
             }
 
@@ -1453,7 +1487,7 @@ function onRun( context ) {
 
         mapCSOverlaysToParent( transformedLayers );
         output( transformedLayers );
-        log( cs.value().pages );
+        log( cs.value() );
 
         util.debug.debug( "########## Export end ##########" );
         doc.showMessage( "Done" );
