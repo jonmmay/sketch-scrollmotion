@@ -303,13 +303,14 @@ var ExportScrollMotion = ( function() {
                 transformedLayers = [],
                 viewBind = View.create( context ),
                 viewBindingControl = new ViewBindingController(),
-                config = this.config,
                 cs = ContentSpec.create( context ),
 
                 boundImageAssetHandler = imageAssetHandler.bind( this );
 
                 csOrientation = csOrientation || "landscape";
-                csFontSize = csFontSize || 14;
+                csFontSize = csFontSize || 14,
+
+                shouldMergeLayerCS = !this.config.getSettingsKeyValue( "cleanExport" );
 
             viewBindingControl.layerKindRegistry( "default", function( bindObj ) {
                 var view = bindObj.getView(),
@@ -329,7 +330,7 @@ var ExportScrollMotion = ( function() {
                 page.setKeyValue( "displayName", view.getSanitizedName() );
                 
                 // Merge preexisting content spec properties
-                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                if( layerCS && shouldMergeLayerCS ) {
                     // Set preexisting page id
                     id = layerCS.pageId ? layerCS.pageId : id ;
 
@@ -396,7 +397,7 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                if( layerCS && shouldMergeLayerCS ) {
                     // Clear layer content spec if overlay is a different type
                     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
                         layerCS = view.clearLayerCS().getLayerCS();
@@ -473,7 +474,7 @@ var ExportScrollMotion = ( function() {
                 overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                 // Merge preexisting content spec properties
-                if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                if( layerCS && shouldMergeLayerCS ) {
                     // Clear layer content spec if overlay is a different type
                     if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
                         layerCS = view.clearLayerCS().getLayerCS();
@@ -762,7 +763,7 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                    if( layerCS && shouldMergeLayerCS ) {
                         // Clear layer content spec if overlay is a different type
                         if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
                             // layerCS = util.commonProperties( overlay.value(), layerCS );
@@ -866,7 +867,7 @@ var ExportScrollMotion = ( function() {
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
                     // Merge preexisting content spec properties
-                    if( layerCS && !config.getSettingsKeyValue( "cleanExport" ) ) {
+                    if( layerCS && shouldMergeLayerCS ) {
                         // Clear layer content spec if overlay is a different type
                         if( cs.typeofOverlay( layerCS ) !== cs.typeofOverlay( overlay.value() ) ) {
                             layerCS = view.clearLayerCS().getLayerCS();
@@ -1163,36 +1164,28 @@ function onRun( context ) {
             } );
         }
         function mapCSOverlaysToParent( layers ) {
-            var startPageId = cs.getStartPage();
+            var startPageId = cs.getStartPage(),
+                csTypes = {
+                    overlay: function( obj ) {
+                        var overlay = obj.overlay,
+                            existingCS = cs.getOverlay( overlay.getOverlayId() ),
+                            parent = obj.getParent ? obj.getParent() : null,
+                            parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null,
+                            overlayId;
 
-            return layers.map( function( obj ) {
-                var overlay,
-                    page,
-                    id,
-                    existingCS,
-                    parent = obj.getParent ? obj.getParent() : null,
-                    parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null;
-
-                obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
-
-                if( obj.type !== null ) {
-                    if( obj.type === "overlay" ) {
-                        overlay = obj.overlay
-                        existingCS = cs.getOverlay( overlay.getOverlayId() );
-
-                        // Generate new unique overlay id if preexisting overlay doesn't exist
-                        // Or preexisting overlay is an alternative type
+                        // Generate new overlay id if existing overlay doesn't exist or is a different overlay type
                         if( !existingCS || ( existingCS && existingCS.type !== overlay.value().type ) ) {
                             overlay.setOverlayId( cs.generateOverlayId() );
-                        } else {
-                            // Using overlay id stored on layer
-                            
-                            // Check page id against cs page ids
-                            id = cs.generateOverlayId( overlay.getOverlayId() );
+                        }
+
+                        // Overlay id is stored on layer
+                        else {                            
+                            // Check overlay id against cs overlay ids
+                            overlayId = cs.generateOverlayId( overlay.getOverlayId() );
                             
                             // Replace id if id is already used
-                            if( id !== overlay.getOverlayId() ) {
-                               overlay.setValue( cs.replaceIdWithId( overlay.value(), overlay.getOverlayId(), id ) );
+                            if( overlayId !== overlay.getOverlayId() ) {
+                               overlay.setValue( cs.replaceIdWithId( overlay.value(), overlay.getOverlayId(), overlayId ) );
                             }
                         }
 
@@ -1213,23 +1206,25 @@ function onRun( context ) {
                                 parent.getView().setLayerCS( overlay.value() );
                             }
                         }
-                    } else if( obj.type === "page" ) {
-                        page = obj.page;
-                        existingCS = cs.getPage( page.getPageId() );
+                    },
+                    page: function( obj ) {
+                        var page = obj.page,
+                            existingCS = cs.getPage( page.getPageId() ),
+                            pageId;
 
-                        // Generate new unique page id if preexisting page doesn't exist
+                        // Generate new page id if existing page doesn't exist
                         if( !existingCS ) {
                             page.setPageId( cs.generatePageId() );
-                            log( page.getPageId() );
-                        } else {
-                            // Using page id stored on layer
+                        }
 
+                        // Page id is stored on layer
+                        else {
                             // Check page id against cs page ids
-                            id = cs.generatePageId( page.getPageId() );
+                            pageId = cs.generatePageId( page.getPageId() );
                             
                             // Replace id if id is already used
-                            if( id !== page.getPageId() ) {
-                               page.setValue( cs.replaceIdWithId( page.value(), page.getPageId(), id ) );
+                            if( pageId !== page.getPageId() ) {
+                               page.setValue( cs.replaceIdWithId( page.value(), page.getPageId(), pageId ) );
                             }
                         }
                         
@@ -1247,6 +1242,13 @@ function onRun( context ) {
                             startPageId = page.getPageId();
                         }
                     }
+                };
+
+            return layers.map( function( obj ) {
+                obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
+
+                if( obj.type !== null ) {
+                    csTypes[ obj.type ]( obj );
                 }
 
                 return obj;
