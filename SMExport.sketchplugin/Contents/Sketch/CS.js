@@ -775,24 +775,52 @@ var ContentSpec = ( function( options ) {
             return this;
         },
 
-        generateOverlayId: function() {
+        generateOverlayId: function( testId ) {
             var id = "overlay",
                 overlayIds = this.getOverlaysIds();
+
+            if( typeof testId === "string" && overlayIds.indexOf( testId ) === -1 ) {
+                return testId;
+            }
 
             while( overlayIds.indexOf( id + ++this.overlayId ) !== -1 ) {}
             id += this.overlayId;
             
             return id;
         },
-        generatePageId: function() {
+        generatePageId: function( testId ) {
             var id = "page",
                 pageIds = this.getPagesIds();
+
+            if( typeof testId === "string" && pageIds.indexOf( testId ) === -1 ) {
+                return testId;
+            }
 
             while( pageIds.indexOf( id + ++this.pageId ) !== -1 ) {}
             id += this.pageId;
 
             return id;
         },
+        replaceIdWithId: function( obj, currentId, newId ) {
+            if( arguments.length === 2 ) {
+                newId = currentId;
+                currentId = obj.overlayId || obj.pageId || undefined;
+            }
+            if( typeof obj !== "object" || typeof currentId !== "string" || typeof newId !== "string" ) {
+                return;
+            }
+
+            for( var key in obj ) {
+                if( typeof obj[ key ] === "object" ) {
+                    this.replaceIdWithId( obj[ key ], currentId, newId );
+                } else if( obj[ key ] === currentId ) {
+                    obj[ key ] = newId;
+                }
+            }
+
+            return obj;
+        },
+
         make: function( type ) {
             var plugin = this.plugin,
                 stubHandler = this.getCSStubByResourcePath.bind( this );

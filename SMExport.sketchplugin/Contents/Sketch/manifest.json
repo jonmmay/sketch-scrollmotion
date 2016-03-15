@@ -48,7 +48,7 @@
         {
             "script": "exportScrollMotion.sketchscript",
             "handler": "onRun",
-            "shortcut": "ctrl s",
+            "shortcut": "ctrl shift s",
             "name": "Export",
             "identifier": "exportScrollMotion"
         },
@@ -62,23 +62,30 @@
         {
             "script": "layerInspectors.sketchscript",
             "handler": "smButton",
-            "shortcut": "",
+            "shortcut": "ctrl shift b",
             "name": "Edit Button...",
             "identifier": "editButton"
         },
         {
             "script": "layerInspectors.sketchscript",
             "handler": "smContainer",
-            "shortcut": "",
+            "shortcut": "ctrl shift c",
             "name": "Edit Container...",
             "identifier": "editContainer"
         },
         {
             "script": "layerInspectors.sketchscript",
             "handler": "toggleSelectionToIgnore",
-            "shortcut": "",
+            "shortcut": "ctrl shift -",
             "name": "Toggle Exportable",
             "identifier": "ignore"
+        },
+        {
+            "script": "layerInspectors.sketchscript",
+            "handler": "toggleSelectionToFlatten",
+            "shortcut": "ctrl shift 8",
+            "name": "Toggle Flatten",
+            "identifier": "flatten"
         }
     ],
     "menu": {
@@ -91,6 +98,7 @@
             "editButton",
             "editContainer",
             "ignore",
+            "flatten",
             "-",
             { 
                 "title": "Settings",
