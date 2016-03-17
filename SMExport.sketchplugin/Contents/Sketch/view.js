@@ -268,7 +268,6 @@ var View = ( function() {
         * @returns {boolean} view.hasSubviews -
         * @returns {boolean} view.hasClippingMask -
         * @returns {object|null} view.parentGroup - View instance
-        
     */
     function View( layer, parentGroup ) {
         var id = String( layer.objectID() ),
