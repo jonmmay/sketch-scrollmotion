@@ -372,6 +372,8 @@ var ExportScrollMotion = ( function() {
 
                             [artFrame setWidth:[dupFrame width]];
                             [artFrame setHeight:[dupFrame height]];
+                            [artFrame setX:-999999];
+                            [artFrame setY:-999999];
 
                             [( doc.currentPage() ) addLayers:[ artboard ]];
                         },
@@ -623,6 +625,8 @@ var ExportScrollMotion = ( function() {
 
                                             [artFrame setWidth:[exportFrame width]];
                                             [artFrame setHeight:[exportFrame height]];
+                                            [artFrame setX:-999999];
+                                            [artFrame setY:-999999];
 
                                             [( doc.currentPage() ) addLayers:[ artboard ]];
                                         },
@@ -1256,19 +1260,19 @@ function onRun( context ) {
         }
 
         function makeSlice( layer, rect, scaleFactor ) {
-            // Sketch 3.4.4
-            // var slice = [[MSSliceMaker slicesFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
+            // Old
+            // var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];                                    
+            // slice.page = [[doc currentPage] copyIncludingObjectIDS];
+            // slice.format = config.getImageExtension().replace( "." , "" );
+            // slice.scale = scaleFactor;
+
+            var slice = [MSExportRequest requestWithRect:rect scale:scaleFactor];
+
+            [slice setShouldTrim:false];
+            [slice setSaveForWeb:true];
+            [slice configureForLayer:layer];
             
-            // Sketch 3.5.0
-            var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
-                        
-            // Sketch 3.4.4
-            // slice.page = [[doc currentPage] copyLightweight];
-            
-            // Sketch 3.5.0
-            slice.page = [[doc currentPage] copyIncludingObjectIDS];
-            slice.format = config.getImageExtension().replace( "." , "" );
-            slice.scale = scaleFactor;
+            [slice setFormat:( config.getImageExtension().replace( "." , "" ) )];
 
             return slice;
         }
@@ -1342,14 +1346,18 @@ function onRun( context ) {
 
                 var scaleStr = (scale !== 1 ) ? "@" + scale + "x" : "";
 
-                exportFilename = filename.slice( 0, filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;                
                 slice = makeSlice( view.layer, rect, scale );
+                exportFilename = filename.slice( 0, filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;
 
                 if( slice ) {
-                    imageData = [MSExportManager dataForRequest:slice];
+                    // Old
+                    // imageData = [MSExportManager dataForRequest:slice];
+                    // [imageData writeToFile:exportFilename atomically:true];
 
+                    [slice setName:filename];
+                    [doc saveArtboardOrSlice:slice toFile:exportFilename];
                     util.debug.debug( "Writing asset: " + slice + ", to disk: " + exportFilename );
-                    [imageData writeToFile:exportFilename atomically:true]
+                    
                 } else {
                     util.debug.warn( "Can't slice asset: " + exportFilename );
                 }
