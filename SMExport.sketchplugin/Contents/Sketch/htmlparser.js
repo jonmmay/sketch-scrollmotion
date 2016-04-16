@@ -1,3 +1,5 @@
+// "use strict";
+
 /*
  * HTML Parser By John Resig (ejohn.org) -- http://ejohn.org/blog/pure-javascript-html-parser/
  * Original code by Erik Arvidsson, Mozilla Public License
@@ -319,548 +321,580 @@ var HTMLParser = ( function() {
 	return HTMLParser;
 } () );
 
-var htmlToNodes = ( function( $ ) {
-    function normalizeHTMLEntities( str ) {
-        var entities = {
-            "&gt;": ">",
-            "&lt;": "<",
-            "&amp;": "&",
-            "&nbsp;": " "
-        };
+// var htmlToNodes = ( function( $ ) {
+//     function normalizeHTMLEntities( str ) {
+//         var entities = {
+//             "&gt;": ">",
+//             "&lt;": "<",
+//             "&amp;": "&",
+//             "&nbsp;": " "
+//         };
         
-        return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
-            if( entities[ match ] ) {
-                return entities[ match ];
-            }
-        } );
-    }
-    function generateUniqueId() {
-        function s4() {
-            return Math.floor( ( 1 + Math.random() ) * 0x10000 )
-            .toString( 16 )
-            .substring( 1 );
-        }
-        return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
-    }
-    /**
-        * @desc clone an object
-        * @param {object} obj -
-        * @returns {object|null} Copy of object parameter; else null
-    */
-    function naiveClone( obj ) {
-        if( typeof( obj ) === "object" ) {
-            return JSON.parse( JSON.stringify( obj ) ); 
-        }
-        return null;
-    }
+//         return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+//             if( entities[ match ] ) {
+//                 return entities[ match ];
+//             }
+//         } );
+//     }
+//     function generateUniqueId() {
+//         function s4() {
+//             return Math.floor( ( 1 + Math.random() ) * 0x10000 )
+//             .toString( 16 )
+//             .substring( 1 );
+//         }
+//         return s4() + s4() + s4() + s4() + s4() + s4() + s4() + s4();
+//     }
+//     /**
+//         * @desc clone an object
+//         * @param {object} obj -
+//         * @returns {object|null} Copy of object parameter; else null
+//     */
+//     function naiveClone( obj ) {
+//         if( typeof( obj ) === "object" ) {
+//             return JSON.parse( JSON.stringify( obj ) ); 
+//         }
+//         return null;
+//     }
     
-    function Html() {
-        var nodeValues = [],
-            stringValue = "",
-            tmpNode = {};
+//     function Html() {
+//         var nodeValues = [],
+//             stringValue = "",
+//             tmpNode = {};
 
-        function nodeHelper( node, attributes ) {
-            Object.defineProperties( node, {
-                "_isClosed": {
-                    enumerable: false,
-                    configurable: true,
-                    writable: true,
-                    value: false
-                },
-                "_parentNode": {
-                    enumerable: false,
-                    configurable: true,
-                    writable: true,
-                    value: null
-                },
-                "_childrenNodes": {
-                    enumerable: false,
-                    configurable: true,
-                    writable: true,
-                    value: []
-                },
-                "_inheritedAttributes": {
-                    enumerable: false,
-                    configurable: true,
-                    writable: true,
-                    value: attributes
-                }
-            } );
-        }
-        function Node( tag, attributes ) {
-            this.id = generateUniqueId();
+//         function nodeHelper( node, attributes ) {
+//             Object.defineProperties( node, {
+//                 "_isClosed": {
+//                     enumerable: false,
+//                     configurable: true,
+//                     writable: true,
+//                     value: false
+//                 },
+//                 "_parentNode": {
+//                     enumerable: false,
+//                     configurable: true,
+//                     writable: true,
+//                     value: null
+//                 },
+//                 "_childrenNodes": {
+//                     enumerable: false,
+//                     configurable: true,
+//                     writable: true,
+//                     value: []
+//                 },
+//                 "_inheritedAttributes": {
+//                     enumerable: true,
+//                     configurable: true,
+//                     writable: true,
+//                     value: attributes
+//                 }
+//             } );
+//         }
+//         function Node( tag, attributes ) {
+//             this.id = generateUniqueId();
             
-            this.tag = tag;
-            this.attributes = attributes;
-            this.index = null;
-            this.length = null;
-            this.stringValue = "";
+//             this.tag = tag;
+//             this.attributes = attributes;
+//             this.index = null;
+//             this.length = null;
+//             this.stringValue = "";
 
-            // Clone is required to avoid modifying attributes object
-            nodeHelper( this, naiveClone( attributes ) );
-        }
+//             // Clone is required to avoid modifying attributes object
+//             nodeHelper( this, naiveClone( attributes ) );
+//         }
 
-        Node.prototype.getParentNode = function() {
-            if( !this._parentNode ) { return null; }
+//         Node.prototype.getParentNode = function() {
+//             if( !this._parentNode ) { return null; }
             
-            var i = 0, 
-            	len = nodeValues.length;
+//             var i = 0, 
+//             	len = nodeValues.length;
             
-            for( i ; i < len; i++ ) {
-                if( nodeValues[ i ].id === this._parentNode ) {
-                    return nodeValues[ i ];
-                }
-            }
-        };
-        Node.prototype.getChildrenNodes = function() {
-            var arr = [], 
-            	len = nodeValues.length;
+//             for( i ; i < len; i++ ) {
+//                 if( nodeValues[ i ].id === this._parentNode ) {
+//                     return nodeValues[ i ];
+//                 }
+//             }
+//         };
+//         Node.prototype.getChildrenNodes = function() {
+//             var arr = [], 
+//             	len = nodeValues.length;
             
-            this._childrenNodes.forEach( function( nodeId ) {
-                for( var i = 0; i < len; i++ ) {
-                    if( nodeValues[ i ].id === nodeId ) {
-                        arr.push( nodeValues[ i ] );
-                        return;
-                    }
-                }
-            } );
-            return arr;
-        };
-        Node.prototype.resolveInheritedAttributes = function() {
-        	// Explicitly define inheritedAttributes on child nodes
-        	function resolveChildren( node, nodes ) {
-        		nodes = nodes || [];
+//             this._childrenNodes.forEach( function( nodeId ) {
+//                 for( var i = 0; i < len; i++ ) {
+//                     if( nodeValues[ i ].id === nodeId ) {
+//                         arr.push( nodeValues[ i ] );
+//                         return;
+//                     }
+//                 }
+//             } );
+//             return arr;
+//         };
+//         Node.prototype.resolveInheritedAttributes = function() {
+//         	// Explicitly define inheritedAttributes on child nodes
+//         	function resolveChildren( node, nodes ) {
+//         		nodes = nodes || [];
 
-        		var children = node.getChildrenNodes(),
-        			attrs = node._inheritedAttributes,
-        			embeddedNodeIds = [];
+//         		var children = node.getChildrenNodes(),
+//         			attrs = node._inheritedAttributes,
+//         			embeddedNodeIds = [];
 
-	        	if( children.length > 0 ) {
-	        		children.forEach( function( child ) {
-	        			Object.keys( attrs ).forEach( function( attrKey ) {
-	        				var attr = attrs[ attrKey ],
-	        					key;
+// 	        	if( children.length > 0 ) {
+// 	        		children.forEach( function( child ) {
+// 	        			Object.keys( attrs ).forEach( function( attrKey ) {
+// 	        				var attr = attrs[ attrKey ],
+// 	        					key;
 
-	        				if( !child._inheritedAttributes[ attrKey ] ) {
-        						child._inheritedAttributes[ attrKey ] = {};
-        					}
+// 	        				if( !child._inheritedAttributes[ attrKey ] ) {
+//         						child._inheritedAttributes[ attrKey ] = {};
+//         					}
 
-	        				for( key in attr ) {
-	        					child._inheritedAttributes[ attrKey ][ key ] = attr[ key ];
-	        				}
-	        			} );
+// 	        				for( key in attr ) {
+// 	        					child._inheritedAttributes[ attrKey ][ key ] = attr[ key ];
+// 	        				}
+// 	        			} );
 
-	        			resolveChildren( child, nodes );
-	        		} );
-	        	}
+// 	        			resolveChildren( child, nodes );
+// 	        		} );
+// 	        	}
 
-	        	if( children.length === 0 || node.stringValue.length > 0 ) {
-	        		nodes.push( node );
-	        	}
+// 	        	if( children.length === 0 || node.stringValue.length > 0 ) {
+// 	        		nodes.push( node );
+// 	        	}
 	        	
-	        	nodes.forEach( function( node ) {
-	        		if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
-	        			embeddedNodeIds = embeddedNodeIds.concat( node._childrenNodes );
-	        		}
-	        	} );
+// 	        	nodes.forEach( function( node ) {
+// 	        		if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
+// 	        			embeddedNodeIds = embeddedNodeIds.concat( node._childrenNodes );
+// 	        		}
+// 	        	} );
 
-	        	// Sort by index
-	        	return nodes.sort( function( a, b ) { return a.index - b.index; } )
-		        	// Remove embedded nodes
-		        	.filter( function( node ) {
-		        		return embeddedNodeIds.indexOf( node.id ) < 0;
-		        	} );
-	        }
+// 	        	// Sort by index
+// 	        	return nodes.sort( function( a, b ) { return a.index - b.index; } )
+// 		        	// Remove embedded nodes
+// 		        	.filter( function( node ) {
+// 		        		return embeddedNodeIds.indexOf( node.id ) < 0;
+// 		        	} );
+// 	        }
 
-	        return resolveChildren( this, [] );
-        };
+// 	        return resolveChildren( this, [] );
+//         };
 
-        this.process = function( type, value, forceClose ) {
-            var HtmlType = {
-            	end: function() {
-	            	var i;
+//         this.process = function( type, value, forceClose ) {
+//             var HtmlType = {
+//             	end: function() {
+// 	            	var i;
 
-	            	// Close node and reset tmpNode
-	                if( tmpNode.id && tmpNode.tag === value.tag ) {
-	                    tmpNode._isClosed = true;
-	                    tmpNode.length = stringValue.length - tmpNode.index;
+// 	            	// Close node and reset tmpNode
+// 	                if( tmpNode.id && tmpNode.tag === value.tag ) {
+// 	                    tmpNode._isClosed = true;
+// 	                    tmpNode.length = stringValue.length - tmpNode.index;
 	                    
-	                    nodeValues.push( tmpNode );
-	                    tmpNode = {};
-	                } 
+// 	                    nodeValues.push( tmpNode );
+// 	                    tmpNode = {};
+// 	                } 
 
-	                // Traverse stored nodes for open node
-	                else {
-	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
-	                        if( !nodeValues[ i ]._isClosed ) {
-	                            nodeValues[ i ]._isClosed = true;
-	                            nodeValues[ i ].length = stringValue.length - nodeValues[ i ].index;
-	                            break;
-	                        }
-	                    }
-	                }
-	            },
-	            start: function() {
-	            	var i;
+// 	                // Traverse stored nodes for open node
+// 	                else {
+// 	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
+// 	                        if( !nodeValues[ i ]._isClosed ) {
+// 	                            nodeValues[ i ]._isClosed = true;
+// 	                            nodeValues[ i ].length = stringValue.length - nodeValues[ i ].index;
+// 	                            break;
+// 	                        }
+// 	                    }
+// 	                }
+// 	            },
+// 	            start: function() {
+// 	            	var i;
 
-	            	// If starting new tag while tag is open, store node and reset tmpNode
-	                if( tmpNode.id ) {
-	                    nodeValues.push( tmpNode );
-	                    tmpNode = {};
-	                }
+// 	            	// If starting new tag while tag is open, store node and reset tmpNode
+// 	                if( tmpNode.id ) {
+// 	                    nodeValues.push( tmpNode );
+// 	                    tmpNode = {};
+// 	                }
 
-	                tmpNode = new Node( value.tag, value.attrs );
-	                tmpNode.index = stringValue.length;
+// 	                tmpNode = new Node( value.tag, value.attrs );
+// 	                tmpNode.index = stringValue.length;
 
-	                // Identify parent and children nodes
-	                for( i = nodeValues.length - 1; i >= 0; i-- ) {
-	                    if( !nodeValues[ i ]._isClosed ) {
-	                        if( !tmpNode._parentNode ) {
-	                            tmpNode._parentNode = nodeValues[ i ].id;
-	                            nodeValues[ i ]._childrenNodes.push( tmpNode.id );
-	                        }
-	                    }
-	                }
+// 	                // Identify parent and children nodes
+// 	                for( i = nodeValues.length - 1; i >= 0; i-- ) {
+// 	                    if( !nodeValues[ i ]._isClosed ) {
+// 	                        if( !tmpNode._parentNode ) {
+// 	                            tmpNode._parentNode = nodeValues[ i ].id;
+// 	                            nodeValues[ i ]._childrenNodes.push( tmpNode.id );
+// 	                        }
+// 	                    }
+// 	                }
 
-	                // Force close unary tag
-	                if( forceClose ) {
-	                    tmpNode._isClosed = true;
-	                    tmpNode.length = stringValue.length - tmpNode.index;
+// 	                // Force close unary tag
+// 	                if( forceClose ) {
+// 	                    tmpNode._isClosed = true;
+// 	                    tmpNode.length = stringValue.length - tmpNode.index;
 	                    
-	                    nodeValues.push( tmpNode );
-	                    tmpNode = {};
-	                }
-	            },
-	            chars: function() {
-	            	var i, j;
+// 	                    nodeValues.push( tmpNode );
+// 	                    tmpNode = {};
+// 	                }
+// 	            },
+// 	            chars: function() {
+// 	            	var i, j;
 
-	            	// Normalize encoded entities
-	                value = normalizeHTMLEntities( value );
+// 	            	// Normalize encoded entities
+// 	                value = normalizeHTMLEntities( value );
 
-	                // Temp node hasn't been initiated
-	                if( !tmpNode.id ) {
+// 	                // Temp node hasn't been initiated
+// 	                if( !tmpNode.id ) {
 
-	                	// Traverse nodes for last open node
-	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
-	                        if( !nodeValues[ i ]._isClosed ) {
-	                        	var openNode = nodeValues[ i ];
+// 	                	// Traverse nodes for last open node
+// 	                    for( i = nodeValues.length - 1; i >= 0; i-- ) {
+// 	                        if( !nodeValues[ i ]._isClosed ) {
+// 	                        	var openNode = nodeValues[ i ];
 
-	                            // Identifier for embedded node; can have siblings
-	                            for( j = i; j < nodeValues.length; j++ ) {
+// 	                            // Identifier for embedded node; can have siblings
+// 	                            for( j = i; j < nodeValues.length; j++ ) {
 	                                
-	                            	// Embed node id in string for reference
-	                                if( nodeValues[ j ]._isClosed && nodeValues[ j ]._parentNode === openNode.id
-	                                	// Id is not already embedded
-	                                	&& openNode.stringValue.indexOf( nodeValues[ j ].id ) < 0 ) {                                    
-	                                    	openNode.stringValue += ( "{{" + nodeValues[ j ].id + "}}" );
-	                                }
-	                            }
-	                            nodeValues[ i ].stringValue += value;
-	                            break;
-	                        }
-	                    }
-	                } else {
-	                	// Remove zero width space
-	                    tmpNode.stringValue += value.replace( /\u200B/g, "" );
-	                }
+// 	                            	// Embed node id in string for reference
+// 	                                if( nodeValues[ j ]._isClosed && nodeValues[ j ]._parentNode === openNode.id &&
+// 	                                	// Id is not already embedded
+// 	                                	openNode.stringValue.indexOf( nodeValues[ j ].id ) < 0 ) {                                    
+// 	                                    	openNode.stringValue += ( "{{" + nodeValues[ j ].id + "}}" );
+// 	                                }
+// 	                            }
+// 	                            nodeValues[ i ].stringValue += value;
+// 	                            break;
+// 	                        }
+// 	                    }
+// 	                } else {
+// 	                	// Remove zero width space
+// 	                    tmpNode.stringValue += value.replace( /\u200B/g, "" );
+// 	                }
 	                
-	                // Remove zero width space
-	                stringValue += value.replace( /\u200B/g, "" );
-	            },
-	            comment: function() {}
-            };
+// 	                // Remove zero width space
+// 	                stringValue += value.replace( /\u200B/g, "" );
+// 	            },
+// 	            comment: function() {}
+//             };
 
-            HtmlType[ type ]();
-        };
-        this.results = function() {
-            return nodeValues;    
-        };
-        this.stringValue = function() {
-            return stringValue;
-        };
-        this.getStringStyles = function() {
-        	var nodes = [];
+//             HtmlType[ type ]();
+//         };
+//         this.results = function() {
+//             return nodeValues;    
+//         };
+//         this.stringValue = function() {
+//             return stringValue;
+//         };
+//         this.getStringStyles = function() {
+//         	var nodes = [],
+//         		lineBreaks = this.getLineBreaks(),
 
-        	nodeValues.filter( function( node ) {
-        		// Filter out all children nodes
-        		return !!!node.getParentNode();
-        	} ).forEach( function( node ) {
-        		nodes = nodes.concat( node.resolveInheritedAttributes() );
-        	} );
+//         		node,
+//         		slices,
+//         		style;
 
-        	// Loop through nodes; split nodes with embedded styles; return reduced node data
-        	for( var i = 0; i < nodes.length; i++ ) {
+//         	// Capture parent level nodes only
+//         	nodeValues.filter( function( node ) {
+//         		return !!!node.getParentNode();
+//         	} ).forEach( function( node ) {
+//         		nodes = nodes.concat( node.resolveInheritedAttributes() );
+//         	} );
 
-        		// Node with embedded nodes
-	        	if( ( /{{\w{32}}}/ ).test( nodes[ i ].stringValue ) ) {
-        			// Split string by string value and node references
-        			var slices = nodes[ i ].stringValue.split( /({{\w{32}}})/ )
+//         	// Loop through nodes; split nodes with embedded styles; return reduced node data
+//         	for( var i = 0; i < nodes.length; i++ ) {
+//         		node = nodes[ i ];
 
-        				// Remove empty string values
-        				.filter( Boolean )
+//         		// Node with embedded nodes
+// 	        	if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
+//         			// Split string by string value and node references
+//         			slices = node.stringValue.split( /({{\w{32}}})/ )
 
-        				// Replace references with node
-	        			.map( function( slice ) {
-	        				var node = {},
-								id = slice.match( /{{(\w{32})}}/ );
+//         				// Remove empty string values
+//         				.filter( Boolean )
+
+//         				// Replace references with node
+// 	        			.map( function( slice ) {
+// 	        				var tmpNode = {},
+// 								id = slice.match( /{{(\w{32})}}/ );
 							
-							if( id ) {
-								id = id[ 1 ];
+// 							if( id ) {
+// 								id = id[ 1 ];
 
-								nodeValues.some( function( embeddedNode ) {
-		        					if( embeddedNode.id === id ) {
-		        						node = embeddedNode;
-		        						return true;
-		        					}
-		        				} );
-							} else {
-								node = slice;
-							}
+// 								nodeValues.some( function( embeddedNode ) {
+// 		        					if( embeddedNode.id === id ) {
+// 		        						tmpNode = embeddedNode;
+// 		        						return true;
+// 		        					}
+// 		        				} );
+// 							} else {
+// 								tmpNode = slice;
+// 							}
 
-		        			return node;
-	        			} )
+// 		        			return tmpNode;
+// 	        			} )
 
-	        			// Reduce nodes to necessary information
-						.map( function( slice, sliceIndex, sliceArr ) {
-							var node = {},
-								style = nodes[ i ]._inheritedAttributes.style ?
-											nodes[ i ]._inheritedAttributes.style : {},
+// 	        			// Reduce nodes to necessary information
+// 						.map( function( slice, sliceIndex, sliceArr ) {
+// 							var tmpNode = {},
+// 								style = node._inheritedAttributes.style ?
+// 											node._inheritedAttributes.style : {},
 								
-								// For recalculating stringValue index
-								index = 0,
-								indexValue = 0;
+// 								// For recalculating stringValue index
+// 								index = 0,
+// 								indexValue = 0;
 							
-							// Slice from original node
-							if( typeof slice === "string" ) {
-								// Get slice index
-								while( index < sliceIndex  ) {
-									indexValue += typeof sliceArr[ index ] === "object" ? sliceArr[ index ].stringValue.length : sliceArr[ index ].length ;
-									index++;
-								}
+// 							// Slice from original node
+// 							if( typeof slice === "string" ) {
+// 								// Get slice index
+// 								while( index < sliceIndex  ) {
+// 									indexValue += typeof sliceArr[ index ] === "object" ? sliceArr[ index ].stringValue.length : sliceArr[ index ].length ;
+// 									index++;
+// 								}
 
-								node = {
-	    							index: indexValue,
-	    							length: slice.length,
-	    							style: style,
-	    							stringValue: slice
-	    						};
-							}
+// 								tmpNode = {
+// 	    							index: indexValue,
+// 	    							length: slice.length,
+// 	    							style: style,
+// 	    							stringValue: slice
+// 	    						};
+// 							}
 
-							// Slice is an embedded node
-							else {
-								style = slice._inheritedAttributes.style ?
-										slice._inheritedAttributes.style : {};
+// 							// Slice is an embedded node
+// 							else {
+// 								style = slice._inheritedAttributes.style ?
+// 										slice._inheritedAttributes.style : {};
 
-								node = {
-	    							index: slice.index,
-	    							length: slice.length,
-	    							style: style,
-	    							stringValue: slice.stringValue
-	    						};
-							}
+// 								tmpNode = {
+// 	    							index: slice.index,
+// 	    							length: slice.length,
+// 	    							style: style,
+// 	    							stringValue: slice.stringValue
+// 	    						};
+// 							}
 
-		        			return node;
-						} );
+// 							// Process line breaks
+// 							if( lineBreaks.indexOf( tmpNode.index ) >= 0 ) {
+// 								tmpNode.leadingLineBreak = true;
 
-					// Inject slices
-					Array.prototype.splice.apply( nodes, [ i, 1 ].concat( slices ) );
-					// Update index
-					i = slices.length - 1;
-        		} else {
-        			var style = nodes[ i ]._inheritedAttributes.style ?
-									nodes[ i ]._inheritedAttributes.style : {};
+// 								// Remove line break
+// 								lineBreaks.splice( tmpNode.index, 1 );
+// 							}
 
-					// Reduce nodes to necessary information
-        			nodes[ i ] = {
-        				index: nodes[ i ].index,
-						length: nodes[ i ].length,
-						style: style,
-						stringValue: nodes[ i ].stringValue
-        			};
-        		}
-	        }
+// 		        			return tmpNode;
+// 						} );
 
-        	return nodes;
-        }
-        this.getLineBreaks = function() {
-        	var breaks = [];
+// 					// Inject embedded slices
+// 					Array.prototype.splice.apply( nodes, [ i, 1 ].concat( slices ) );
+// 					// Update index
+// 					i = slices.length - 1;
+//         		}
 
-        	nodeValues.forEach( function( node ) {
-        		if( node.tag === "div" ) {
-        			breaks.push( node.index );
-        		}
-        	} );
+//         		// Node without embedded nodes
+//         		else {
+//         			// node.style exists if a node was sliced
+//         			style = node.style ? node.style :
+//         						node._inheritedAttributes.style ?
+//         						node._inheritedAttributes.style : {};
 
-        	// Remove first instance if 0
-        	if( breaks[ 0 ] === 0 ) { breaks.shift(); }
+// 					// Reduce nodes to necessary information
+//         			nodes[ i ] = {
+//         				index: node.index,
+// 						length: node.length,
+// 						style: style,
+// 						stringValue: node.stringValue
+//         			};
 
-        	return breaks;
-        }
-    }
+//         			// Process line breaks; never apply to first node
+// 					if( lineBreaks.indexOf( node.index ) >= 0 && i !== 0 ) {
+// 						nodes[ i ].leadingLineBreak = true;
 
-    return {
-        run: function( str ) {
-            var nodes = new Html();
+// 						// Remove line break
+// 						lineBreaks.splice( tmpNode.index, 1 );
+// 					}
+//         		}
+// 	        }
 
-            $( str, {
-                start: function( tag, attrs, unary ) {
-                    var attributes = {};
-                    attrs.forEach( function( attr ) {
-                        attr.value.replace( new RegExp( "([-A-Za-z0-9_]+):\\s*([^;]*);" , "gi" ) , function() {
-                            if( !attributes[ attr.name ] ) { attributes[ attr.name ] = {}; }
-                            attributes[ attr.name ][ arguments[ 1 ] ] = arguments[ 2 ];
-                        } );
-                    } );
+//         	return nodes;
+//         };
 
-                    nodes.process( "start", {
-                        tag: tag,
-                        attrs: attributes
-                    }, unary );
-                },
-                end: function( tag ) {
-                    nodes.process( "end", { tag: tag } );
-                },
-                chars: function( text ) {
-                    nodes.process( "chars", text );
-                },
-                comment: function( text ) {}
-            } );
+//         // Leading line breaks
+//         this.getLineBreaks = function() {
+//         	var breaks = [];
 
-            return nodes;
-        }
-    };
-} )( HTMLParser );
+//         	nodeValues.forEach( function( node ) {
+//         		if( node.tag === "div" ) {
+//         			breaks.push( node.index );
+//         		}
+//         	} );
+
+//         	// Remove first instance if 0
+//         	if( breaks[ 0 ] === 0 ) { breaks.shift(); }
+
+//         	return breaks;
+//         };
+//     }
+
+//     return {
+//         run: function( str ) {
+//             var nodes = new Html();
+
+//             $( str, {
+//                 start: function( tag, attrs, unary ) {
+//                     var attributes = {};
+//                     attrs.forEach( function( attr ) {
+//                         attr.value.replace( new RegExp( "([-A-Za-z0-9_]+):\\s*([^;]*);" , "gi" ) , function() {
+//                             if( !attributes[ attr.name ] ) { attributes[ attr.name ] = {}; }
+//                             attributes[ attr.name ][ arguments[ 1 ] ] = arguments[ 2 ];
+//                         } );
+//                     } );
+
+//                     nodes.process( "start", {
+//                         tag: tag,
+//                         attrs: attributes
+//                     }, unary );
+//                 },
+//                 end: function( tag ) {
+//                     nodes.process( "end", { tag: tag } );
+//                 },
+//                 chars: function( text ) {
+//                     nodes.process( "chars", text );
+//                 },
+//                 comment: function( text ) {}
+//             } );
+
+//             return nodes;
+//         }
+//     };
+// } )( HTMLParser );
 
 
-var html = "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
-	html2 = "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-	a = htmlToNodes.run( html ),
-	b = htmlToNodes.run( html2 );
+// var html = "<div style=\"text-align:left;\"></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
+// 	html2 = "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+// 	a = htmlToNodes.run( html ),
+// 	b = htmlToNodes.run( html2 );
 
-// b.results().forEach( function( node ) {
-// 	console.log( node );
-// } );
+// // b.results().forEach( function( node ) {
+// // 	console.log( node );
+// // } );
 
+// console.log( a.getLineBreaks() );
 // a.getStringStyles().forEach( function( node ) {
 // 	console.log( node );
 // } );
 
-var c = [
-    {
-        "index": 0,
-        "length": 7,
-        "style": {
-            "font-size": "24px",
-            "font-family": "ArialMT,'Arial'",
-            "color": "#000000",
-            "text-align": "left"
-        },
-        "stringValue": "Jacquie"
-    },
-    {
-        "index": 7,
-        "length": 19,
-        "style": {
-            "font-size": "24px",
-            "font-family": "ArialMT,'Arial'",
-            "color": "#000000",
-            "text-align": "left"
-        },
-        "stringValue": " accessorized with "
-    },
-    {
-        "index": 26,
-        "length": 1,
-        "style": {
-            "font-size": "24px",
-            "font-family": "ArialMT,'Arial'",
-            "color": "#000000",
-            "text-align": "left"
-        },
-        "stringValue": "a"
-    },
-    {
-        "index": 27,
-        "length": 12,
-        "style": {
-            "font-size": "24px",
-            "font-family": "ArialMT,'Arial'",
-            "color": "#000000",
-            "text-align": "left"
-        },
-        "stringValue": " fancy bag, "
-    },
-    {
-        "index": 39,
-        "length": 33,
-        "style": {
-            "font-size": "24px",
-            "font-family": "ArialMT,'Arial'",
-            "color": "#000000",
-            "text-align": "left"
-        },
-        "stringValue": "but her smock looked inexpensive."
-    }
-];
+// var c = [
+//     {
+//         "index": 0,
+//         "length": 7,
+//         "style": {
+//             "font-size": "24px",
+//             "font-family": "ArialMT,'Arial'",
+//             "color": "#000000",
+//             "text-align": "left"
+//         },
+//         "stringValue": "Jacquie"
+//     },
+//     {
+//         "index": 7,
+//         "length": 19,
+//         "style": {
+//             "font-size": "24px",
+//             "font-family": "ArialMT,'Arial'",
+//             "color": "#000000",
+//             "text-align": "left"
+//         },
+//         "stringValue": " accessorized with "
+//     },
+//     {
+//         "index": 26,
+//         "length": 1,
+//         "style": {
+//             "font-size": "24px",
+//             "font-family": "ArialMT,'Arial'",
+//             "color": "#000000",
+//             "text-align": "left"
+//         },
+//         "stringValue": "a"
+//     },
+//     {
+//         "index": 27,
+//         "length": 12,
+//         "style": {
+//             "font-size": "24px",
+//             "font-family": "ArialMT,'Arial'",
+//             "color": "#000000",
+//             "text-align": "left"
+//         },
+//         "stringValue": " fancy bag, "
+//     },
+//     {
+//         "index": 39,
+//         "length": 33,
+//         "style": {
+//             "font-size": "24px",
+//             "font-family": "ArialMT,'Arial'",
+//             "color": "#000000",
+//             "text-align": "left"
+//         },
+//         "stringValue": "but her smock looked inexpensive."
+//     }
+// ];
 
-// Html-based text helpers
-function encodeSpecialCharacters( str ) {
-    var chars = {
-        ">": "&gt;",
-        "<": "&lt;",
-        "&": "&amp;",
+// // Html-based text helpers
+// function encodeSpecialCharacters( str ) {
+//     var chars = {
+//         ">": "&gt;",
+//         "<": "&lt;",
+//         "&": "&amp;",
         
-        // Sequential spaces, '  '
-        "  ": " &nbsp;"
-    };
+//         // Sequential spaces, '  '
+//         "  ": " &nbsp;"
+//     };
 
-    return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
-        if( chars[ match ] ) {
-            return chars[ match ];
-        }
-    } );
-}
+//     return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+//         if( chars[ match ] ) {
+//             return chars[ match ];
+//         }
+//     } );
+// }
 
-var startTag = /^<([-A-Za-z0-9_]+)((?:\s+\w+(?:\s*=\s*(?:(?:\u0022[^\u0022]*\u0022)|(?:\u0027[^\u0027]*\u0027)|[^>\s]+))?)*)\s*(\/?)>/,
-	endTag = /^<\/([-A-Za-z0-9_]+)[^>]*>/,
-	attr = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:\u0022((?:\\.|[^\u0022])*)\u0022)|(?:\u0027((?:\\.|[^\u0027])*)\u0027)|([^>\s]+)))?/g;
+// var startTag = /^<([-A-Za-z0-9_]+)((?:\s+\w+(?:\s*=\s*(?:(?:\u0022[^\u0022]*\u0022)|(?:\u0027[^\u0027]*\u0027)|[^>\s]+))?)*)\s*(\/?)>/,
+// 	endTag = /^<\/([-A-Za-z0-9_]+)[^>]*>/,
+// 	attr = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:\u0022((?:\\.|[^\u0022])*)\u0022)|(?:\u0027((?:\\.|[^\u0027])*)\u0027)|([^>\s]+)))?/g;
 
-function isHtml( str ) {
-	return ( typeof str === "string" ) ? startTag.test( str ) || endTag.test( str ) : false;
-}
+// function isHtml( str ) {
+// 	var startTag = /^<([-A-Za-z0-9_]+)((?:\s+\w+(?:\s*=\s*(?:(?:\u0022[^\u0022]*\u0022)|(?:\u0027[^\u0027]*\u0027)|[^>\s]+))?)*)\s*(\/?)>/;
+
+// 	return ( typeof str === "string" ) ? startTag.test( str ) : false;
+// }
 
 
 
-function setTextAlign( textAlign, html ) {
-	if( !isHtml( html ) ) { return; }
+// function setTextAlign( textAlign, html ) {
+// 	if( !isHtml( html ) ) { return; }
 
-	textAlign = [ "left", "center", "right", "justify" ].indexOf( textAlign ) ? textAlign : "left";
+// 	textAlign = [ "left", "center", "right", "justify" ].indexOf( textAlign ) ? textAlign : "left";
 
-	return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";
-}
+// 	return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";
+// }
 
-function setCustomFont( fontFamily, html ) {
-	if( !isHtml( html ) ) { return; }
+// function setCustomFont( fontFamily, html ) {
+// 	if( !isHtml( html ) ) { return; }
 	
-	fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
+// 	fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
 
-	return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
-}
-function setTextStyles( styles, html ) {
-	if( !isHtml( html ) || Object.prototype.toString.call( styles ) !== "[object Object]" ) { return; }
+// 	return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
+// }
+// function setTextStyles( styles, html ) {
+// 	if( !isHtml( html ) || Object.prototype.toString.call( styles ) !== "[object Object]" ) { return; }
 
-	var stylesStr = Object.keys( styles ).map( function( key ) {
-		return key + ":" + styles[ key ] + ";";
-	} ).join( "" );
+// 	var stylesStr = Object.keys( styles ).map( function( key ) {
+// 		return key + ":" + styles[ key ] + ";";
+// 	} ).join( "" );
 
-	return "<span style=\"" + stylesStr + "\">" + html + "</span>";
-}
+// 	return "<span style=\"" + stylesStr + "\">" + html + "</span>";
+// }
 
-console.log( setTextStyles( {
-	"font-size": "24px",
-	"font-family": "ArialMT,'Arial'",
-	"color": "#000000"
-}, "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
+// console.log( setTextStyles( {
+// 	"font-size": "24px",
+// 	"font-family": "ArialMT,'Arial'",
+// 	"color": "#000000"
+// }, "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
 // console.log( setCustomFont( "Merriweather-Light,'Merriweather'", "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
 // console.log( setTextAlign( "center", "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><bold>Jacquie</bold> accessorized with <i>a</i> fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>" ) );
 

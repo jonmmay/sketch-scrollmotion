@@ -442,26 +442,47 @@ var ExportScrollMotion = ( function() {
                     id = String( [( view.layer ) objectID] ),
                     nsfont = [[[( view.layer ) style] textStyle] attributes].NSFont;
 
-                overlay.setText( String( [( view.layer ) stringValue] ) );
-                overlay.setCustomFont( String( [( view.layer ) fontPostscriptName] ) , String( [nsfont familyName] ) );
-                overlay.setTextAlign( getTextAlignment( view.layer ) );
-                overlay.setLineHeight( util.toPx( [( view.layer ) lineSpacing] ) );
-                overlay.setLetterSpacing( util.toPx( [( view.layer ) characterSpacing] ) );
-                overlay.setColor( "#" + [[( view.layer ) textColor] hexValue] );
-                overlay.setFontSize( util.toPx( [( view.layer ) fontSize] ) );
+                overlay.setTextNodes( [
+                    {
+                        "style": {
+                            "font-family": String( [( view.layer ) fontPostscriptName] ) + ", '" + String( [nsfont familyName] ) + "'",
+                            "text-align": getTextAlignment( view.layer ),
+                            "line-height": util.toPx( [( view.layer ) lineSpacing] ),
+                            "letter-spacing": util.toPx( [( view.layer ) characterSpacing] ),
+                            "color": "#" + [[( view.layer ) textColor] hexValue],
+                            "font-size": util.toPx( [( view.layer ) fontSize] )
+                        },
+                        "stringValue": String( [( view.layer ) stringValue] ),
+                        "length": String( [( view.layer ) stringValue] ).length,
+                        "index": 0
+                    }
+                ] );
+                overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
 
-                fontAssetHandler( view, function( font, fontName ) {
-                    var style = {
-                        resetToDefaultFont: overlay.resetToDefaultFont
-                    };
-                    
-                    bindObj.exportFonts.push( { 
-                        getView: function() { return view; },
-                        fontName: fontName, 
-                        font: font, 
-                        fontStyle: style
-                    } );
-                } );
+                // fontAssetHandler( view, function( font, fontName ) {
+                //     bindObj.exportFonts.push( util.Command.create( 
+                //         // Execute
+                //         function() {
+                //         },
+
+                //         // Undo
+                //         function( fontName ) {
+                //             overlay.getTextNodeStyles().filter( function( node ) {
+                //                 return node.style[ "font-family" ] && node.style[ "font-family" ] === fontName );
+                //             } ).map( function( node ) {
+                //                 return node.style[ "font-family" ] = "ArialMT,'Arial'";
+                //             } );
+
+                //             overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
+                //         },
+                        
+                //         // Value
+                //         {
+                //             getView: function() { return view },
+                //             fontName: fontName, 
+                //             font: font
+                //     } ) );
+                // } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
                 overlay.setLayouts( csOrientation, util.merge( rect, {
@@ -701,20 +722,24 @@ var ExportScrollMotion = ( function() {
                         // Assign cg button properties to overlay
                         if( textView ) {
                             overlay.setKeyValue( "font" , String( [( textView.layer ) fontPostscriptName] ) );
-                            fontAssetHandler( textView, function( font, fontName ) {
-                                var style = {
-                                    resetToDefaultFont: function() {
-                                        overlay.setKeyValue( "font", "Arial-BoldMT" );
-                                    }
-                                };
-                                
-                                bindObj.exportFonts.push( { 
-                                    getView: function() { return textView; },
-                                    fontName: fontName,
-                                    font: font,
-                                    fontStyle: style
-                                } );
-                            } );
+                            // fontAssetHandler( textView, function( font, fontName ) {                                
+                            //     bindObj.exportFonts.push( util.Command.create( 
+                            //         // Execute
+                            //         function() {
+                            //         },
+
+                            //         // Undo
+                            //         function() {
+                            //             overlay.setKeyValue( "font", "Arial-BoldMT" );
+                            //         },
+                                    
+                            //         // Value
+                            //         {
+                            //             getView: function() { return textView },
+                            //             fontName: fontName, 
+                            //             font: font
+                            //     } ) );
+                            // } );
 
                             overlay.setKeyValue( "textAlign", getTextAlignment( textView.layer ) );
                             overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / csFontSize + "em" );
@@ -1406,8 +1431,8 @@ function onRun( context ) {
 
             // Get unique fonts used
             exportFonts.forEach( function( font ) {
-                if( !userFonts[ font.fontName ] ) {
-                    userFonts[ font.fontName ] = font.font;
+                if( !userFonts[ font.value.fontName ] ) {
+                    userFonts[ font.value.fontName ] = font.value.font;
                 }
             } );
 
@@ -1442,9 +1467,9 @@ function onRun( context ) {
                 // Revert custom font overlays to default font/text
                 else {
                     exportFonts.filter( function( fontObj ) {
-                        return fontName === fontObj.name;
+                        return fontName === fontObj.value.name;
                     } ).forEach( function( fontObj ) {
-                        fontObj.fontStyle.resetToDefaultFont();
+                        fontObj.undo();
                     } );
                 }
             } );

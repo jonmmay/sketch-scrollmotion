@@ -259,7 +259,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                     color,
 
                     // Use CS functions to parse html
-                    textOverlay = this.cs.make( "text_complex" ).setHtmlText( cs.text ),
+                    textOverlay = this.cs.make( "text_complex" ).setTextHtml( cs.text ),
                     stringVal = textOverlay.getStringValue(),
                     
                     // For text layer naming
@@ -285,7 +285,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 textLayer.name = cs.displayName || stringVal.substring( 0, ( ( indexOfSpace !== -1 ) ? indexOfSpace : maxChars ) ).trim();
                 
                 // Set text
-                textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getHtmlNodes() );
+                textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getTextNodes() );
 
                 if( fontFamily ) {
                     log( fontFamilyName( fontFamily ) );

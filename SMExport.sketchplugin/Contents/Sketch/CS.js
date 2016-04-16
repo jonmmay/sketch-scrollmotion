@@ -1,7 +1,327 @@
 @import "util.js";
-@import "htmlparser.js";
+// @import "htmlparser.js";
 
-// TO DO: Reformate htmlToNodes
+/*
+     * HTML Parser By John Resig (ejohn.org) -- http://ejohn.org/blog/pure-javascript-html-parser/
+     * Original code by Erik Arvidsson, Mozilla Public License
+     * http://erik.eae.net/simplehtmlparser/simplehtmlparser.js
+     *
+     * // Use like so:
+     * HTMLParser(htmlString, {
+     *     start: function(tag, attrs, unary) {},
+     *     end: function(tag) {},
+     *     chars: function(text) {},
+     *     comment: function(text) {}
+     * });
+     *
+     * // or to get an XML string:
+     * HTMLtoXML(htmlString);
+     *
+     * // or to get an XML DOM Document
+     * HTMLtoDOM(htmlString);
+     *
+     * // or to inject into an existing document/DOM node
+     * HTMLtoDOM(htmlString, document);
+     * HTMLtoDOM(htmlString, document.body);
+     *
+ */
+var HTMLParser = ( function() {
+    function makeMap(str){
+        var obj = {}, items = str.split(",");
+        for ( var i = 0; i < items.length; i++ )
+            obj[ items[ i ] ] = true;
+        return obj;
+    }
+
+    // Regular Expressions for parsing tags and attributes
+    // \u0022 - "
+    // \u0027 - '
+    var startTag = /^<([-A-Za-z0-9_]+)((?:\s+\w+(?:\s*=\s*(?:(?:\u0022[^\u0022]*\u0022)|(?:\u0027[^\u0027]*\u0027)|[^>\s]+))?)*)\s*(\/?)>/,
+        endTag = /^<\/([-A-Za-z0-9_]+)[^>]*>/,
+        attr = /([-A-Za-z0-9_]+)(?:\s*=\s*(?:(?:\u0022((?:\\.|[^\u0022])*)\u0022)|(?:\u0027((?:\\.|[^\u0027])*)\u0027)|([^>\s]+)))?/g;
+        
+    // Empty Elements - HTML 4.01
+    var empty = makeMap("area,base,basefont,br,col,frame,hr,img,input,isindex,link,meta,param,embed");
+
+    // Block Elements - HTML 4.01
+    var block = makeMap("address,applet,blockquote,button,center,dd,del,dir,div,dl,dt,fieldset,form,frameset,hr,iframe,ins,isindex,li,map,menu,noframes,noscript,object,ol,p,pre,script,table,tbody,td,tfoot,th,thead,tr,ul");
+
+    // Inline Elements - HTML 4.01
+    var inline = makeMap("a,abbr,acronym,applet,b,basefont,bdo,big,br,button,cite,code,del,dfn,em,font,i,iframe,img,input,ins,kbd,label,map,object,q,s,samp,script,select,small,span,strike,strong,sub,sup,textarea,tt,u,var");
+
+    // Elements that you can, intentionally, leave open
+    // (and which close themselves)
+    var closeSelf = makeMap("colgroup,dd,dt,li,options,p,td,tfoot,th,thead,tr");
+
+    // Attributes that have their values filled in disabled="disabled"
+    var fillAttrs = makeMap("checked,compact,declare,defer,disabled,ismap,multiple,nohref,noresize,noshade,nowrap,readonly,selected");
+
+    // Special Elements (can contain anything)
+    var special = makeMap("script,style");
+
+
+    var HTMLParser = function( html, handler ) {
+        var index, chars, match, stack = [], last = html;
+        stack.last = function(){
+            return this[ this.length - 1 ];
+        };
+
+        while ( html ) {
+            chars = true;
+
+            // Make sure we're not in a script or style element
+            if ( !stack.last() || !special[ stack.last() ] ) {
+
+                // Comment
+                if ( html.indexOf("<!--") == 0 ) {
+                    index = html.indexOf("-->");
+    
+                    if ( index >= 0 ) {
+                        if ( handler.comment )
+                            handler.comment( html.substring( 4, index ) );
+                        html = html.substring( index + 3 );
+                        chars = false;
+                    }
+    
+                // end tag
+                } else if ( html.indexOf("</") == 0 ) {
+                    match = html.match( endTag );
+    
+                    if ( match ) {
+                        html = html.substring( match[0].length );
+                        match[0].replace( endTag, parseEndTag );
+                        chars = false;
+                    }
+    
+                // start tag
+                } else if ( html.indexOf("<") == 0 ) {
+                    match = html.match( startTag );
+    
+                    if ( match ) {
+                        html = html.substring( match[0].length );
+                        match[0].replace( startTag, parseStartTag );
+                        chars = false;
+                    }
+                }
+
+                if ( chars ) {
+                    index = html.indexOf("<");
+                    
+                    var text = index < 0 ? html : html.substring( 0, index );
+                    html = index < 0 ? "" : html.substring( index );
+                    
+                    if ( handler.chars )
+                        handler.chars( text );
+                }
+
+            } else {
+                html = html.replace(new RegExp("(.*)<\/" + stack.last() + "[^>]*>"), function(all, text){
+                    text = text.replace(/<!--(.*?)-->/g, "$1")
+                        .replace(/<!\[CDATA\[(.*?)]]>/g, "$1");
+
+                    if ( handler.chars )
+                        handler.chars( text );
+
+                    return "";
+                });
+
+                parseEndTag( "", stack.last() );
+            }
+
+            if ( html == last )
+                throw "Parse Error: " + html;
+            last = html;
+        }
+        
+        // Clean up any remaining tags
+        parseEndTag();
+
+        function parseStartTag( tag, tagName, rest, unary ) {
+            tagName = tagName.toLowerCase();
+
+            if ( block[ tagName ] ) {
+                while ( stack.last() && inline[ stack.last() ] ) {
+                    parseEndTag( "", stack.last() );
+                }
+            }
+
+            if ( closeSelf[ tagName ] && stack.last() == tagName ) {
+                parseEndTag( "", tagName );
+            }
+
+            unary = empty[ tagName ] || !!unary;
+
+            if ( !unary )
+                stack.push( tagName );
+            
+            if ( handler.start ) {
+                var attrs = [];
+    
+                rest.replace( attr, function( match, name ) {
+                    var value = arguments[2] ? arguments[2] :
+                        arguments[3] ? arguments[3] :
+                        arguments[4] ? arguments[4] :
+                        fillAttrs[name] ? name : "";
+                    
+                    attrs.push({
+                        name: name,
+                        value: value,
+                        // \u0022 - "
+                        escaped: value.replace(/(^|[^\\])\u0022/g, '$1\\\\u0022') //"
+                    });
+                });
+    
+                if ( handler.start )
+                    handler.start( tagName, attrs, unary );
+            }
+        }
+
+        function parseEndTag( tag, tagName ) {
+            var pos;
+            // If no tag name is provided, clean shop
+            if ( !tagName ) {
+                pos = 0;
+            }
+                
+            // Find the closest opened tag of the same type
+            else
+                for ( pos = stack.length - 1; pos >= 0; pos-- )
+                    if ( stack[ pos ] == tagName )
+                        break;
+            
+            if ( pos >= 0 ) {
+                // Close all the open elements, up the stack
+                for ( var i = stack.length - 1; i >= pos; i-- )
+                    if ( handler.end )
+                        handler.end( stack[ i ] );
+                
+                // Remove the open elements from the stack
+                stack.length = pos;
+            }
+        }
+    };
+    
+    var HTMLtoXML = function( html ) {
+        var results = "";
+        
+        HTMLParser(html, {
+            start: function( tag, attrs, unary ) {
+                results += "<" + tag;
+        
+                for ( var i = 0; i < attrs.length; i++ )
+                    results += " " + attrs[i].name + '="' + attrs[i].escaped + '"';
+        
+                results += (unary ? "/" : "") + ">";
+            },
+            end: function( tag ) {
+                results += "</" + tag + ">";
+            },
+            chars: function( text ) {
+                results += text;
+            },
+            comment: function( text ) {
+                results += "<!--" + text + "-->";
+            }
+        });
+        
+        return results;
+    };
+    
+    var HTMLtoDOM = function( html, doc ) {
+        // There can be only one of these elements
+        var one = makeMap("html,head,body,title");
+        
+        // Enforce a structure for the document
+        var structure = {
+            link: "head",
+            base: "head"
+        };
+    
+        if ( !doc ) {
+            if ( typeof DOMDocument != "undefined" )
+                doc = new DOMDocument();
+            else if ( typeof document != "undefined" && document.implementation && document.implementation.createDocument )
+                doc = document.implementation.createDocument("", "", null);
+            else if ( typeof ActiveX != "undefined" )
+                doc = new ActiveXObject("Msxml.DOMDocument");
+            
+        } else
+            doc = doc.ownerDocument ||
+                doc.getOwnerDocument && doc.getOwnerDocument() ||
+                doc;
+        
+        var elems = [],
+            documentElement = doc.documentElement ||
+                doc.getDocumentElement && doc.getDocumentElement();
+                
+        // If we're dealing with an empty document then we
+        // need to pre-populate it with the HTML document structure
+        if ( !documentElement && doc.createElement ) (function(){
+            var html = doc.createElement("html");
+            var head = doc.createElement("head");
+            head.appendChild( doc.createElement("title") );
+            html.appendChild( head );
+            html.appendChild( doc.createElement("body") );
+            doc.appendChild( html );
+        })();
+        
+        // Find all the unique elements
+        if ( doc.getElementsByTagName )
+            for ( var i in one )
+                one[ i ] = doc.getElementsByTagName( i )[0];
+        
+        // If we're working with a document, inject contents into
+        // the body element
+        var curParentNode = one.body;
+        
+        HTMLParser( html, {
+            start: function( tagName, attrs, unary ) {
+                // If it's a pre-built element, then we can ignore
+                // its construction
+                if ( one[ tagName ] ) {
+                    curParentNode = one[ tagName ];
+                    if ( !unary ) {
+                        elems.push( curParentNode );
+                    }
+                    return;
+                }
+            
+                var elem = doc.createElement( tagName );
+                
+                for ( var attr in attrs )
+                    elem.setAttribute( attrs[ attr ].name, attrs[ attr ].value );
+                
+                if ( structure[ tagName ] && typeof one[ structure[ tagName ] ] != "boolean" )
+                    one[ structure[ tagName ] ].appendChild( elem );
+                
+                else if ( curParentNode && curParentNode.appendChild )
+                    curParentNode.appendChild( elem );
+                    
+                if ( !unary ) {
+                    elems.push( elem );
+                    curParentNode = elem;
+                }
+            },
+            end: function( tag ) {
+                elems.length -= 1;
+                
+                // Init the new parentNode
+                curParentNode = elems[ elems.length - 1 ];
+            },
+            chars: function( text ) {
+                curParentNode.appendChild( doc.createTextNode( text ) );
+            },
+            comment: function( text ) {
+                // create comment node
+            }
+        });
+        
+        return doc;
+    };
+
+    return HTMLParser;
+} () );
+
 
 var ContentSpec = ( function( options ) {
 	var resetTextCss = ( options && options.resetCSS ) ? options.resetCSS : "reset3.11.css",
@@ -71,27 +391,136 @@ var ContentSpec = ( function( options ) {
         return object;
     }
 
+    var defaultFontsRegexs = [
+        // "ArialMT,'Arial'"
+        // "Arial-ItalicMT,'Arial'"
+        // "Arial-BoldMT,'Arial'"
+        // "Arial-BoldItalicMT,'Arial'"
+        // "ArialMT, Arial"
+        // "ArialMT"
+        /^Arial(?:-(?:Italic|Bold|BoldItalic))?MT,\s?(?:Arial|'Arial')?$/,
+        
+        // "CourierNewPSMT,'Courier New'"
+        // "CourierNewPS-ItalicMT,'Courier New'"
+        // "CourierNewPS-BoldMT,'Courier New'"
+        // "CourierNewPS-BoldItalicMT,'Courier New'"
+        /^CourierNewPS(?:-(?:Italic|Bold|BoldItalic))?MT,\s?(?:Courier New|'Courier New')$/,
+        
+        // "Georgia,'Georgia'"
+        // "Georgia-Italic,'Georgia'"
+        // "Georgia-Bold,'Georgia'"
+        // "Georgia-BoldItalic,'Georgia'"
+        /^Georgia(?:-(?:Italic|Bold|BoldItalic))?,\s?(?:Georgia|'Georgia')$/,
 
-    // Html-based text helpers
+
+        // "TimesNewRomanPSMT,'Times New Roman'"
+        // "TimesNewRomanPS-ItalicMT,'Times New Roman'"
+        // "TimesNewRomanPS-BoldMT,'Times New Roman'"
+        // "TimesNewRomanPS-BoldItalicMT,'Times New Roman'"
+        /^TimesNewRomanPS(?:-(?:Italic|Bold|BoldItalic))?MT,\s?(?:Times New Roman|'Times New Roman')$/,
+
+        // "TrebuchetMS,'Trebuchet MS'"
+        // "TrebuchetMS-Italic,'Trebuchet MS'"
+        // "TrebuchetMS-Bold,'Trebuchet MS'"
+        // "TrebuchetMS-BoldItalic,'Trebuchet MS'"
+        /^TrebuchetMS(?:-(?:Italic|Bold|BoldItalic))?,\s?(?:Trebuchet MS|'Trebuchet MS')$/,
+
+        // "Verdana,'Verdana'"
+        // "Verdana-Italic,'Verdana'"
+        // "Verdana-Bold,'Verdana'"
+        // "Verdana-BoldItalic,'Verdana'"
+        /^Verdana(?:-(?:Italic|Bold|BoldItalic))?,\s?(?:Verdana|'Verdana')$/
+    ];
+
+    function testIsDefaultFont( fontName ) {
+        return defaultFontsRegexs.some( function( regex ) {
+            return regex.test( fontName );
+        } );
+    }
+
+    /**
+        * @desc Returns HTML wrapped with div and text alignment styling; use for text align and new line
+        * @param {string} textAlign
+        * @param {string} html
+        * @returns {string} 
+    */
+    function setTextAlign( textAlign, html ) {
+        textAlign = [ "left", "center", "right", "justify" ].indexOf( textAlign ) ? textAlign : "left";
+        html = html || "";
+
+        html = html.replace( /text-align:\s*([^;]*);/gi, "" );
+
+        return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";
+    }
+
+    /**
+        * @desc Returns HTML wrapped with span and styling
+        * @param {object} styles
+        * @param {string} html
+        * @returns {string} 
+    */
+    function setTextStyles( styles, html ) {
+        styles = Object.prototype.toString.call( styles ) === "[object Object]" ? styles : {};
+        html = html || "";
+
+        var stylesStr = Object.keys( styles ).map( function( key ) {
+            return key + ":" + styles[ key ] + ";";
+        } ).join( "" );
+
+        return "<span style=\"" + stylesStr + "\">" + html + "</span>";
+    }
+
+    /**
+        * @desc Returns HTML wrapped with span and font family styling; removes embedded font family styling
+        * @param {string} fontFamily
+        * @param {string} html
+        * @returns {string} 
+    */
+    function setCustomFont( fontFamily, html ) {
+        fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
+        html = html || "";
+        
+        html = html.replace( /(font-family|font-style|font-weight):\s*([^;]*);/gi, "" );
+
+        return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
+    }
+
+    /**
+        * @desc Returns HTML wrapped with span and text color styling; removes embedded text color styling
+        * @param {string} color
+        * @param {string} html
+        * @returns {string} 
+    */
+    function setColorStyle( color, html ) {
+        html = html || "";
+        color = { color: color || "#000000" };
+
+        html = html.replace( /color:\s*([^;]*);/gi, "" );
+        
+        return setTextStyles( color, html );
+    }
+
     function encodeSpecialCharacters( str ) {
         var chars = {
-            ">": "&gt;",
-            "<": "&lt;",
-            "&": "&amp;",
-            
-            // Sequential spaces, '  '
-            "  ": " &nbsp;"
-        };
+                ">": "&gt;",
+                "<": "&lt;",
+                "&": "&amp;",
+                
+                // Sequential spaces, '  '
+                "  ": " &nbsp;"
+            },
+            regex = new RegExp( "(" + Object.keys( chars )
+                .map( function( val ) { return "\\" + val; } )
+                .join( "|" ) + ")", "g" );
 
-        return str.replace( new RegExp( "(\\&[^;]*;?)", "g" ), function( match ) {
+        return str.replace( regex, function( match ) {
             if( chars[ match ] ) {
                 return chars[ match ];
             }
         } );
     }
-    var htmlToNodes = ( function( $ ) {
-            var nodes;
 
+    var htmlToNodes = ( function( $ ) {
             function normalizeHTMLEntities( str ) {
                 var entities = {
                     "&gt;": ">",
@@ -116,12 +545,11 @@ var ContentSpec = ( function( options ) {
             }
             
             function Html() {
-                var id = 0,
-                    vals = [],
+                var nodeValues = [],
                     stringValue = "",
-                    cache = {};
+                    tmpNode = {};
 
-                function nodeHelper( node ) {
+                function nodeHelper( node, attributes ) {
                     Object.defineProperties( node, {
                         "_isClosed": {
                             enumerable: false,
@@ -140,123 +568,356 @@ var ContentSpec = ( function( options ) {
                             configurable: true,
                             writable: true,
                             value: []
+                        },
+                        "_inheritedAttributes": {
+                            enumerable: false,
+                            configurable: true,
+                            writable: true,
+                            value: attributes
                         }
                     } );
                 }
-                function Node( tag, attrs ) {
+                function Node( tag, attributes ) {
                     this.id = generateUniqueId();
+                    
                     this.tag = tag;
-                    this.attrs = attrs;
+                    this.attributes = attributes;
                     this.index = null;
                     this.length = null;
                     this.stringValue = "";
 
-                    nodeHelper( this );
+                    // Clone is required to avoid modifying attributes object
+                    nodeHelper( this, util.naiveClone( attributes ) );
                 }
 
                 Node.prototype.getParentNode = function() {
                     if( !this._parentNode ) { return null; }
-                    var i = 0, len = vals.length;
+                    
+                    var i = 0, 
+                        len = nodeValues.length;
+                    
                     for( i ; i < len; i++ ) {
-                        if( vals[ i ].id === this._parentNode ) {
-                            return vals[ i ];
+                        if( nodeValues[ i ].id === this._parentNode ) {
+                            return nodeValues[ i ];
                         }
                     }
                 };
                 Node.prototype.getChildrenNodes = function() {
-                    var arr = [], len = vals.length;
+                    var arr = [], 
+                        len = nodeValues.length;
                     
                     this._childrenNodes.forEach( function( nodeId ) {
                         for( var i = 0; i < len; i++ ) {
-                            if( vals[ i ].id === nodeId ) {
-                                arr.push( vals[ i ] );
+                            if( nodeValues[ i ].id === nodeId ) {
+                                arr.push( nodeValues[ i ] );
                                 return;
                             }
                         }
                     } );
                     return arr;
                 };
-                
-                this.process = function( type, val, forceClose ) {
-                    var i, j;
-                    if( type === "end" ) {
-                        // Close node and reset cache
-                        if( cache.id && cache.tag === val.tag ) {
-                            cache._isClosed = true;
-                            cache.length = stringValue.length - cache.index;
-                            vals.push( cache );
-                            cache = {};
-                        } else {
-                            for( i = vals.length - 1; i >= 0; i-- ) {
-                                if( !vals[ i ]._isClosed ) {
-                                    vals[ i ]._isClosed = true;
-                                    vals[ i ].length = stringValue.length - vals[ i ].index;
-                                    break;
-                                }
-                            }
-                        }
-                    } else if( type === "start" ) {
-                        if( cache.id ) {
-                            vals.push( cache );
-                            cache = {};
-                        }
-                        cache = new Node( val.tag, val.attrs );
-                        cache.index = stringValue.length;
+                Node.prototype.resolveInheritedAttributes = function() {
+                    // Explicitly define inheritedAttributes on child nodes
+                    function resolveChildren( node, nodes ) {
+                        nodes = nodes || [];
 
-                        // Identify parent nodes
-                        for( i = vals.length - 1; i >= 0; i-- ) {
-                            if( !vals[ i ]._isClosed ) {
-                                if( !cache._parentNode ) {
-                                    cache._parentNode = vals[ i ].id;
-                                    vals[ i ]._childrenNodes.push( cache.id );
-                                }
-                            }
-                        }
+                        var children = node.getChildrenNodes(),
+                            attrs = node._inheritedAttributes,
+                            embeddedNodeIds = [];
 
-                        if( forceClose ) {
-                            cache._isClosed = true;
-                            cache.length = stringValue.length - cache.index;
-                            vals.push( cache );
-                            cache = {};
-                        }
-                    } else if( type === "chars" ) {
-                        val = normalizeHTMLEntities( val );
+                        if( children.length > 0 ) {
+                            children.forEach( function( child ) {
+                                Object.keys( attrs ).forEach( function( attrKey ) {
+                                    var attr = attrs[ attrKey ],
+                                        key;
 
-                        if( !cache.id ) {
-                            for( i = vals.length - 1; i >= 0; i-- ) {
-                                if( !vals[ i ]._isClosed ) {
-
-                                    // Identifier for embedded node; can have siblings
-                                    if( vals[ i ].stringValue.length > 0 ) {
-                                        for( j = i; j < vals.length; j++ ) {
-                                            if( vals[ j ]._isClosed && vals[ j ]._parentNode === vals[ i ].id ) {
-                                                vals[ i ].stringValue += ( "{{" + vals[ j ].id + "}}" );
-                                            }
-                                        }
+                                    if( !child._inheritedAttributes[ attrKey ] ) {
+                                        child._inheritedAttributes[ attrKey ] = {};
                                     }
-                                    vals[ i ].stringValue += val;
-                                    break;
-                                }
-                            }
-                        } else {
-                            cache.stringValue += val;
+
+                                    for( key in attr ) {
+                                        child._inheritedAttributes[ attrKey ][ key ] = attr[ key ];
+                                    }
+                                } );
+
+                                resolveChildren( child, nodes );
+                            } );
+                        }
+
+                        if( children.length === 0 || node.stringValue.length > 0 ) {
+                            nodes.push( node );
                         }
                         
-                        stringValue += val;
+                        nodes.forEach( function( node ) {
+                            if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
+                                embeddedNodeIds = embeddedNodeIds.concat( node._childrenNodes );
+                            }
+                        } );
+
+                        // Sort by index
+                        return nodes.sort( function( a, b ) { return a.index - b.index; } )
+                            // Remove embedded nodes
+                            .filter( function( node ) {
+                                return embeddedNodeIds.indexOf( node.id ) < 0;
+                            } );
                     }
+
+                    return resolveChildren( this, [] );
+                };
+
+                this.process = function( type, value, forceClose ) {
+                    var HtmlType = {
+                        end: function() {
+                            var i;
+
+                            // Close node and reset tmpNode
+                            if( tmpNode.id && tmpNode.tag === value.tag ) {
+                                tmpNode._isClosed = true;
+                                tmpNode.length = stringValue.length - tmpNode.index;
+                                
+                                nodeValues.push( tmpNode );
+                                tmpNode = {};
+                            } 
+
+                            // Traverse stored nodes for open node
+                            else {
+                                for( i = nodeValues.length - 1; i >= 0; i-- ) {
+                                    if( !nodeValues[ i ]._isClosed ) {
+                                        nodeValues[ i ]._isClosed = true;
+                                        nodeValues[ i ].length = stringValue.length - nodeValues[ i ].index;
+                                        break;
+                                    }
+                                }
+                            }
+                        },
+                        start: function() {
+                            var i;
+
+                            // If starting new tag while tag is open, store node and reset tmpNode
+                            if( tmpNode.id ) {
+                                nodeValues.push( tmpNode );
+                                tmpNode = {};
+                            }
+
+                            tmpNode = new Node( value.tag, value.attrs );
+                            tmpNode.index = stringValue.length;
+
+                            // Identify parent and children nodes
+                            for( i = nodeValues.length - 1; i >= 0; i-- ) {
+                                if( !nodeValues[ i ]._isClosed ) {
+                                    if( !tmpNode._parentNode ) {
+                                        tmpNode._parentNode = nodeValues[ i ].id;
+                                        nodeValues[ i ]._childrenNodes.push( tmpNode.id );
+                                    }
+                                }
+                            }
+
+                            // Force close unary tag
+                            if( forceClose ) {
+                                tmpNode._isClosed = true;
+                                tmpNode.length = stringValue.length - tmpNode.index;
+                                
+                                nodeValues.push( tmpNode );
+                                tmpNode = {};
+                            }
+                        },
+                        chars: function() {
+                            var i, j;
+
+                            // Normalize encoded entities
+                            value = normalizeHTMLEntities( value );
+
+                            // Temp node hasn't been initiated
+                            if( !tmpNode.id ) {
+
+                                // Traverse nodes for last open node
+                                for( i = nodeValues.length - 1; i >= 0; i-- ) {
+                                    if( !nodeValues[ i ]._isClosed ) {
+                                        var openNode = nodeValues[ i ];
+
+                                        // Identifier for embedded node; can have siblings
+                                        for( j = i; j < nodeValues.length; j++ ) {
+                                            
+                                            // Embed node id in string for reference
+                                            if( nodeValues[ j ]._isClosed && nodeValues[ j ]._parentNode === openNode.id &&
+                                                // Id is not already embedded
+                                                openNode.stringValue.indexOf( nodeValues[ j ].id ) < 0 ) {                                    
+                                                    openNode.stringValue += ( "{{" + nodeValues[ j ].id + "}}" );
+                                            }
+                                        }
+                                        nodeValues[ i ].stringValue += value;
+                                        break;
+                                    }
+                                }
+                            } else {
+                                // Remove zero width space
+                                tmpNode.stringValue += value.replace( /\u200B/g, "" );
+                            }
+                            
+                            // Remove zero width space
+                            stringValue += value.replace( /\u200B/g, "" );
+                        },
+                        comment: function() {}
+                    };
+
+                    HtmlType[ type ]();
                 };
                 this.results = function() {
-                    return vals;    
+                    return nodeValues;    
                 };
                 this.stringValue = function() {
-                    // Remove zero width space
-                    return stringValue.replace(/\u200B/g,"");
+                    return stringValue;
+                };
+                this.getStringStyles = function() {
+                    var nodes = [],
+                        lineBreaks = this.getLineBreaks(),
+
+                        node,
+                        slices,
+                        style;
+
+                    // Capture parent level nodes only
+                    nodeValues.filter( function( node ) {
+                        return !!!node.getParentNode();
+                    } ).forEach( function( node ) {
+                        nodes = nodes.concat( node.resolveInheritedAttributes() );
+                    } );
+
+                    // Loop through nodes; split nodes with embedded styles; return reduced node data
+                    for( var i = 0; i < nodes.length; i++ ) {
+                        node = nodes[ i ];
+
+                        // Node with embedded nodes
+                        if( ( /{{\w{32}}}/ ).test( node.stringValue ) ) {
+                            // Split string by string value and node references
+                            slices = node.stringValue.split( /({{\w{32}}})/ )
+
+                                // Remove empty string values
+                                .filter( Boolean )
+
+                                // Replace references with node
+                                .map( function( slice ) {
+                                    var tmpNode = {},
+                                        id = slice.match( /{{(\w{32})}}/ );
+                                    
+                                    if( id ) {
+                                        id = id[ 1 ];
+
+                                        nodeValues.some( function( embeddedNode ) {
+                                            if( embeddedNode.id === id ) {
+                                                tmpNode = embeddedNode;
+                                                return true;
+                                            }
+                                        } );
+                                    } else {
+                                        tmpNode = slice;
+                                    }
+
+                                    return tmpNode;
+                                } )
+
+                                // Reduce nodes to necessary information
+                                .map( function( slice, sliceIndex, sliceArr ) {
+                                    var tmpNode = {},
+                                        style = node._inheritedAttributes.style ?
+                                                    node._inheritedAttributes.style : {},
+                                        
+                                        // For recalculating stringValue index
+                                        index = 0,
+                                        indexValue = 0;
+                                    
+                                    // Slice from original node
+                                    if( typeof slice === "string" ) {
+                                        // Get slice index
+                                        while( index < sliceIndex  ) {
+                                            indexValue += typeof sliceArr[ index ] === "object" ? sliceArr[ index ].stringValue.length : sliceArr[ index ].length ;
+                                            index++;
+                                        }
+
+                                        tmpNode = {
+                                            index: indexValue,
+                                            length: slice.length,
+                                            style: style,
+                                            stringValue: slice
+                                        };
+                                    }
+
+                                    // Slice is an embedded node
+                                    else {
+                                        style = slice._inheritedAttributes.style ?
+                                                slice._inheritedAttributes.style : {};
+
+                                        tmpNode = {
+                                            index: slice.index,
+                                            length: slice.length,
+                                            style: style,
+                                            stringValue: slice.stringValue
+                                        };
+                                    }
+
+                                    // Process line breaks
+                                    if( lineBreaks.indexOf( tmpNode.index ) >= 0 ) {
+                                        tmpNode.leadingLineBreak = true;
+
+                                        // Remove line break
+                                        lineBreaks.splice( lineBreaks.indexOf( tmpNode.index ) );
+                                    }
+
+                                    return tmpNode;
+                                } );
+
+                            // Inject embedded slices
+                            Array.prototype.splice.apply( nodes, [ i, 1 ].concat( slices ) );
+                            // Update index
+                            i = slices.length - 1;
+                        }
+
+                        // Node without embedded nodes
+                        else {
+                            style = node._inheritedAttributes.style ?
+                                    node._inheritedAttributes.style : {};
+
+                            // Reduce nodes to necessary information
+                            nodes[ i ] = {
+                                index: node.index,
+                                length: node.length,
+                                style: style,
+                                stringValue: node.stringValue
+                            };
+
+                            // Process line breaks
+                            if( lineBreaks.indexOf( nodes[ i ].index ) >= 0 ) {
+                                nodes[ i ].leadingLineBreak = true;
+
+                                // Remove line break
+                                lineBreaks.splice( lineBreaks.indexOf( nodes[ i ].index ) );
+                            }
+                        }
+                    }
+
+                    return nodes;
+                };
+
+                // Leading line breaks
+                this.getLineBreaks = function() {
+                    var breaks = [];
+
+                    nodeValues.forEach( function( node ) {
+                        if( node.tag === "div" ) {
+                            breaks.push( node.index );
+                        }
+                    } );
+
+                    // Remove first instance if 0
+                    if( breaks[ 0 ] === 0 ) { breaks.shift(); }
+
+                    return breaks;
                 };
             }
 
             return {
                 run: function( str ) {
-                    nodes = new Html();
+                    var nodes = new Html();
 
                     $( str, {
                         start: function( tag, attrs, unary ) {
@@ -274,7 +935,7 @@ var ContentSpec = ( function( options ) {
                             }, unary );
                         },
                         end: function( tag ) {
-                            nodes.process( "end", { tag:tag } );
+                            nodes.process( "end", { tag: tag } );
                         },
                         chars: function( text ) {
                             nodes.process( "chars", text );
@@ -282,228 +943,231 @@ var ContentSpec = ( function( options ) {
                         comment: function( text ) {}
                     } );
 
-                    return this;
-                },
-                results: function() {
-                    return nodes.results();
-                },
-                stringValue: function() {
-                    return nodes.stringValue();
+                    return nodes;
                 }
             };
-        } ( HTMLParser ) ),
+        } )( HTMLParser ),
         htmlTextHelpers = {
-            _parsedText: {},
-            _textNodes: [],
-            _textStringValue: "",
-            _resetParsedText: function() { 
-                this._parsedText = {};
-                this._textNodes = [];
-            },
-            _cacheParsedText: function() {
-                this._resetParsedText();
-                this._parsedText = htmlToNodes.run( this.spec.text );
-                this._textNodes = this._parsedText.results();
-                this._textStringValue = this._parsedText.stringValue();
-            },
+            _nodes: [],
+            _nodeStyles: [],
+            _stringValue: "",
+            
             setText: function( text ) {
-                setBasicText.call( this, text );
-                this._cacheParsedText();
+                this._stringValue = text;
+                
+                // Reset normalized node objects
+                this._nodeStyles = [ {
+                    index: 0,
+                    length: text.length,
+                    style: {},
+                    stringValue: text
+                } ];
 
                 return this;
             },
-            setHtmlText: function( html ) {
+            setTextHtml: function( html ) {
+                if( typeof html !== "string" ) {
+                    util.debug.warn( "Invalid text html type, " + typeof html );
+                    return this;
+                }
+
+                // Set text value
                 this.spec.text = html;
-                this._cacheParsedText();
+                // Node accessors
+                this._nodes = htmlToNodes.run( html );
+                // Set string value
+                this._stringValue = this._nodes.stringValue();
+                // Normalize node objects
+                this._nodeStyles = this._nodes.getStringStyles();
 
                 return this;
+            },
+            setTextNodes: function( nodes ) {
+                if( !Array.isArray( nodes ) ) { 
+                    util.debug.warn( "Invalid text nodes type, " + typeof nodes );
+                    return this;
+                }
+                // Node accessors won't exist
+                this._nodes = [];
+                this._nodeStyles = nodes;
+
+                nodes.forEach( function( node ) {
+                    this._stringValue += node.stringValue;
+                } );
+
+                return this;
+            },
+            
+            getTextNodes: function() {
+                return this._nodes;
+            },
+            getTextNodeStyles: function() {
+                return this._nodeStyles;
+            },
+            getHtmlFromNodeStyles: function() {
+                // Process styles and font family
+                var html = [ "" ],
+                    lineIndex = 0,
+                    textAlign = "left";
+
+                this._nodeStyles.forEach( function( node, i, arr ) {
+                    var str = "",
+                        style = node.style || {},
+                        lineBreak = node.leadingLineBreak;
+
+                    str = setTextStyles( style, encodeSpecialCharacters( node.stringValue ) );
+
+                    // Font family exists and is not a default font
+                    if( style[ "font-family" ] && !testIsDefaultFont( style[ "font-family" ] ) ) {
+                        str = setCustomFont( style[ "font-family" ], str );
+                    }
+
+                    if( style.color && !( style.color === "#000000" || style.color === "rgb(0, 0, 0)" ) ) {
+                        str = setColorStyle( style.color, str );    
+                    }
+
+                    // Process line breaks
+                    if( lineBreak ) {
+                        html[ lineIndex ] = setTextAlign( textAlign, html[ lineIndex ] );
+
+                        // Update line index
+                        lineIndex += 1;
+                        // Update html
+                        html[ lineIndex ] = "";
+                        // Update text align
+                        textAlign = style[ "text-align" ] || "left";
+                    }
+
+                    // Prepend html to local string
+                    str = html[ lineIndex ] + str;
+
+                    // Set html
+                    html[ lineIndex ] = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
+                } );
+
+                return html.join( "" );
             },
             getStringValue: function() {
-                return this._textStringValue;
-            },
-            getHtmlNodes: function() {
-                return this._textNodes;
+                return this._stringValue;
             },
 
+            getTextStyleAtIndex: function( styleName, index ) {
+                if( typeof styleName !== "string" ) { return this; }
+                index = typeof index === "number" ? number : 0;
+
+                var nodes = this._nodeStyles,
+                    nodeIndex = -1,
+                    value;
+
+                nodes.some( function( node, i ) {
+                    if( node.index <= index && index < node.index + node.length ) {
+                        nodeIndex = i;
+                        return true;
+                    }
+                } );
+
+                if( nodeIndex >= 0 ) {
+                    value = nodes[ nodeIndex ].style[ styleName ];
+                }
+
+                return typeof value !== "undefined" ? value : null;
+            },
+            firstInstanceofTextStyle: function( styleName ) {
+                var nodes = this._nodeStyles,
+                    value = null;
+
+                nodes.some( function( node ) {
+                    if( node.style && node.style[ styleName ] ) {
+                        value = node.style[ styleName ];
+                        return true;
+                    }
+                } );
+                
+                return value;
+            },
+            
+            // First Instance of style
             getTextAlign: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "text-align", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "text-align" );
             },
             getLineHeight: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "line-height", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "line-height" );
             },
             getLetterSpacing: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "letter-spacing", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "letter-spacing" );
             },
             getColor: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "color", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "color" );
             },
             getFontSize: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "font-size", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "font-size" );
             },
             getFontFamily: function() {
-                return ( this._textNodes.length > 0 ) ?
-                    firstInstanceofStyleInNodes( "font-family", this._textNodes ) :
-                    null;
+                return this.firstInstanceofTextStyle( "font-family" );
             },
 
-            setTextAlign: function( textAlign ) {
-                replaceTextAlign.call( this, textAlign );
-                this._cacheParsedText();
-                
-                return this;
-            },
-            setLineHeight: function( lineHeight ) {
-                replaceLineHeight.call( this, lineHeight );
-                this._cacheParsedText();
+            setTextStyleValueForNameAtIndex: function( value, styleName, index ) {
+                if( typeof styleName !== "string" ) { log( "ret" ); return this; }
+                index = typeof index === "number" ? index : 0;
 
-                return this;
-            },
-            setLetterSpacing: function( letterSpacing ) {
-                replaceLetterSpacing.call( this, letterSpacing );
-                this._cacheParsedText();
+                var nodes = this._nodeStyles,
+                    nodeIndex = -1,
+                    node;
 
-                return this;
-            },
-            setColor: function( hex ) {
-                replaceColor.call( this, hex );
-                this._cacheParsedText();
+                // Get index of node
+                if( nodes.length > 0 ) {
+                    nodes.some( function( node, i ) {
+                        if( node.index <= index && index < node.index + node.length ) {
+                            nodeIndex = i;
+                            return true;
+                        }
+                    } );
+                }
 
-                return this;
-            },
-            setFontSize: function( fontSize ) {
-                replaceFontSize.call( this, fontSize );
-                this._cacheParsedText();
+                if( nodeIndex >= 0 ) {
+                    node = nodes[ nodeIndex ];
+                    node.style = node.style || {};
+
+                    node.style[ styleName ] = value;
+                } else {
+                    util.debug.warn( "Text index out of bounds" );
+                }
 
                 return this;
             },
-            setCustomFont: function( font, fontFamily ) {
-                var textAlign = this.getTextAlign(),
-                    lineHeight = this.getLineHeight(),
-                    letterSpacing = this.getLetterSpacing(),
-                    color = this.getColor(),
-                    fontSize = this.getFontSize();
-
-                setCustomText.call( this, this._textStringValue );
-                replaceFontFamily.call( this, font, fontFamily );
-
-                // Reapply styles
-                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
-                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
-                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
-                if( color ) { replaceColor.call( this, color ); }
-                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
-
-                this._cacheParsedText();
+            
+            // Set zero index style value
+            setTextAlign: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "text-align", 0 );
 
                 return this;
             },
+            setLineHeight: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "line-height", 0 );
 
-            resetToDefaultFont: function() {
-                var textAlign = this.getTextAlign(),
-                    lineHeight = this.getLineHeight(),
-                    letterSpacing = this.getLetterSpacing(),
-                    color = this.getColor(),
-                    fontSize = this.getFontSize();
+                return this;
+            },
+            setLetterSpacing: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "letter-spacing", 0 );
 
-                setBasicText.call( this, this._textStringValue );
+                return this;
+            },
+            setColor: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "color", 0 );
 
-                // Reapply styles
-                if( textAlign ) { replaceTextAlign.call( this, textAlign ); }
-                if( lineHeight ) { replaceLineHeight.call( this, lineHeight ); }
-                if( letterSpacing ) { replaceLetterSpacing.call( this, letterSpacing ); }
-                if( color ) { replaceColor.call( this, color ); }
-                if( fontSize ) { replaceFontSize.call( this, fontSize ); }
+                return this;
+            },
+            setFontSize: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "font-size", 0 );
 
-                this._cacheParsedText();
+                return this;
+            },
+            setFontFamily: function( value ) {
+                this.setTextStyleValueForNameAtIndex( value, "font-family", 0 );
 
                 return this;
             }
         };
-
-    function traverseNodes( node , i ) {
-        if( node === undefined ) { return null; }
-
-        var parentNode = node.getParentNode(),
-            childrenNodes = node.getChildrenNodes(),
-            siblingsNum = ( parentNode ) ? parentNode.getChildrenNodes().length : 0;
-        i = i || 0;
-
-        // Traverse siblings
-        while( node.stringValue.length === 0 && ( i < siblingsNum - 1 || childrenNodes.length > 0 ) ) {
-            // Traverse children
-            while( node.stringValue.length === 0 && childrenNodes.length > 0 ) {
-                return traverseNodes( childrenNodes[ 0 ] , 0 );
-            }
-
-            i++;
-            return traverseNodes( parentNode.getChildrenNodes()[ i ], i );
-        }
-
-        return ( node.stringValue.length > 0 ) ? node : null;
-    }
-    function firstInstanceofStyleInNodes( styleName , nodes ) {
-        if( nodes.length === 0 ) { return null; } // Provide more informative warning
-        var node = traverseNodes( nodes[ 0 ] );
-
-        while( node !== null ) {
-            if( !node.attrs || !node.attrs.style ) {
-                node = node.getParentNode();
-                continue;
-            }
-            if( node.attrs && node.attrs.style && node.attrs.style[ styleName ] ) {
-                return node.attrs.style[ styleName ];
-            }
-            node = node.getParentNode();
-        }
-        return null;
-    }
-    function setBasicText( text ) {
-        this.spec.text = "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 0px;\"><span style=\"color:#000000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">" + text + "</span></span></span></div>";
-    }
-    function setCustomText( text ) {
-        this.spec.text = "<div style=\"text-align: left; line-height: 28px;\"><span style=\"letter-spacing: 0px;\"><span style=\"color:#000000;\"><span class=\"sm-font-family\" style=\"font-family:HelveticaNeue-Regular,'Helvetica Neue';font-style:normal;font-weight:normal;\"><span class=\"sm-font-style\"><span style=\"font-size:24px;\">" + text + "</span></span></span></span></span></div>";
-    }
-    function replaceTextAlign( textAlign ) {
-        this.spec.text = this.spec.text.replace( /text-align:\s*([^;]*);/gi, function( m ) {
-            return m.replace( /left|center|right|justify/gi, textAlign );
-        } );
-    }
-    function replaceLineHeight( lineHeight ) {
-        this.spec.text = this.spec.text.replace( /line-height:\s*([^;]*);/gi, function( m ) {
-            return m.replace( /\d*px/gi, lineHeight );
-        } );
-    }
-    function replaceLetterSpacing( letterSpacing ) {
-        this.spec.text = this.spec.text.replace( /letter-spacing:\s*([^;]*);/gi, function( m ) {
-            return m.replace( /\d*px/gi, letterSpacing );
-        } );   
-    }
-    function replaceColor( hex ) {
-        this.spec.text = this.spec.text.replace( /color:\s*([^;]*);/gi, function( m ) {
-            return m.replace( /#\d*/gi, hex );
-        } );   
-    }
-    function replaceFontSize( fontSize ) {
-        this.spec.text = this.spec.text.replace( /font-size:\s*([^;]*);/gi, function( m ) {
-            return m.replace( /\d*px/gi, fontSize );
-        } );   
-    }
-    function replaceFontFamily( font, fontFamily ) {
-        this.spec.text = this.spec.text.replace( /font-family:\s*([^;]*);/gi, function( m ) {
-            return "font-family:" + font + ",'" + fontFamily + "';";
-        } );
-    }
-
 
     var csHelpers = {
             setKeyValue: function( key, value ) {

@@ -9,7 +9,7 @@ function runTests( context ) {
 		endDate,
 		suite = {},
 
-		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.19/",
+		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.18/",
 		csResetCSS = "reset3.14.1.css";
 	log( "##### Started | " + startDate.toLocaleTimeString() + " #####" );
 
@@ -692,7 +692,725 @@ function runTests( context ) {
 			"test generating unique pageId": function() {
 				assert.ok( typeof cs.generatePageId === "function", "'cs.generatePageId' exists" );
 			},
-			// "test making new overlay": {},
+			"test making new overlay": {
+				"test text overlay": ( function() {
+				    /**
+				        * @desc Convert string containing RGB color data to hex
+				        * @param {string}
+				        * @returns {string} hex color
+				    */
+				    function hexColorFromString( str ) {
+				        // Return str if already hex color
+				        if( ( /^#[0-9a-fA-F]{6}$/i ).test( str ) ) {
+				            return str;
+				        }
+
+				        // Sketch doesn't like Regex
+				        var res = new RegExp( "\\(([^\\)]*)\\)" ).exec( str ),
+				            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null,
+				            hex = rgb && rgb.length === 3 ? 
+				                    util.rgbToHex( parseInt( rgb[ 0 ] ), parseInt( rgb[ 1 ] ), parseInt( rgb[ 2 ] ) ) :
+				                    "#000000";
+				        
+				        return hex;
+				    }
+
+				    // 3.18 text formatting
+					var ver_3180 = {
+							value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
+							default: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></div>",
+							carriageReturn: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, </span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
+							color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></div>",
+							customFont_color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+							variableSpacing_leftAligned: "<div style=\"text-align: left; line-height: 21px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+							variableSpacing_centerAligned: "<div style=\"line-height: 21px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+							variableSpacing_rightAligned: "<div style=\"line-height: 21px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+							variableSpacing_justifyAligned: "<div style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
+							underline: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><u><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></u></span></div>",
+							strikethrough: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><strike><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></strike></span></div>",
+							superscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sup><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sup></span></div>",
+							subscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sub><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sub></span></div>"
+						},
+						ver_3180_specialChar = {
+							value: "Greater than: >; Less than: <; Ampersand: &; Sequential spaces:   .",
+							default: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Greater than: &gt;; Less than: &lt;; Ampersand: &amp;; Sequential spaces: &nbsp; .</span></div>"
+						},
+
+						// 3.20 text formatting
+						ver_3200 = {
+							value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
+							default: "<p>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.<br></p>",
+							carriageReturn: "<p>Jacquie accessorized with a fancy bag, <br></p><p>but her smock looked inexpensive.</p>",
+							color: "<p style=\"color: rgb(255, 0, 0);\"><span style=\"color:#FF0000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></p>",
+							customFont_color: "<p style=\"color: rgb(255, 0, 0); font-family: Merriweather-Light;\"><span style=\"font-family:merriweather-light;\"><span style=\"color:#FF0000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							variableSpacing_leftAligned: "<p style=\"line-height: 21px; font-size: 18px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							variableSpacing_centerAligned: "<p style=\"line-height: 21px; font-size: 18px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							variableSpacing_rightAligned: "<p style=\"line-height: 21px;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span><br></p>",
+							variableSpacing_justifyAligned: "<p style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							underline: "<p><u>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</u></p>",
+							strikethrough: "<p><s>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</s></p>",
+							superscript: "<p><sup>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</sup></p>",
+							subscript: "<p><sub>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</sub></p>"
+						},
+						ver_3200_specialChar = {
+							value: "Greater than: >; Less than: <; Ampersand: &; Sequential spaces:   .",
+							default: "<p>Greater than: &gt;; Less than: &lt;; Ampersand: &amp;; Sequential spaces: &nbsp; .<br></p>"
+						};
+
+					return {
+						// 3.18
+						"test 3.18 text": {
+							"test getting text string value": function() {
+								var htmlString;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										htmlString = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] ).getStringValue();
+																	
+										assert.strictEqual( htmlString, ver_3180.value, "Version 3.18 " + key + " string value can be parsed" );
+									}
+								}
+							},
+							"test getting first instance of text font family": function() {
+								var textOverlay,
+									fontFamily;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										fontFamily = textOverlay.firstInstanceofTextStyle( "font-family" );
+
+										if( key === "customFont_color" ) {
+											assert.strictEqual( fontFamily, "Merriweather-Light,'Merriweather'", "Version 3.18 " + key + " font-family value found" );
+											assert.strictEqual( textOverlay.getFontFamily(), "Merriweather-Light,'Merriweather'", "Version 3.18 " + key + " font-family value found" );
+										} else if( key === "color" ||
+												   key === "variableSpacing_leftAligned" ||
+												   key === "variableSpacing_centerAligned" ||
+												   key === "variableSpacing_rightAligned" ||
+												   key === "variableSpacing_justifyAligned" ) {
+											
+											// For some reason font-family is formatted differently
+											assert.strictEqual( fontFamily, "ArialMT, Arial", "Version 3.18 " + key + " font-family value found" );
+											assert.strictEqual( textOverlay.getFontFamily(), "ArialMT, Arial", "Version 3.18 " + key + " font-family value found" );
+										} else {
+											assert.strictEqual( fontFamily, "ArialMT,'Arial'", "Version 3.18 " + key + " font-family value found" );
+											assert.strictEqual( textOverlay.getFontFamily(), "ArialMT,'Arial'", "Version 3.18 " + key + " font-family value found" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text font size": function() {
+								var textOverlay,
+									fontSize;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										fontSize = textOverlay.firstInstanceofTextStyle( "font-size" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ||
+											key === "variableSpacing_rightAligned" ||
+											key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( fontSize, "18px", "Version 3.18 " + key + " font-size value found" );
+										assert.strictEqual( textOverlay.getFontSize(), "18px", "Version 3.18 " + key + " font-size value found" );
+										} else {
+											assert.strictEqual( fontSize, "24px", "Version 3.18 " + key + " font-size value found" );
+											assert.strictEqual( textOverlay.getFontSize(), "24px", "Version 3.18 " + key + " font-size value found" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text line height": function() {
+								var textOverlay,
+									lineHeight;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										lineHeight = textOverlay.firstInstanceofTextStyle( "line-height" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ||
+											key === "variableSpacing_rightAligned" ||
+											key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( lineHeight, "21px", "Version 3.18 " + key + " line-height value found" );
+											assert.strictEqual( textOverlay.getLineHeight(), "21px", "Version 3.18 " + key + " line-height value found" );
+										} else {
+											assert.strictEqual( lineHeight, null, "Version 3.18 " + key + " uses auto line-height" );
+											assert.strictEqual( textOverlay.getLineHeight(), null, "Version 3.18 " + key + " uses auto line-height" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text letter spacing": function() {
+								var textOverlay,
+									letterSpacing;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										letterSpacing = textOverlay.firstInstanceofTextStyle( "letter-spacing" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ) {
+
+											assert.strictEqual( letterSpacing, "1px", "Version 3.18 " + key + " letter-spacing value found" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), "1px", "Version 3.18 " + key + " letter-spacing value found" );
+										} else if( key === "variableSpacing_rightAligned" ||
+												   key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( letterSpacing, "-1px", "Version 3.18 " + key + " letter-spacing value found" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), "-1px", "Version 3.18 " + key + " letter-spacing value found" );
+										} else {
+											assert.strictEqual( letterSpacing, null, "Version 3.18 " + key + " uses auto letter-spacing" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), null, "Version 3.18 " + key + " uses auto letter-spacing" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text alignment": function() {
+								var textOverlay,
+									align;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										align = textOverlay.firstInstanceofTextStyle( "text-align" );
+
+										if( key === "variableSpacing_centerAligned" ) {
+											assert.strictEqual( align, "center", "Version 3.18 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "center", "Version 3.18 " + key + " text-align value found" );
+										} else if( key === "variableSpacing_rightAligned" ) {
+											assert.strictEqual( align, "right", "Version 3.18 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "right", "Version 3.18 " + key + " text-align value found" );
+										} else if( key === "variableSpacing_justifyAligned" ) {
+											assert.strictEqual( align, "justify", "Version 3.18 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "justify", "Version 3.18 " + key + " text-align value found" );
+										} else {
+											assert.strictEqual( align, "left", "Version 3.18 " + key + " uses default left text-align" );
+											assert.strictEqual( textOverlay.getTextAlign(), "left", "Version 3.18 " + key + " uses default left text-align" );
+										}
+									}
+								}
+							},
+							"test getting first instance text color": function() {
+								var textOverlay,
+									color;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										color = textOverlay.firstInstanceofTextStyle( "color" );
+
+										if( key === "color" ||
+											key === "customFont_color" ) {
+											
+											assert.strictEqual( color, "#FF0000", "Version 3.18 " + key + " color value found" );
+											assert.strictEqual( textOverlay.getColor(), "#FF0000", "Version 3.18 " + key + " color value found" );
+										} else if( key === "variableSpacing_leftAligned" ||
+												   key === "variableSpacing_centerAligned" ||
+												   key === "variableSpacing_rightAligned" ||
+												   key === "variableSpacing_justifyAligned" ) {
+
+											// "rgb(0, 0, 0)"
+											assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " color value found" );
+											assert.strictEqual( hexColorFromString( textOverlay.getColor() ), "#000000", "Version 3.18 " + key + " color value found" );
+										} else {
+											assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " uses default black color" );
+											assert.strictEqual( hexColorFromString( textOverlay.getColor() ), "#000000", "Version 3.18 " + key + " uses default black color" );
+										}
+									}
+								}
+							},
+							"test special characters": function() {
+								// &, sequential spaces, <, >
+								var htmlString;
+
+								for( var key in ver_3180_specialChar ) {
+									if( key !== "value" ) {
+										htmlString = cs.make( "text_complex" ).setTextHtml( ver_3180_specialChar[ key ] ).getStringValue();
+
+										assert.strictEqual( htmlString, ver_3180_specialChar.value, "Version 3.18 " + key + " string value can be parsed" );
+									}
+								}
+							},
+							"test line breaks": function() {
+								var textOverlay,
+									nodeStyles,
+									lineBreakIndexes = [];
+
+								for( var key in ver_3180 ) {
+									lineBreakIndexes = [];
+
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										nodeStyles = textOverlay.getTextNodeStyles();
+
+										lineBreakIndexes = nodeStyles.filter( function( node ) {
+											return node.leadingLineBreak;
+										} ).map( function( node ) {
+											return node.index;
+										} );
+
+										assert.strictEqual( lineBreakIndexes.length, 
+															textOverlay.getTextNodes().getLineBreaks().length,
+															"Version 3.18 " + key + " string has " + lineBreakIndexes.length + " line breaks" );
+
+										if( key === "carriageReturn" ) {
+											assert.ok( lineBreakIndexes, "Version 3.18 " + key + " line break exists" );
+											assert.strictEqual( lineBreakIndexes.length, 1, "Version 3.18 " + key + " has 1 line break" );
+										} else {
+											assert.ok( lineBreakIndexes, "Version 3.18 " + key + " line break doesn't exist" );
+										}
+									}
+								}
+							},
+							"test parsing html to nodes": function() {
+								var textOverlay,
+									textStyledNodes,
+									textHtml,
+
+									altOverlayOriginal,
+									altOverlayParsed;
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										// Pass html string to overlay
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+										// Capture styled nodes from overlay
+										textStyledNodes = textOverlay.getTextNodeStyles();
+										// Pass styled nodes back to overlay
+										textOverlay.setTextNodes( textStyledNodes );
+
+										textHtml = textOverlay.getHtmlFromNodeStyles();
+
+										// Test if parsed html is the same as the original html
+										if( textHtml === ver_3180[ key ] ) {
+											assert.strictEqual( textHtml, ver_3180[ key ], "Version 3.18 " + key + " html can be parsed into nodes and back to html" );	
+										}
+										
+										// Parse parsed html back into styled nodes for comparison
+										// This should account for html formatting which may be equal despite string differences
+										else {
+											log( "String values not equal:\nExpected: " + ver_3180[ key ] + "\nFound: " + textHtml );
+
+											altOverlayOriginal = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] ).getTextNodeStyles();
+											altOverlayParsed = cs.make( "text_complex" ).setTextHtml( textHtml ).getTextNodeStyles();
+
+											assert.strictEqual( altOverlayParsed.stringValue, altOverlayOriginal.stringValue, "Version 3.18 " + key + " html can be parsed into nodes, back to html, and back to nodes - stringValue" );	
+											assert.strictEqual( altOverlayParsed.style, altOverlayOriginal.style, "Version 3.18 " + key + " html can be parsed into nodes, back to html, and back to nodes - style" );	
+										}
+									}
+								}
+							},
+
+							"test setting text font family": function() {
+								var textOverlay,
+									testFontFamily = "FooFont-Regular,'FooFont'";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setFontFamily( testFontFamily );
+
+										assert.strictEqual( textOverlay.getFontFamily(), testFontFamily, "Version 3.18 " + key + " font-family can be set" );
+									}
+								}
+							},
+							"test setting text font size": function() {
+								var textOverlay,
+									testFontSize = "48px";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setFontSize( testFontSize );
+
+										assert.strictEqual( textOverlay.getFontSize(), testFontSize, "Version 3.18 " + key + " font-size can be set" );
+									}
+								}
+							},
+							"test setting text line height": function() {
+								var textOverlay,
+									testLineHeight = "57px";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setLineHeight( testLineHeight );
+
+										assert.strictEqual( textOverlay.getLineHeight(), testLineHeight, "Version 3.18 " + key + " line-height can be set" );
+									}
+								}
+							},
+							"test setting text letter spacing": function() {
+								var textOverlay,
+									testLetterSpacing = "5px";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setLetterSpacing( testLetterSpacing );
+
+										assert.strictEqual( textOverlay.getLetterSpacing(), testLetterSpacing, "Version 3.18 " + key + " letter-spacing can be set" );
+									}
+								}
+							},
+							"test setting text alignment": function() {
+								var textOverlay,
+									testTextAlign = "FooFont-Regular,'FooFont'";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setTextAlign( testTextAlign );
+
+										assert.strictEqual( textOverlay.getTextAlign(), testTextAlign, "Version 3.18 " + key + " text-align can be set" );
+									}
+								}
+							},
+							"test setting text color": function() {
+								var textOverlay,
+									testColor = "#FF00FF";
+
+								for( var key in ver_3180 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3180[ key ] );
+
+										textOverlay.setColor( testColor );
+
+										assert.strictEqual( textOverlay.getColor(), testColor, "Version 3.18 " + key + " color can be set" );
+									}
+								}
+							}
+						},
+						"test 3.20 text": {
+							"test getting text string value": function() {
+								var htmlString;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										htmlString = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] ).getStringValue();
+																	
+										assert.strictEqual( htmlString, ver_3200.value, "Version 3.20 " + key + " string value can be parsed" );
+									}
+								}
+							},
+							"test getting first instance of text font family": function() {
+								var textOverlay,
+									fontFamily;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										fontFamily = textOverlay.firstInstanceofTextStyle( "font-family" );
+
+										if( key === "customFont_color" ) {
+											assert.strictEqual( fontFamily, "Merriweather-Light", "Version 3.20 " + key + " font-family value found" );
+											assert.strictEqual( textOverlay.getFontFamily(), "Merriweather-Light", "Version 3.20 " + key + " font-family value found" );
+										} else {
+											assert.strictEqual( fontFamily, "ArialMT", "Version 3.20 " + key + " font-family value found" );
+											assert.strictEqual( textOverlay.getFontFamily(), "ArialMT", "Version 3.20 " + key + " font-family value found" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text font size": function() {
+								var textOverlay,
+									fontSize;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										fontSize = textOverlay.firstInstanceofTextStyle( "font-size" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ||
+											key === "variableSpacing_rightAligned" ||
+											key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( fontSize, "18px", "Version 3.20 " + key + " font-size value found" );
+										assert.strictEqual( textOverlay.getFontSize(), "18px", "Version 3.20 " + key + " font-size value found" );
+										} else {
+											assert.strictEqual( fontSize, "24px", "Version 3.20 " + key + " font-size value found" );
+											assert.strictEqual( textOverlay.getFontSize(), "24px", "Version 3.20 " + key + " font-size value found" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text line height": function() {
+								var textOverlay,
+									lineHeight;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										lineHeight = textOverlay.firstInstanceofTextStyle( "line-height" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ||
+											key === "variableSpacing_rightAligned" ||
+											key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( lineHeight, "21px", "Version 3.20 " + key + " line-height value found" );
+											assert.strictEqual( textOverlay.getLineHeight(), "21px", "Version 3.20 " + key + " line-height value found" );
+										} else {
+											assert.strictEqual( lineHeight, null, "Version 3.20 " + key + " uses auto line-height" );
+											assert.strictEqual( textOverlay.getLineHeight(), null, "Version 3.20 " + key + " uses auto line-height" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text letter spacing": function() {
+								var textOverlay,
+									letterSpacing;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										letterSpacing = textOverlay.firstInstanceofTextStyle( "letter-spacing" );
+
+										if( key === "variableSpacing_leftAligned" ||
+											key === "variableSpacing_centerAligned" ) {
+
+											assert.strictEqual( letterSpacing, "1px", "Version 3.20 " + key + " letter-spacing value found" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), "1px", "Version 3.20 " + key + " letter-spacing value found" );
+										} else if( key === "variableSpacing_rightAligned" ||
+												   key === "variableSpacing_justifyAligned" ) {
+
+											assert.strictEqual( letterSpacing, "-1px", "Version 3.20 " + key + " letter-spacing value found" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), "-1px", "Version 3.20 " + key + " letter-spacing value found" );
+										} else {
+											assert.strictEqual( letterSpacing, null, "Version 3.20 " + key + " uses auto letter-spacing" );
+											assert.strictEqual( textOverlay.getLetterSpacing(), null, "Version 3.20 " + key + " uses auto letter-spacing" );
+										}
+									}
+								}
+							},
+							"test getting first instance of text alignment": function() {
+								var textOverlay,
+									align;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										align = textOverlay.firstInstanceofTextStyle( "text-align" );
+
+										if( key === "variableSpacing_centerAligned" ) {
+											assert.strictEqual( align, "center", "Version 3.20 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "center", "Version 3.20 " + key + " text-align value found" );
+										} else if( key === "variableSpacing_rightAligned" ) {
+											assert.strictEqual( align, "right", "Version 3.20 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "right", "Version 3.20 " + key + " text-align value found" );
+										} else if( key === "variableSpacing_justifyAligned" ) {
+											assert.strictEqual( align, "justify", "Version 3.20 " + key + " text-align value found" );
+											assert.strictEqual( textOverlay.getTextAlign(), "justify", "Version 3.20 " + key + " text-align value found" );
+										} else {
+											assert.strictEqual( align, "left", "Version 3.20 " + key + " uses default left text-align" );
+											assert.strictEqual( textOverlay.getTextAlign(), "left", "Version 3.20 " + key + " uses default left text-align" );
+										}
+									}
+								}
+							},
+							"test getting first instance text color": function() {
+								var textOverlay,
+									color;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										color = textOverlay.firstInstanceofTextStyle( "color" );
+
+										if( key === "color" ||
+											key === "customFont_color" ) {
+											
+											assert.strictEqual( color, "rgb(255, 0, 0)", "Version 3.20 " + key + " color value found" );
+											assert.strictEqual( textOverlay.getColor(), "rgb(255, 0, 0)", "Version 3.20 " + key + " color value found" );
+										} else {
+											assert.strictEqual( color, "rgb(0, 0, 0)", "Version 3.20 " + key + " uses default black color" );
+											assert.strictEqual( textOverlay.getColor(), "rgb(0, 0, 0)", "Version 3.20 " + key + " uses default black color" );
+										}
+									}
+								}
+							},
+							"test special characters": function() {
+								// &, sequential spaces, <, >
+								var htmlString;
+
+								for( var key in ver_3200_specialChar ) {
+									if( key !== "value" ) {
+										htmlString = cs.make( "text_complex" ).setTextHtml( ver_3200_specialChar[ key ] ).getStringValue();
+
+										assert.strictEqual( htmlString, ver_3200_specialChar.value, "Version 3.20 " + key + " string value can be parsed" );
+									}
+								}
+							},
+							"test line breaks": function() {
+								var textOverlay,
+									nodeStyles,
+									lineBreakIndexes = [];
+
+								for( var key in ver_3200 ) {
+									lineBreakIndexes = [];
+
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										nodeStyles = textOverlay.getTextNodeStyles();
+
+										lineBreakIndexes = nodeStyles.filter( function( node ) {
+											return node.leadingLineBreak;
+										} ).map( function( node ) {
+											return node.index;
+										} );
+
+										assert.strictEqual( lineBreakIndexes.length, 
+															textOverlay.getTextNodes().getLineBreaks().length,
+															"Version 3.20 " + key + " string has " + lineBreakIndexes.length + " line breaks" );
+
+										if( key === "carriageReturn" ) {
+											assert.ok( lineBreakIndexes, "Version 3.20 " + key + " line break exists" );
+											assert.strictEqual( lineBreakIndexes.length, 1, "Version 3.20 " + key + " has 1 line break" );
+										} else {
+											assert.ok( lineBreakIndexes, "Version 3.20 " + key + " line break doesn't exist" );
+										}
+									}
+								}
+							},
+							"test parsing html to nodes": function() {
+								var textOverlay,
+									textStyledNodes,
+									textHtml,
+
+									altOverlayOriginal,
+									altOverlayParsed;
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										// Pass html string to overlay
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										// Capture styled nodes from overlay
+										textStyledNodes = textOverlay.getTextNodeStyles();
+										// Pass styled nodes back to overlay
+										textOverlay.setTextNodes( textStyledNodes );
+
+										textHtml = textOverlay.getHtmlFromNodeStyles();
+
+										// Test if parsed html is the same as the original html
+										if( textHtml === ver_3200[ key ] ) {
+											assert.strictEqual( textHtml, ver_3200[ key ], "Version 3.20 " + key + " html can be parsed into nodes and back to html" );	
+										}
+										
+										// Parse parsed html back into styled nodes for comparison
+										// This should account for html formatting which may be equal despite string differences
+										else {
+											log( "String values not equal:\nExpected: " + ver_3200[ key ] + "\nFound: " + textHtml );
+
+											altOverlayOriginal = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] ).getTextNodeStyles();
+											altOverlayParsed = cs.make( "text_complex" ).setTextHtml( textHtml ).getTextNodeStyles();
+
+											assert.strictEqual( altOverlayParsed.stringValue, altOverlayOriginal.stringValue, "Version 3.20 " + key + " html can be parsed into nodes, back to html, and back to nodes - stringValue" );	
+											assert.strictEqual( altOverlayParsed.style, altOverlayOriginal.style, "Version 3.20 " + key + " html can be parsed into nodes, back to html, and back to nodes - style" );	
+										}
+									}
+								}
+							},
+
+							"test setting text font family": function() {
+								var textOverlay,
+									testFontFamily = "FooFont-Regular,'FooFont'";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setFontFamily( testFontFamily );
+
+										assert.strictEqual( textOverlay.getFontFamily(), testFontFamily, "Version 3.20 " + key + " font-family can be set" );
+									}
+								}
+							},
+							"test setting text font size": function() {
+								var textOverlay,
+									testFontSize = "48px";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setFontSize( testFontSize );
+
+										assert.strictEqual( textOverlay.getFontSize(), testFontSize, "Version 3.20 " + key + " font-size can be set" );
+									}
+								}
+							},
+							"test setting text line height": function() {
+								var textOverlay,
+									testLineHeight = "57px";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setLineHeight( testLineHeight );
+
+										assert.strictEqual( textOverlay.getLineHeight(), testLineHeight, "Version 3.20 " + key + " line-height can be set" );
+									}
+								}
+							},
+							"test setting text letter spacing": function() {
+								var textOverlay,
+									testLetterSpacing = "5px";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setLetterSpacing( testLetterSpacing );
+
+										assert.strictEqual( textOverlay.getLetterSpacing(), testLetterSpacing, "Version 3.20 " + key + " letter-spacing can be set" );
+									}
+								}
+							},
+							"test setting text alignment": function() {
+								var textOverlay,
+									testTextAlign = "FooFont-Regular,'FooFont'";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setTextAlign( testTextAlign );
+
+										assert.strictEqual( textOverlay.getTextAlign(), testTextAlign, "Version 3.20 " + key + " text-align can be set" );
+									}
+								}
+							},
+							"test setting text color": function() {
+								var textOverlay,
+									testColor = "#FF00FF";
+
+								for( var key in ver_3200 ) {
+									if( key !== "value" ) {
+										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+
+										textOverlay.setColor( testColor );
+
+										assert.strictEqual( textOverlay.getColor(), testColor, "Version 3.20 " + key + " color can be set" );
+									}
+								}
+							}
+						}
+					};
+				} )()
+			},
 			// "test making new page": {},
 			"test adding overlay to CS": function() {
 				assert.ok( typeof cs.appendOverlay === "function", "'cs.appendOverlay' exists" );
@@ -820,249 +1538,6 @@ function runTests( context ) {
 			}
 		};
 	} )( new ViewBindingController() );
-
-	// /**
-	// 	* @desc html parser testing
-	// */
-	suite[ "test html parser script" ] = ( function( htmlToNodes ) {
-		function traverseNodes( node , i ) {
-	        if( node === undefined ) { return null; }
-
-	        var parentNode = node.getParentNode(),
-	            childrenNodes = node.getChildrenNodes(),
-	            siblingsNum = ( parentNode ) ? parentNode.getChildrenNodes().length : 0;
-	        
-	        i = i || 0;
-
-	        // Traverse siblings
-	        while( node.stringValue.length === 0 && ( i < siblingsNum - 1 || childrenNodes.length > 0 ) ) {
-	            // Traverse children
-	            while( node.stringValue.length === 0 && childrenNodes.length > 0 ) {
-	                return traverseNodes( childrenNodes[ 0 ] , 0 );
-	            }
-
-	            i++;
-	            return traverseNodes( parentNode.getChildrenNodes()[ i ], i );
-	        }
-
-	        return ( node.stringValue.length > 0 ) ? node : null;
-	    }
-	    function firstInstanceofStyleInNodes( styleName , nodes ) {
-	        if( nodes.length === 0 ) { return null; } // Provide more informative warning
-	        var node = traverseNodes( nodes[ 0 ] );
-
-	        while( node !== null ) {
-	            if( !node.attrs || !node.attrs.style ) {
-	                node = node.getParentNode();
-	                continue;
-	            }
-
-	            if( node.attrs && node.attrs.style && node.attrs.style[ styleName ] ) {
-	                return node.attrs.style[ styleName ];
-	            }
-	            node = node.getParentNode();
-	        }
-	        return null;
-	    }
-
-	    /**
-	        * @desc Convert string containing RGB color data to hex
-	        * @param {string}
-	        * @returns {string} hex color
-	    */
-	    function hexColorFromString( str ) {
-	        // Return str if already hex color
-	        if( ( /^#[0-9a-fA-F]{6}$/i ).test( str ) ) {
-	            return str;
-	        }
-
-	        // Sketch doesn't like Regex
-	        var res = new RegExp( "\\(([^\\)]*)\\)" ).exec( str ),
-	            rgb = ( res && res[ 1 ] ) ? res [ 1 ].split( "," ) : null,
-	            hex = rgb && rgb.length === 3 ? 
-	                    util.rgbToHex( parseInt( rgb[ 0 ] ), parseInt( rgb[ 1 ] ), parseInt( rgb[ 2 ] ) ) :
-	                    "#000000";
-	        
-	        return hex;
-	    }
-
-	    // 3.18
-		var ver_3180 = {
-			value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
-			default: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></div>",
-			carriageReturn: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, </span></span></div><div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">but her smock looked inexpensive.</span></div>",
-			color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span style=\"font-size: 24px; font-family: ArialMT, Arial;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></div>",
-			customFont_color: "<div style=\"text-align:left;\"><span style=\"color:#FF0000;\"><span class=\"sm-font-family\" style=\"font-family:Merriweather-Light,'Merriweather';font-style:normal;font-weight:normal;\"><span style=\"font-size: 24px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-			variableSpacing_leftAligned: "<div style=\"text-align: left; line-height: 21px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-			variableSpacing_centerAligned: "<div style=\"line-height: 21px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-			variableSpacing_rightAligned: "<div style=\"line-height: 21px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-			variableSpacing_justifyAligned: "<div style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\"><span style=\"font-family: ArialMT, Arial; color: rgb(0, 0, 0);\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></span></div>",
-			underline: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><u><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></u></span></div>",
-			strikethrough: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><strike><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></strike></span></div>",
-			superscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sup><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sup></span></div>",
-			subscript: "<div style=\"text-align:left;\"><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\"><sub><span style=\"font-size:24px;font-family:ArialMT,'Arial';color:#000000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></sub></span></div>"
-		};
-
-		return {
-			// 3.18
-			"test 3.18 text": {
-				"test getting text string value": function() {
-					var htmlString;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							htmlString = htmlToNodes.run( ver_3180[ key ] ).stringValue();
-														
-							assert.strictEqual( htmlString, ver_3180.value, "Version 3.18 " + key + " string value can be parsed" );
-						}
-					}
-				},
-				"test getting text font family": function() {
-					var nodes,
-						fontFamily;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							fontFamily = firstInstanceofStyleInNodes( "font-family", nodes );
-
-							if( key === "customFont_color" ) {
-								assert.strictEqual( fontFamily, "Merriweather-Light,'Merriweather'", "Version 3.18 " + key + " font-family value found" );
-							} else if( key === "color" ||
-									   key === "variableSpacing_leftAligned" ||
-									   key === "variableSpacing_centerAligned" ||
-									   key === "variableSpacing_rightAligned" ||
-									   key === "variableSpacing_justifyAligned" ) {
-								
-								// For some reason font-family is formatted differently
-								assert.strictEqual( fontFamily, "ArialMT, Arial", "Version 3.18 " + key + " font-family value found" );
-							} else {
-								assert.strictEqual( fontFamily, "ArialMT,'Arial'", "Version 3.18 " + key + " font-family value found" );
-							}
-						}
-					}
-				},
-				"test getting text font size": function() {
-					var nodes,
-						fontSize;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							fontSize = firstInstanceofStyleInNodes( "font-size", nodes );
-
-							if( key === "variableSpacing_leftAligned" ||
-								key === "variableSpacing_centerAligned" ||
-								key === "variableSpacing_rightAligned" ||
-								key === "variableSpacing_justifyAligned" ) {
-
-								assert.strictEqual( fontSize, "18px", "Version 3.18 " + key + " font-size value found" );
-							} else {
-								assert.strictEqual( fontSize, "24px", "Version 3.18 " + key + " font-size value found" );
-							}
-						}
-					}
-				},
-				"test getting text line height": function() {
-					var nodes,
-						lineHeight;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							lineHeight = firstInstanceofStyleInNodes( "line-height", nodes );
-
-							if( key === "variableSpacing_leftAligned" ||
-								key === "variableSpacing_centerAligned" ||
-								key === "variableSpacing_rightAligned" ||
-								key === "variableSpacing_justifyAligned" ) {
-
-								assert.strictEqual( lineHeight, "21px", "Version 3.18 " + key + " line-height value found" );
-							} else {
-								assert.strictEqual( lineHeight, null, "Version 3.18 " + key + " uses auto line-height" );
-							}
-						}
-					}
-				},
-				"test getting text letter spacing": function() {
-					var nodes,
-						letterSpacing;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							letterSpacing = firstInstanceofStyleInNodes( "letter-spacing", nodes );
-
-							if( key === "variableSpacing_leftAligned" ||
-								key === "variableSpacing_centerAligned" ) {
-
-								assert.strictEqual( letterSpacing, "1px", "Version 3.18 " + key + " letter-spacing value found" );
-							} else if( key === "variableSpacing_rightAligned" ||
-									   key === "variableSpacing_justifyAligned" ) {
-
-								assert.strictEqual( letterSpacing, "-1px", "Version 3.18 " + key + " letter-spacing value found" );
-							} else {
-								assert.strictEqual( letterSpacing, null, "Version 3.18 " + key + " uses auto letter-spacing" );
-							}
-						}
-					}
-				},
-				"test getting text alignment": function() {
-					var nodes,
-						align;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							align = firstInstanceofStyleInNodes( "text-align", nodes );
-
-							if( key === "variableSpacing_centerAligned" ) {
-								assert.strictEqual( align, "center", "Version 3.18 " + key + " text-align value found" );
-							} else if( key === "variableSpacing_rightAligned" ) {
-								assert.strictEqual( align, "right", "Version 3.18 " + key + " text-align value found" );
-							} else if( key === "variableSpacing_justifyAligned" ) {
-								assert.strictEqual( align, "justify", "Version 3.18 " + key + " text-align value found" );
-							} else {
-								assert.strictEqual( align, "left", "Version 3.18 " + key + " uses default left text-align" );
-							}
-						}
-					}
-				},
-				"test getting text color": function() {
-					var nodes,
-						color;
-
-					for( var key in ver_3180 ) {
-						if( key !== "value" ) {
-							nodes = htmlToNodes.run( ver_3180[ key ] ).results();
-							color = firstInstanceofStyleInNodes( "color", nodes );
-
-							if( key === "color" ||
-								key === "customFont_color" ) {
-								
-								assert.strictEqual( color, "#FF0000", "Version 3.18 " + key + " color value found" );
-							} else if( key === "variableSpacing_leftAligned" ||
-									   key === "variableSpacing_centerAligned" ||
-									   key === "variableSpacing_rightAligned" ||
-									   key === "variableSpacing_justifyAligned" ) {
-
-								// "rgb(0, 0, 0)"
-								assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " color value found" );
-							} else {
-								assert.strictEqual( hexColorFromString( color ), "#000000", "Version 3.18 " + key + " uses default black color" );
-							}
-						}
-					}
-				},
-				"test special characters": function() {
-					// &, sequential spaces, <, >
-				},
-				"test line breaks": function() {
-					
-				}
-			}
-		};
-	} )( htmlToNodes );
 	
 	test.runAll( suite );
 
