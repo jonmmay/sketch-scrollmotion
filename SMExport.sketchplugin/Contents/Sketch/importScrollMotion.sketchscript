@@ -12,6 +12,12 @@ var ImportScrollMotion = ( function( bindingNames ) {
     var supportedTypes = "button,text,image,container".split( "," ),
         imageExt = "png,jpeg,jpg,bmp,gif".split( "," ),
         textAlign = "left,right,center,justify".split( "," ),
+
+        // Config
+        config = null,
+        // View
+        view = null,
+        
         csTypes = {
             image: function( cs, path, screen ) {
                 var imageData = ( cs.images && util.isArray( cs.images ) ) ?
@@ -58,7 +64,6 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         fillAlpha: cs.backgroundAlpha
                     },
                     mask,
-                    view = this.view,
                     layerView;
 
                 container.name = bindingNames.container+ " " + cs.displayName;
@@ -116,7 +121,6 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         borderAlpha: cs.borderAlpha,
                         cornerRadius: util.num( cs.cgCornerRadius )
                     },
-                    view = this.view,
                     layerView;
 
                 group = [[MSLayerGroup alloc] init];
@@ -200,7 +204,6 @@ var ImportScrollMotion = ( function( bindingNames ) {
                         width: numRoundHalfUp( size.width || 0 ),
                         height: numRoundHalfUp( size.height || 0 )
                     },
-                    view = this.view,
                     layerView;
 
                 group.name = bindingNames.button + " " + cs.displayName;
@@ -424,7 +427,14 @@ var ImportScrollMotion = ( function( bindingNames ) {
         }
         
         image = [[NSImage alloc] initWithData:imageData];
-        imageLayer = [MSBitmapLayer bitmapLayerFromImage:image];
+
+        if( config && config.getSketchVersionNumber() < 360 ) {
+            imageLayer = [MSBitmapLayer bitmapLayerFromImage:image];    
+        } else {
+            imageLayer = [MSBitmapLayer bitmapLayerFromImage:image withSizeScaledDownByFactor:1];
+        }
+        
+
         frame = [imageLayer frame];
 
         [frame setConstrainProportions: false];
@@ -656,7 +666,14 @@ var ImportScrollMotion = ( function( bindingNames ) {
             this._super( ctx );
 
             this.cs = ContentSpec.create( ctx );
+            
             this.view = View.create( ctx );
+            // Set view to access in function scope
+            view = this.view;
+            
+            this.config = Config.create( ctx );
+            // Set config to access in function scope
+            config = this.config;
         },
         processCS: function( cs, path ) {
             var type,
