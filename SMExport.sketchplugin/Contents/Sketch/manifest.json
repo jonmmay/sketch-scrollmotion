@@ -3,7 +3,7 @@
     "authorEmail": "jon.m.may@gmail.com",
     "name": "ScrollMotion",
     "description": "Import and Export app UI for use with ScrollMotion SmartStudio",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "compatibleVersion": "3.5",
     "homepage": "https://github.com/jonmmay/sketch-scrollmotion",
     "updateURL": "",
@@ -16,7 +16,6 @@
             "name": "Run tests...",
             "identifier": "tests"
         },
-
         {
             "script": "revealInFinder.sketchscript",
             "handler": "revealExportFilesInFinder",
@@ -99,7 +98,7 @@
             "ignore",
             "flatten",
             "-",
-            { 
+            {
                 "title": "Settings",
                 "items": [
                     "revealSettings",
