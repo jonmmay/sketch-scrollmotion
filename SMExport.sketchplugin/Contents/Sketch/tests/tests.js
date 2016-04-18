@@ -657,6 +657,8 @@ function runTests( context ) {
 					assert.ok( typeof cs.getResetCss === "function", "'cs.getResetCss' exists" );
 					
 					assert.strictEqual( cs.getResetCss(), csResetCSS, "Reset css version found" );
+
+					// Set reset css and retrieve reset css
 				},
 				"test start page": function() {
 					assert.ok( typeof cs.getStartPage === "function", "'cs.getStartPage' exists" );
@@ -745,7 +747,7 @@ function runTests( context ) {
 							customFont_color: "<p style=\"color: rgb(255, 0, 0); font-family: Merriweather-Light;\"><span style=\"font-family:merriweather-light;\"><span style=\"color:#FF0000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
 							variableSpacing_leftAligned: "<p style=\"line-height: 21px; font-size: 18px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
 							variableSpacing_centerAligned: "<p style=\"line-height: 21px; font-size: 18px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
-							variableSpacing_rightAligned: "<p style=\"line-height: 21px;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span><br></p>",
+							variableSpacing_rightAligned: "<p style=\"line-height: 21px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span><br></p>",
 							variableSpacing_justifyAligned: "<p style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
 							underline: "<p><u>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</u></p>",
 							strikethrough: "<p><s>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</s></p>",
@@ -1107,6 +1109,9 @@ function runTests( context ) {
 							"test getting first instance of text font family": function() {
 								var textOverlay,
 									fontFamily;
+
+								// Sett Reset CSS value
+								cs.setResetCss( "reset3.20.css" );
 
 								for( var key in ver_3200 ) {
 									if( key !== "value" ) {

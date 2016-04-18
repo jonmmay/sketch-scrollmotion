@@ -329,6 +329,20 @@ var ContentSpec = ( function( options ) {
                     ( ( options && options.schemaVersion ) ? options.schemaVersion : "3.11" ) +
                     "/";
 
+    function getResetCssVersionNumber() {
+        var versionMatch = resetTextCss.match( /(?:\d{1,}\.?){3}/ ),
+            versionArr = versionMatch ? versionMatch[ 0 ]
+            // Remove trailing "."
+            .replace( /\.$/, "" )
+            .split( "." ) : [];
+
+        while( versionArr.length < 3 ) {
+            versionArr.push( "0" );
+        }
+        
+        return parseInt( versionArr.join( "" ) );
+    }
+
 	function getFileData( url ) {
         if( url && [url isKindOfClass:[NSURL class]] ) {
             var fileManager = [NSFileManager defaultManager];
@@ -438,6 +452,25 @@ var ContentSpec = ( function( options ) {
         } );
     }
 
+    function getTextDefaultStyleFor( styleName ) {
+        // SmartStudio text style defaults; line-height and letter-spacing have no defaults
+        var defaults = {
+            "text-align": "left",
+            "line-height": null,
+            "letter-spacing": null,
+            "color": "#000000",
+            "font-size": "24px",
+            "font-family": "ArialMT,'Arial'"
+        };
+        
+        if( getResetCssVersionNumber() >= 3200 ) {
+            defaults.color = "rgb(0, 0, 0)";
+            defaults[ "font-family" ] = "ArialMT";
+        }
+
+        return defaults[ styleName ] || null;
+    }
+
     /**
         * @desc Returns HTML wrapped with div and text alignment styling; use for text align and new line
         * @param {string} textAlign
@@ -446,11 +479,17 @@ var ContentSpec = ( function( options ) {
     */
     function setTextAlign( textAlign, html ) {
         textAlign = [ "left", "center", "right", "justify" ].indexOf( textAlign ) ? textAlign : "left";
-        html = html || "";
+        html = html || "",
+        resetCssVersion = getResetCssVersionNumber();
 
-        html = html.replace( /text-align:\s*([^;]*);/gi, "" );
+        if( resetCssVersion < 3200 ) {
+            html = html.replace( /text-align:\s*([^;]*);/gi, "" );
 
-        return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";
+            return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";    
+        } else {
+            return html;
+        }
+        
     }
 
     /**
@@ -461,13 +500,41 @@ var ContentSpec = ( function( options ) {
     */
     function setTextStyles( styles, html ) {
         styles = Object.prototype.toString.call( styles ) === "[object Object]" ? styles : {};
-        html = html || "";
+        html = html || "",
+        resetCssVersion = getResetCssVersionNumber();
+
+        if( resetCssVersion >= 3200 ) {
+            var letterSpacing = styles[ "letter-spacing" ],
+                fontSize,
+                color,
+                fontFamily;
+
+            // 3.20 text instance style excludes defaults
+            Object.keys( styles ).forEach( function( key ) {
+                if( styles[ key ] === getTextDefaultStyleFor( key ) || key === "letter-spacing" ) {
+                    delete styles[ key ];
+                }
+            } );
+
+            fontSize = styles[ "font-size" ];
+            color = styles.color;
+            fontFamily = styles[ "font-family" ];
+        }
 
         var stylesStr = Object.keys( styles ).map( function( key ) {
             return key + ":" + styles[ key ] + ";";
         } ).join( "" );
 
-        return "<span style=\"" + stylesStr + "\">" + html + "</span>";
+        if( resetCssVersion < 3200 ) {
+            return "<span style=\"" + stylesStr + "\">" + html + "</span>";
+        } else {
+            if( stylesStr.length > 0 ) {
+                // Leading space is intentional
+                stylesStr = " style=\"" + stylesStr + "\"";
+            }
+
+            return "<p" + stylesStr + ">" + html + "</p>";
+        }
     }
 
     /**
@@ -476,13 +543,19 @@ var ContentSpec = ( function( options ) {
         * @param {string} html
         * @returns {string} 
     */
-    function setCustomFont( fontFamily, html ) {
+    function setTextCustomFont( fontFamily, html ) {
         fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
         html = html || "";
         
+        var resetCssVersion = getResetCssVersionNumber();
+        
         html = html.replace( /(font-family|font-style|font-weight):\s*([^;]*);/gi, "" );
 
-        return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
+        if( resetCssVersion < 3200 ) {
+            return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
+        } else {
+            return "<span style=\"font-family:" + fontFamily.toLowerCase() + ";\">" + html + "</span>";
+        }
     }
 
     /**
@@ -491,13 +564,48 @@ var ContentSpec = ( function( options ) {
         * @param {string} html
         * @returns {string} 
     */
-    function setColorStyle( color, html ) {
+    function setTextColor( color, html ) {
         html = html || "";
-        color = { color: color || "#000000" };
+        
+        var resetCssVersion = getResetCssVersionNumber();
 
         html = html.replace( /color:\s*([^;]*);/gi, "" );
+
+        if( resetCssVersion < 3200 ) {
+            color = { color: color || "#000000" };
+            return setTextStyles( color, html );
+        } else {
+            return "<span style=\"color:" + color + ";\">" + html + "</span>";
+        }
+    }
+
+    function setTextFontSize( fontSize, html ) {
+        html = html || "";
         
-        return setTextStyles( color, html );
+        var resetCssVersion = getResetCssVersionNumber();
+
+        html = html.replace( /font-size:\s*([^;]*);/gi, "" );
+
+        if( resetCssVersion < 3200 ) {            
+            // Not used prior to 3.20
+            return html;
+        } else {
+            return "<span style=\"font-size:" + fontSize + ";\">" + html + "</span>";
+        }
+    }
+    function setTextLetterSpacing( letterSpacing, html ) {
+        html = html || "";
+        
+        var resetCssVersion = getResetCssVersionNumber();
+
+        html = html.replace( /letter-spacing:\s*([^;]*);/gi, "" );
+
+        if( resetCssVersion < 3200 ) {            
+            // Not used prior to 3.20
+            return html;
+        } else {
+            return "<span style=\"letter-spacing:" + letterSpacing + ";\">" + html + "</span>";
+        }
     }
 
     function encodeSpecialCharacters( str ) {
@@ -645,7 +753,10 @@ var ContentSpec = ( function( options ) {
                         }
 
                         if( children.length === 0 || node.stringValue.length > 0 ) {
-                            nodes.push( node );
+                            // 3.20 text uses br tags for new lines; exclude br nodes
+                            if( node.tag !== "br" ) {
+                                nodes.push( node );
+                            }
                         }
                         
                         nodes.forEach( function( node ) {
@@ -900,13 +1011,22 @@ var ContentSpec = ( function( options ) {
 
                 // Leading line breaks
                 this.getLineBreaks = function() {
-                    var breaks = [];
+                    var breaks = [],
+                        resetCssVersion = getResetCssVersionNumber();
 
-                    nodeValues.forEach( function( node ) {
-                        if( node.tag === "div" ) {
-                            breaks.push( node.index );
-                        }
-                    } );
+                    if( resetCssVersion < 3200 ) {
+                        nodeValues.forEach( function( node ) {
+                            if( node.tag === "div" ) {
+                                breaks.push( node.index );
+                            }
+                        } );
+                    } else {
+                        nodeValues.forEach( function( node ) {
+                            if( node.tag === "br" ) {
+                                breaks.push( node.index );
+                            }
+                        } );
+                    }
 
                     // Remove first instance if 0
                     if( breaks[ 0 ] === 0 ) { breaks.shift(); }
@@ -1006,7 +1126,8 @@ var ContentSpec = ( function( options ) {
             },
             getHtmlFromNodeStyles: function() {
                 // Process styles and font family
-                var html = [ "" ],
+                var resetCssVersion = getResetCssVersionNumber(),
+                    html = [ "" ],
                     lineIndex = 0,
                     textAlign = "left";
 
@@ -1015,34 +1136,90 @@ var ContentSpec = ( function( options ) {
                         style = node.style || {},
                         lineBreak = node.leadingLineBreak;
 
-                    str = setTextStyles( style, encodeSpecialCharacters( node.stringValue ) );
+                    if( resetCssVersion < 3200 ) {
+                        str = setTextStyles( style, encodeSpecialCharacters( node.stringValue ) );
 
-                    // Font family exists and is not a default font
-                    if( style[ "font-family" ] && !testIsDefaultFont( style[ "font-family" ] ) ) {
-                        str = setCustomFont( style[ "font-family" ], str );
+                        // Font family exists and is not a default font
+                        if( style[ "font-family" ] && !testIsDefaultFont( style[ "font-family" ] ) ) {
+                            str = setTextCustomFont( style[ "font-family" ], str );
+                        }
+
+                        if( style.color && !( style.color === "#000000" || style.color === "rgb(0, 0, 0)" ) ) {
+                            str = setTextColor( style.color, str );    
+                        }
+
+                        // Process line breaks
+                        if( lineBreak ) {
+                            html[ lineIndex ] = setTextAlign( textAlign, html[ lineIndex ] );
+
+                            // Update line index
+                            lineIndex += 1;
+                            // Update html
+                            html[ lineIndex ] = "";
+                            // Update text align
+                            textAlign = style[ "text-align" ] || "left";
+                        }
+
+                        // Prepend html to local string
+                        str = html[ lineIndex ] + str;
+
+                        // Set html
+                        html[ lineIndex ] = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
+                    } else {
+                        // 3.20 text instance style excludes defaults
+                        Object.keys( style ).forEach( function( key ) {
+                            if( style[ key ] === getTextDefaultStyleFor( key ) ) {
+                                delete style[ key ];
+                            }
+                        } );
+
+                        str = encodeSpecialCharacters( node.stringValue );
+
+                        if( style.color ) {
+                            str = setTextColor( style.color, str );
+                        }
+                        if( style[ "font-family" ] ) {
+                            str = setTextCustomFont( style[ "font-family" ], str );
+                        }
+                        if( style[ "font-size" ] ) {
+                            str = setTextFontSize( style[ "font-size" ], str );
+                        }
+                        if( style[ "letter-spacing" ] ) {
+                            str = setTextLetterSpacing( style[ "letter-spacing" ], str );
+                        }
+
+                        // Prepend html to local string and set html
+                        str = setTextStyles( style, str );
+
+                        // Process line breaks
+                        if( lineBreak ) {
+                            if( lineIndex === 0 ) {
+                                // Create html with all current styling
+                                if( html[ lineIndex ].length === 0 ) {
+                                    html[ lineIndex ] = str.replace( encodeSpecialCharacters( node.stringValue ), "" );
+                                }
+
+                                // Update line index
+                                lineIndex = html.length;
+                                // Update html
+                                html[ lineIndex ] = "";
+                            }
+
+                            // Get previous end tag and prepend br tag
+                            html[ lineIndex - 1 ] = html[ lineIndex - 1 ].replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)/, "<br>$1" );
+
+                            // Update line index
+                            lineIndex += 1;
+                            // Update html
+                            html[ lineIndex ] = "";
+                        }
+
+                        // Prepend html to local string
+                        str = html[ lineIndex ] + str;
+
+                        // Set html
+                        html[ lineIndex ] = str;
                     }
-
-                    if( style.color && !( style.color === "#000000" || style.color === "rgb(0, 0, 0)" ) ) {
-                        str = setColorStyle( style.color, str );    
-                    }
-
-                    // Process line breaks
-                    if( lineBreak ) {
-                        html[ lineIndex ] = setTextAlign( textAlign, html[ lineIndex ] );
-
-                        // Update line index
-                        lineIndex += 1;
-                        // Update html
-                        html[ lineIndex ] = "";
-                        // Update text align
-                        textAlign = style[ "text-align" ] || "left";
-                    }
-
-                    // Prepend html to local string
-                    str = html[ lineIndex ] + str;
-
-                    // Set html
-                    html[ lineIndex ] = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
                 } );
 
                 return html.join( "" );
@@ -1057,24 +1234,31 @@ var ContentSpec = ( function( options ) {
 
                 var nodes = this._nodeStyles,
                     nodeIndex = -1,
+                    textLength = this._stringValue.length,
                     value;
 
-                nodes.some( function( node, i ) {
-                    if( node.index <= index && index < node.index + node.length ) {
-                        nodeIndex = i;
-                        return true;
-                    }
-                } );
+                if( index < textLength ) {
+                    nodes.some( function( node, i ) {
+                        if( node.index <= index && index < node.index + node.length ) {
+                            nodeIndex = i;
+                            return true;
+                        }
+                    } );
+                }
 
                 if( nodeIndex >= 0 ) {
                     value = nodes[ nodeIndex ].style[ styleName ];
+                } else if( index > textLength ) {
+                    util.debug.warn( "Text index out of bounds" );
                 }
 
-                return typeof value !== "undefined" ? value : null;
+                return typeof value !== "undefined" ? value : 
+                    getResetCssVersionNumber() >= 3200 ? getTextDefaultStyleFor( styleName ) :
+                    null;
             },
             firstInstanceofTextStyle: function( styleName ) {
                 var nodes = this._nodeStyles,
-                    value = null;
+                    value;
 
                 nodes.some( function( node ) {
                     if( node.style && node.style[ styleName ] ) {
@@ -1083,7 +1267,9 @@ var ContentSpec = ( function( options ) {
                     }
                 } );
                 
-                return value;
+                return typeof value !== "undefined" ? value : 
+                    getResetCssVersionNumber() >= 3200 ? getTextDefaultStyleFor( styleName ) :
+                    null;
             },
             
             // First Instance of style
@@ -1105,18 +1291,20 @@ var ContentSpec = ( function( options ) {
             getFontFamily: function() {
                 return this.firstInstanceofTextStyle( "font-family" );
             },
+            getTextDefaultStyleFor: getTextDefaultStyleFor,
 
             setTextStyleValueForNameAtIndex: function( value, styleName, index ) {
-                if( typeof styleName !== "string" ) { log( "ret" ); return this; }
+                if( typeof styleName !== "string" ) { return this; }
                 index = typeof index === "number" ? index : 0;
 
                 var nodes = this._nodeStyles,
                     nodeIndex = -1,
+                    textLength = this._stringValue.length,
                     node;
 
                 // Get index of node
-                if( nodes.length > 0 ) {
-                    nodes.some( function( node, i ) {
+                if( index < textLength && nodes.length > 0 ) {
+                    nodes.some( function( node, i, arr ) {
                         if( node.index <= index && index < node.index + node.length ) {
                             nodeIndex = i;
                             return true;
@@ -1334,6 +1522,15 @@ var ContentSpec = ( function( options ) {
         getResetCss: function() {
             var metaData = this.spec.metaData;
             return ( metaData && metaData.resetTextCss ) ? metaData.resetTextCss : null;
+        },
+        setResetCss: function( resetCssVersion ) {
+            resetTextCss = resetCssVersion;
+
+            if( this.spec.metaData ) {
+                this.spec.metaData.resetTextCss = resetCssVersion;
+            }
+
+            return this;
         },
         getStartPage: function() {
             return this.spec.metaData.startPage;
