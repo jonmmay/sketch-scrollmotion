@@ -146,7 +146,7 @@ var ExportScrollMotion = ( function() {
             stateNames = {
                 normal: "normal,default,regular".split( "," ),
                 down: "down,tap,highlight".split( "," ),
-                on: "on,toggled,toggledon,toggled on".split( "," ),
+                on: " on,toggled,toggledon,toggled on".split( "," ),
                 downOn: "downon,down on,ondown,on down,toggleddown,toggled down".split( "," )
             },
             matchedStates = { normal: [], down: [], on: [], downOn: [] },
@@ -688,7 +688,8 @@ var ExportScrollMotion = ( function() {
 
                         // Capture basic button properties from layers
                         normalStates.some( function( stateView ) {
-                            var kind = stateView.getLayerKind();
+                            var kind = stateView.getLayerKind(),
+                                tempBorder;
 
                             // Exit loop if properties have been found
                             if( textView && border && fill && pos && cornerRadius ) { return true; }
@@ -700,7 +701,11 @@ var ExportScrollMotion = ( function() {
                                 textColor = [( textView.layer ) textColor];
                                 textPos = textView.getLayoutRelativeTo( view );
                             } else if( kind === "Rectangle" ) {
-                                border = border || [[[[( stateView.layer ) style] borders] array] firstObject];
+                                if( !border ) {
+                                    tempBorder = [[[[( stateView.layer ) style] borders] array] firstObject];
+                                    // Check if border is enabled
+                                    border = [tempBorder isEnabled] ? tempBorder : undefined;
+                                }
                                 fill = fill || [[[[( stateView.layer ) style] fills] array] firstObject];
                                 pos = pos || stateView.getLayoutRelativeTo( view );
 
