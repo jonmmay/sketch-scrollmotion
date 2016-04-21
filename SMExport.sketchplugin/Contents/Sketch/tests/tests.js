@@ -717,6 +717,8 @@ function runTests( context ) {
 				        return hex;
 				    }
 
+				    // TODO: underline, strikethrough, super and subscript support
+
 				    // 3.18 text formatting
 					var ver_3180 = {
 							value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
@@ -741,18 +743,18 @@ function runTests( context ) {
 						// 3.20 text formatting
 						ver_3200 = {
 							value: "Jacquie accessorized with a fancy bag, but her smock looked inexpensive.",
-							default: "<p>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.<br></p>",
+							default: "<p>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</p>",
 							carriageReturn: "<p>Jacquie accessorized with a fancy bag, <br></p><p>but her smock looked inexpensive.</p>",
 							color: "<p style=\"color: rgb(255, 0, 0);\"><span style=\"color:#FF0000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></p>",
 							customFont_color: "<p style=\"color: rgb(255, 0, 0); font-family: Merriweather-Light;\"><span style=\"font-family:merriweather-light;\"><span style=\"color:#FF0000;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
 							variableSpacing_leftAligned: "<p style=\"line-height: 21px; font-size: 18px;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
 							variableSpacing_centerAligned: "<p style=\"line-height: 21px; font-size: 18px; text-align: center;\"><span style=\"letter-spacing:1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
-							variableSpacing_rightAligned: "<p style=\"line-height: 21px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span><br></p>",
-							variableSpacing_justifyAligned: "<p style=\"line-height: 21px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
-							underline: "<p><u>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</u></p>",
-							strikethrough: "<p><s>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</s></p>",
-							superscript: "<p><sup>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</sup></p>",
-							subscript: "<p><sub>Jacquie accessorized with a fancy bag,&nbsp;but her smock looked inexpensive.</sub></p>"
+							variableSpacing_rightAligned: "<p style=\"line-height: 21px; font-size: 18px; text-align: right;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							variableSpacing_justifyAligned: "<p style=\"line-height: 21px; font-size: 18px; text-align: justify;\"><span style=\"letter-spacing:-1px;\"><span style=\"font-size:18px;\">Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</span></span></p>",
+							underline: "<p><u>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</u></p>",
+							strikethrough: "<p><s>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</s></p>",
+							superscript: "<p><sup>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</sup></p>",
+							subscript: "<p><sub>Jacquie accessorized with a fancy bag, but her smock looked inexpensive.</sub></p>"
 						},
 						ver_3200_specialChar = {
 							value: "Greater than: >; Less than: <; Ampersand: &; Sequential spaces:   .",

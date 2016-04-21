@@ -487,6 +487,7 @@ var ContentSpec = ( function( options ) {
 
             return "<div style=\"text-align:" + textAlign + ";\">" + html + "</div>";    
         } else {
+            // Not used after 3.20
             return html;
         }
         
@@ -566,16 +567,26 @@ var ContentSpec = ( function( options ) {
     */
     function setTextColor( color, html ) {
         html = html || "";
+        color = color || "#000000";
         
-        var resetCssVersion = getResetCssVersionNumber();
+        var resetCssVersion = getResetCssVersionNumber(),
+            rgbRegex = /\d{1,3},\s?\d{1,3},\s?\d{1,3}/g,
+            hex = color;
 
         html = html.replace( /color:\s*([^;]*);/gi, "" );
 
         if( resetCssVersion < 3200 ) {
-            color = { color: color || "#000000" };
+            color = { color: color };
             return setTextStyles( color, html );
         } else {
-            return "<span style=\"color:" + color + ";\">" + html + "</span>";
+            // Ensure hex color
+            if( rgbRegex.test( color ) ) {
+                hex = util.rgbToHex.apply( null, color.match( rgbRegex )[0]
+                                                      .replace( /\s*/g, "" )
+                                                      .split( "," ) );
+            }
+
+            return "<span style=\"color:" + hex + ";\">" + html + "</span>";
         }
     }
 
@@ -1014,19 +1025,12 @@ var ContentSpec = ( function( options ) {
                     var breaks = [],
                         resetCssVersion = getResetCssVersionNumber();
 
-                    if( resetCssVersion < 3200 ) {
-                        nodeValues.forEach( function( node ) {
-                            if( node.tag === "div" ) {
-                                breaks.push( node.index );
-                            }
-                        } );
-                    } else {
-                        nodeValues.forEach( function( node ) {
-                            if( node.tag === "br" ) {
-                                breaks.push( node.index );
-                            }
-                        } );
-                    }
+                    // div tags are used prior to 3.20; br tags following 3.20
+                    nodeValues.forEach( function( node ) {
+                        if( node.tag === "div" || node.tag === "br" ) {
+                            breaks.push( node.index );
+                        }
+                    } );
 
                     // Remove first instance if 0
                     if( breaks[ 0 ] === 0 ) { breaks.shift(); }
