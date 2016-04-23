@@ -435,56 +435,91 @@ var ExportScrollMotion = ( function() {
             // TO DO: Line breaks, sequential spaces, tabs
             // TO DO: Rotation
             viewBindingControl.layerKindRegistry( "Text", function( bindObj ) {
-                var view = bindObj.getView(),
-                    parent = bindObj.getParent(),
+                var view    = bindObj.getView(),
+                    parent  = bindObj.getParent(),
                     rect,
 
-                    overlay = cs.make( "text_complex" ),
-                    layerCS = view.getLayerCS(),
-                    id = String( [( view.layer ) objectID] ),
-                    nsfont = [[[( view.layer ) style] textStyle] attributes].NSFont;
+                    overlay     = cs.make( "text_complex" ),
+                    layerCS     = view.getLayerCS(),
+                    id          = String( [( view.layer ) objectID] ),
+                    nsfont      = [[[( view.layer ) style] textStyle] attributes].NSFont,
 
-                overlay.setTextNodes( [
-                    {
+                    textStr         = String( [( view.layer ) stringValue] ).replace( "\t", "   " ),
+                    fontFamily      = String( [( view.layer ) fontPostscriptName] ) + ", '" + String( [nsfont familyName] ) + "'",
+                    textAlign       = getTextAlignment( view.layer ),
+                    // Use lineHeight in > 3.7
+                    lineHeight      = util.toPx( [( view.layer ) lineSpacing] ),
+                    // auto value is null
+                    letterSpacing   = [( view.layer ) characterSpacing],
+                    color           = "#" + [[( view.layer ) textColor] hexValue],
+                    fontSize        = util.toPx( [( view.layer ) fontSize] );
+
+                overlay.setTextNodes( textStr.split( "\n" ).map( function( str, i, strArray ) {
+                    var node = {
                         "style": {
-                            "font-family": String( [( view.layer ) fontPostscriptName] ) + ", '" + String( [nsfont familyName] ) + "'",
-                            "text-align": getTextAlignment( view.layer ),
-                            "line-height": util.toPx( [( view.layer ) lineSpacing] ),
-                            "letter-spacing": util.toPx( [( view.layer ) characterSpacing] ),
-                            "color": "#" + [[( view.layer ) textColor] hexValue],
-                            "font-size": util.toPx( [( view.layer ) fontSize] )
+                            "font-family": fontFamily,
+                            "text-align": textAlign,
+                            "line-height": lineHeight,
+                            "color": color,
+                            "font-size": fontSize
                         },
-                        "stringValue": String( [( view.layer ) stringValue] ),
-                        "length": String( [( view.layer ) stringValue] ).length,
-                        "index": 0
+                        "stringValue": str,
+                        "length": str.length,
+                        "index": strArray.slice( 0, i ).join( "" ).length,
+                    };
+
+                    if( letterSpacing && Number.isInteger( Number( letterSpacing ) ) ) {
+                        node.style[ "letter-spacing" ] = util.toPx( letterSpacing );
                     }
-                ] );
+                    if( i > 0 ) {
+                        node.leadingLineBreak = true;
+                    }
+                    
+                    return node;
+                } ) );
+
                 overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
 
-                // fontAssetHandler( view, function( font, fontName ) {
-                //     bindObj.exportFonts.push( util.Command.create( 
-                //         // Execute
-                //         function() {
-                //         },
+                fontAssetHandler( view, function( font, fontName ) {
+                    bindObj.exportFonts.push( util.Command.create( 
+                        // Execute
+                        function() {
+                            // Do nothing
+                        },
 
-                //         // Undo
-                //         function( fontName ) {
-                //             overlay.getTextNodeStyles().filter( function( node ) {
-                //                 return node.style[ "font-family" ] && node.style[ "font-family" ] === fontName );
-                //             } ).map( function( node ) {
-                //                 return node.style[ "font-family" ] = "ArialMT,'Arial'";
-                //             } );
+                        // Undo
+                        function() {
+                            // Replace font family with default
+                            overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
+                                var postScriptName;
+                                if( node.style[ "font-family" ] ) {
+                                    postScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
 
-                //             overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
-                //         },
+                                    if( postScriptName === fontName ) {
+                                        node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
+                                        // Clean up associated tags
+                                        if( node.style[ "font-style" ] ) {
+                                            delete node.style[ "font-style" ];    
+                                        }
+                                        if( node.style[ "font-weight" ] ) {
+                                            delete node.style[ "font-weight" ];    
+                                        }
+                                    }
+                                }
+
+                                return node;
+                            } ) );
+
+                            overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
+                        },
                         
-                //         // Value
-                //         {
-                //             getView: function() { return view },
-                //             fontName: fontName, 
-                //             font: font
-                //     } ) );
-                // } );
+                        // Value
+                        {
+                            getView: function() { return view },
+                            fontName: fontName, 
+                            font: font
+                    } ) );
+                } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
                 overlay.setLayouts( csOrientation, util.merge( rect, {
@@ -731,24 +766,26 @@ var ExportScrollMotion = ( function() {
                         // Assign cg button properties to overlay
                         if( textView ) {
                             overlay.setKeyValue( "font" , String( [( textView.layer ) fontPostscriptName] ) );
-                            // fontAssetHandler( textView, function( font, fontName ) {                                
-                            //     bindObj.exportFonts.push( util.Command.create( 
-                            //         // Execute
-                            //         function() {
-                            //         },
+                            fontAssetHandler( textView, function( font, fontName ) {                                
+                                bindObj.exportFonts.push( util.Command.create( 
+                                    // Execute
+                                    function() {
+                                        // Do nothing
+                                    },
 
-                            //         // Undo
-                            //         function() {
-                            //             overlay.setKeyValue( "font", "Arial-BoldMT" );
-                            //         },
+                                    // Undo
+                                    function() {
+                                        // Replace font with default
+                                        overlay.setKeyValue( "font", "ArialMT" );
+                                    },
                                     
-                            //         // Value
-                            //         {
-                            //             getView: function() { return textView },
-                            //             fontName: fontName, 
-                            //             font: font
-                            //     } ) );
-                            // } );
+                                    // Value
+                                    {
+                                        getView: function() { return textView },
+                                        fontName: fontName, 
+                                        font: font
+                                } ) );
+                            } );
 
                             overlay.setKeyValue( "textAlign", getTextAlignment( textView.layer ) );
                             overlay.setKeyValue( "fontSize", [( textView.layer ) fontSize] / csFontSize + "em" );
@@ -1480,7 +1517,7 @@ function onRun( context ) {
                 // Revert custom font overlays to default font/text
                 else {
                     exportFonts.filter( function( fontObj ) {
-                        return fontName === fontObj.value.name;
+                        return fontName === fontObj.value.fontName;
                     } ).forEach( function( fontObj ) {
                         fontObj.undo();
                     } );

@@ -1248,6 +1248,44 @@ function runTests( context ) {
 									}
 								}
 							},
+							// "test getting text underline decoration": function() {
+							// 	var textOverlay,
+							// 		decoration;
+
+							// 	for( var key in ver_3200 ) {
+							// 		if( key !== "value" ) {
+							// 			textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+							// 			decoration = textOverlay.firstInstanceofTextDecoration( "underline" );
+
+							// 			if( key === "underline" ) {
+											
+							// 				assert.strictEqual( decoration, true, "Version 3.20 " + key + " decoration found" );
+							// 			} else {
+							// 				assert.strictEqual( decoration, null, "Version 3.20 " + key + " decoration not found" );
+							// 			}
+							// 		}
+							// 	}
+							// },
+							// "test getting text strikethrough decoration": function() {
+							// 	var textOverlay,
+							// 		decoration;
+
+							// 	for( var key in ver_3200 ) {
+							// 		if( key !== "value" ) {
+							// 			textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+							// 			decoration = textOverlay.firstInstanceofTextDecoration( "strikethrough" );
+
+							// 			if( key === "strikethrough" ) {
+											
+							// 				assert.strictEqual( decoration, true, "Version 3.20 " + key + " decoration found" );
+							// 			} else {
+							// 				assert.strictEqual( decoration, null, "Version 3.20 " + key + " decoration not found" );
+							// 			}
+							// 		}
+							// 	}
+							// },
+							// "test getting text superscript": function() {},
+							// "test getting text subscript": function() {},
 							"test special characters": function() {
 								// &, sequential spaces, <, >
 								var htmlString;
@@ -1303,6 +1341,7 @@ function runTests( context ) {
 									if( key !== "value" ) {
 										// Pass html string to overlay
 										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
+										log( textOverlay.getTextNodes().results() );
 										// Capture styled nodes from overlay
 										textStyledNodes = textOverlay.getTextNodeStyles();
 										// Pass styled nodes back to overlay

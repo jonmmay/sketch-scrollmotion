@@ -135,6 +135,11 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 [regTextLayer setTextAlignment:textAlign.indexOf( cs.textAlign )];
                 regTextLayer.fontSize = util.roundHalfUp( util.num( cs.fontSize ) * screen.fonts[ 0 ].fontSize );
                 [regTextLayer setTextColor:[MSColor colorWithSVGString:cs.fontColor]];
+                
+                if( cs.font ) {
+                    regTextLayer.fontPostscriptName = cs.font;
+                }
+
                 [regTextLayer adjustFrameToFit];
 
                 [regTextLayer setTextBehaviour:1]; // Auto (0), Fixed (1)
@@ -288,10 +293,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 textLayer.name = cs.displayName || stringVal.substring( 0, ( ( indexOfSpace !== -1 ) ? indexOfSpace : maxChars ) ).trim();
                 
                 // Set text
-                textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getTextNodes() );
+                textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getTextNodes().results() );
 
                 if( fontFamily ) {
-                    log( fontFamilyName( fontFamily ) );
                     textLayer.fontPostscriptName = fontFamilyName( fontFamily );
                 }
                                 

@@ -548,14 +548,16 @@ var ContentSpec = ( function( options ) {
         fontFamily = ( typeof fontFamily === "string" ) ? fontFamily : "ArialMT,'Arial'";
         html = html || "";
         
-        var resetCssVersion = getResetCssVersionNumber();
+        var resetCssVersion = getResetCssVersionNumber(),
+            postScriptName = fontFamily.replace( /^([^,]*).*/, "$1" );
         
         html = html.replace( /(font-family|font-style|font-weight):\s*([^;]*);/gi, "" );
 
         if( resetCssVersion < 3200 ) {
             return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
         } else {
-            return "<span style=\"font-family:" + fontFamily.toLowerCase() + ";\">" + html + "</span>";
+            
+            return "<span style=\"font-family:" + postScriptName.toLowerCase() + ";\">" + html + "</span>";
         }
     }
 
@@ -1275,6 +1277,8 @@ var ContentSpec = ( function( options ) {
                     getResetCssVersionNumber() >= 3200 ? getTextDefaultStyleFor( styleName ) :
                     null;
             },
+            // getTextDecorationAtIndex: function( decorationName, index ) {},
+            // firstInstanceofTextDecoration: function( decorationName ) {},
             
             // First Instance of style
             getTextAlign: function() {
