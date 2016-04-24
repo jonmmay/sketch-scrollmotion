@@ -483,35 +483,37 @@ var ExportScrollMotion = ( function() {
                 fontAssetHandler( view, function( font, fontName ) {
                     bindObj.exportFonts.push( util.Command.create( 
                         // Execute
-                        function() {
-                            // Do nothing
+                        function( fontFound ) {
+                            if( fontFound ) {
+                                // Do nothing
+                            } else {
+                                // Revert custom font overlays to default font/text
+                                overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
+                                    var postScriptName;
+                                    if( node.style[ "font-family" ] ) {
+                                        postScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
+
+                                        if( postScriptName === fontName ) {
+                                            node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
+                                            // Clean up associated tags
+                                            if( node.style[ "font-style" ] ) {
+                                                delete node.style[ "font-style" ];    
+                                            }
+                                            if( node.style[ "font-weight" ] ) {
+                                                delete node.style[ "font-weight" ];    
+                                            }
+                                        }
+                                    }
+
+                                    return node;
+                                } ) );
+
+                                overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
+                            }
                         },
 
                         // Undo
-                        function() {
-                            // Replace font family with default
-                            overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
-                                var postScriptName;
-                                if( node.style[ "font-family" ] ) {
-                                    postScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
-
-                                    if( postScriptName === fontName ) {
-                                        node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
-                                        // Clean up associated tags
-                                        if( node.style[ "font-style" ] ) {
-                                            delete node.style[ "font-style" ];    
-                                        }
-                                        if( node.style[ "font-weight" ] ) {
-                                            delete node.style[ "font-weight" ];    
-                                        }
-                                    }
-                                }
-
-                                return node;
-                            } ) );
-
-                            overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
-                        },
+                        function() {},
                         
                         // Value
                         {
@@ -769,15 +771,17 @@ var ExportScrollMotion = ( function() {
                             fontAssetHandler( textView, function( font, fontName ) {                                
                                 bindObj.exportFonts.push( util.Command.create( 
                                     // Execute
-                                    function() {
-                                        // Do nothing
+                                    function( fontFound ) {
+                                        if( fontFound ) {
+                                            // Do nothing
+                                        } else {
+                                            // Revert custom font overlays to default font/text
+                                            overlay.setKeyValue( "font", "ArialMT" );
+                                        }
                                     },
 
                                     // Undo
-                                    function() {
-                                        // Replace font with default
-                                        overlay.setKeyValue( "font", "ArialMT" );
-                                    },
+                                    function() {},
                                     
                                     // Value
                                     {
@@ -1495,9 +1499,18 @@ function onRun( context ) {
             // Copy font from manifest or revert overlay to common font
             util.forEach( userFonts, function( nsfont, fontName ) {
                 var path = fontManifest[ fontName ],
-                    fontFound = path ? [fileManager fileExistsAtPath:path]: false,
+                    fontFound = path ? !![fileManager fileExistsAtPath:path] : false,
+                    fontOverlays,
                     fileName,
                     style;
+
+                // Pre-process overlays
+                fontOverlays = exportFonts.filter( function( fontObj ) {
+                        return fontName === fontObj.value.fontName;
+                } );
+                fontOverlays.forEach( function( fontObj ) {
+                    fontObj.execute( fontFound );
+                } );
 
                 // Add fonts to content spec and scrollmotion folder
                 if( fontFound ) {
@@ -1517,14 +1530,10 @@ function onRun( context ) {
                     [fileManager copyItemAtPath:path toPath:( targetFolderPath + "/" + fileName ) error:nil];
                 }
                 
-                // Revert custom font overlays to default font/text
-                else {
-                    exportFonts.filter( function( fontObj ) {
-                        return fontName === fontObj.value.fontName;
-                    } ).forEach( function( fontObj ) {
-                        fontObj.undo();
-                    } );
-                }
+                // Post-process overlays
+                fontOverlays.forEach( function( fontObj ) {
+                    fontObj.undo();
+                } );
             } );
 
             // 5. Save ContentSpec.json
