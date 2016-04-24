@@ -324,13 +324,13 @@ var HTMLParser = ( function() {
 
 
 var ContentSpec = ( function( options ) {
-	var resetTextCss = ( options && options.resetCSS ) ? options.resetCSS : "reset3.11.css",
+	var resetTextCss = ( options && options.resetCSS ) ? options.resetCSS : "reset3.14.1.css",
 		schema = "http://www.scrollmotion.com/contentspec/schema/" + 
                     ( ( options && options.schemaVersion ) ? options.schemaVersion : "3.11" ) +
                     "/";
 
     function getResetCssVersionNumber() {
-        var versionMatch = resetTextCss.match( /(?:\d{1,}\.?){3}/ ),
+        var versionMatch = resetTextCss.match( /(?:\d{1,}\.?){2,3}/ ),
             versionArr = versionMatch ? versionMatch[ 0 ]
             // Remove trailing "."
             .replace( /\.$/, "" )
@@ -501,14 +501,18 @@ var ContentSpec = ( function( options ) {
     */
     function setTextStyles( styles, html ) {
         styles = Object.prototype.toString.call( styles ) === "[object Object]" ? styles : {};
-        html = html || "",
-        resetCssVersion = getResetCssVersionNumber();
+        html = html || "";
+        
+        var resetCssVersion = getResetCssVersionNumber(),
+            stylesStr;
 
-        if( resetCssVersion >= 3200 ) {
-            var letterSpacing = styles[ "letter-spacing" ],
-                fontSize,
-                color,
-                fontFamily;
+        if( resetCssVersion < 3200 ) {
+            // Do nothing
+        } else {
+            // Get postscript name
+            if( styles[ "font-family" ] ) {
+                styles[ "font-family" ] = styles[ "font-family" ].replace( /^([^,]*).*/, "$1" );
+            }
 
             // 3.20 text instance style excludes defaults
             Object.keys( styles ).forEach( function( key ) {
@@ -516,13 +520,9 @@ var ContentSpec = ( function( options ) {
                     delete styles[ key ];
                 }
             } );
-
-            fontSize = styles[ "font-size" ];
-            color = styles.color;
-            fontFamily = styles[ "font-family" ];
         }
 
-        var stylesStr = Object.keys( styles ).map( function( key ) {
+        stylesStr = Object.keys( styles ).map( function( key ) {
             return key + ":" + styles[ key ] + ";";
         } ).join( "" );
 
@@ -626,6 +626,7 @@ var ContentSpec = ( function( options ) {
                 ">": "&gt;",
                 "<": "&lt;",
                 "&": "&amp;",
+                '"': '\"',
                 
                 // Sequential spaces, '  '
                 "  ": " &nbsp;"
@@ -634,6 +635,7 @@ var ContentSpec = ( function( options ) {
                 .map( function( val ) { return "\\" + val; } )
                 .join( "|" ) + ")", "g" );
 
+        log( str );
         return str.replace( regex, function( match ) {
             if( chars[ match ] ) {
                 return chars[ match ];
@@ -647,6 +649,7 @@ var ContentSpec = ( function( options ) {
                     "&gt;": ">",
                     "&lt;": "<",
                     "&amp;": "&",
+                    '\"': '"',
                     "&nbsp;": " "
                 };
                 
@@ -1802,6 +1805,6 @@ var ContentSpec = ( function( options ) {
         }
     } );
 } )( {
-    schemaVersion: "3.18",
-    resetCSS: "reset3.14.1.css"
+    schemaVersion: "3.20",
+    resetCSS: "reset3.20.css"
 } );

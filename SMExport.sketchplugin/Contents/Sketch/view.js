@@ -2,7 +2,6 @@
 
 // Documentation for readability; not tested to produce a valid output
 
-// TODO: Merge ViewBindingController into View to reduce namespace pollution
 // Note, rotation will have an effect on Absolute Rect values
 
 var ViewBindingController = ( function( options ) {
@@ -232,28 +231,30 @@ var View = ( function() {
         plugin,
         selection,
         command,
-
-        viewCache = {
-            views: [],
-            get: function( id ) {
-                var view = this.views[ id ];
-                if( view ) {
-                    return view;
-                }
-            },
-            add: function( view ) {
-                var id = String( view.layer.objectID() );
-                this.views[ id ] = view;
-            },
-            remove: function( id ) {
-                if( this.views[ id ] ) {
-                    delete this.views[ id ];
-                }
-            }
-        },
         defaultName = "untitled",
         ATTRIBUTES_KEY = "layerAttributes",
-        CONTENTSPEC_KEY = "contentSpec";
+        CONTENTSPEC_KEY = "contentSpec",
+        viewCache;
+
+    viewCache = {
+        views: [],
+        get: function( id ) {
+            var view = this.views[ id ];
+            if( view ) {
+                return view;
+            }
+        },
+        add: function( view ) {
+            var id = String( view.layer.objectID() );
+            this.views[ id ] = view;
+        },
+        remove: function( id ) {
+            if( this.views[ id ] ) {
+                delete this.views[ id ];
+            }
+        }
+    };
+        
 
     /**
         * @desc Constructor for wrapping Sketch layers

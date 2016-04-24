@@ -9,11 +9,86 @@ function runTests( context ) {
 		endDate,
 		suite = {},
 
-		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.18/",
-		csResetCSS = "reset3.14.1.css";
+		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.20/",
+		csResetCSS = "reset3.20.css";
 	log( "##### Started | " + startDate.toLocaleTimeString() + " #####" );
 
-	
+	function getFileData( url ) {
+        if( url && [url isKindOfClass:[NSURL class]] ) {
+            var fileManager = [NSFileManager defaultManager];
+
+            return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
+                [NSData dataWithContentsOfURL:url] : null;  
+        }
+        return null;
+    }
+
+	// Make artboard and layers for testing
+    function setupLayersForTesting() {
+		var page = context.document.currentPage(),
+			artboard,
+			layerGroup,
+			rectangleLayer,
+			subRectangleLayer,
+			imageData,
+			imageLayer,
+			subImageLayer,
+			textLayer,
+			subTextLayer;
+
+		artboard = MSArtboardGroup.new();
+		artboard.name = "Test Arboard";
+		artboard.frame().setWidth( 1024 );
+		artboard.frame().setHeight( 768 );
+		artboard.frame().setX( 0 );
+		artboard.frame().setY( 0 );
+
+		rectangleLayer = MSShapeGroup.shapeWithPath( MSRectangleShape.alloc().initWithFrame( NSMakeRect( 0, 0, 100, 100 ) ) );
+
+		textLayer = MSTextLayer.alloc().initWithFrame( NSMakeRect( 0, 0, 1, 1 ) );
+		textLayer.stringValue = "The quick brown fox jumped over the lazy dog.";
+		textLayer.name = "Test Text";
+		textLayer.adjustFrameToFit();
+
+		imageData = getFileData( context.plugin.urlForResourceNamed( "icon.png" ) );
+		imageLayer = MSBitmapLayer.bitmapLayerFromImage_withSizeScaledDownByFactor( NSImage.alloc().initWithData( imageData ), 1 );
+		imageLayer.setOrigin( NSMakePoint( 0, 0 ) );
+
+		subRectangleLayer = rectangleLayer.duplicate();
+		subTextLayer = textLayer.duplicate();
+		subImageLayer = imageLayer.duplicate();
+
+		subRectangleLayer.setOrigin( NSMakePoint( 512, 0 ) );
+		subTextLayer.setOrigin( NSMakePoint( 512, 0 ) );
+		subImageLayer.setOrigin( NSMakePoint( 512, 0 ) );
+
+		layerGroup = MSLayerGroup.alloc().init();
+		layerGroup.addLayers( [ subRectangleLayer, subTextLayer, subImageLayer ] );
+        layerGroup.resizeToFitChildrenWithOption( true );
+
+        // Add artboard to page
+        page.addLayers( [ artboard ] );
+        // Add layers to artboard
+		artboard.addLayers( [ layerGroup, rectangleLayer, textLayer, imageLayer ] );
+
+		return {
+			page: page,
+			layers: {
+				artboard: artboard,
+				layerGroup: layerGroup,
+				rectangleLayer: rectangleLayer,
+				textLayer: textLayer,
+				imageLayer: imageLayer,
+				subRectangleLayer: subRectangleLayer,
+				subTextLayer: subTextLayer,
+				subImageLayer: subImageLayer
+			},
+			cleanAfterTest: function() {
+				artboard.removeFromParent();
+			}
+		};
+    }
+
 	/**
 		* @desc CocoaScript data type testing	
 	*/
@@ -430,8 +505,6 @@ function runTests( context ) {
 						hoge: 3
 					},
 					actual = util.merge( obj1, obj2, obj3, obj4 );
-
-				log( actual );
 
 				assert.strictEqual( actual.foo, "obj4", "Common key value are overwritten" );
 				assert.strictEqual( actual.boolean, true, "Common key value are overwritten" );
@@ -1341,7 +1414,6 @@ function runTests( context ) {
 									if( key !== "value" ) {
 										// Pass html string to overlay
 										textOverlay = cs.make( "text_complex" ).setTextHtml( ver_3200[ key ] );
-										log( textOverlay.getTextNodes().results() );
 										// Capture styled nodes from overlay
 										textStyledNodes = textOverlay.getTextNodeStyles();
 										// Pass styled nodes back to overlay
@@ -1497,17 +1569,94 @@ function runTests( context ) {
 				assert.ok( !!view.selection, "instance can access plugin selection" );
 				assert.ok( !!view.command, "instance can access plugin command" );
 			},
-			// "test wrapping layers": ( function() {
-			// 	// Make views
+			"test wrapping layers": ( function() {
 
-			// 	return {
-			// 		"test access to layer": function() {},
-			// 		"test access to layer id": function() {},
-			// 		"test access to layer name": function() {},
-			// 		"test access to layer class name": function() {},
-			// 		"test if layer has children": function() {},
-			// 		"test if layer has a clipping mask": function() {},
-			// 		"test access to view parent": function() {},
+				return {
+					"test access to layer": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( !!layerView.layer, "Layer found in view wrapper" );
+							// Stringify class names
+							assert.strictEqual( "" + layerView.layer.className(), "" + layers[ key ].className(), "Layer class name is: " + layerView.layer.className() );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test access to layer id": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( !!layerView.id, "Id found" );
+							// Stringify layer id
+							assert.strictEqual( layerView.id, "" + layers[ key ].objectID(), "Layer id is: " + layerView.id );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test access to layer name": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( !!layerView.name, "Name found" );
+							// Stringify layer name
+							assert.strictEqual( layerView.name, "" + layers[ key ].name(), "Layer name is: " + layerView.id );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test access to layer class name": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( !!layerView.className, "Class name found" );
+							// Stringify layer class name
+							assert.strictEqual( layerView.className, "" + layers[ key ].className(), "Layer class name is: " + layerView.id );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test if layer has children": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if(  key === "layerGroup" || key === "artboard" ) {
+								assert.ok( layerView.hasSubviews, "Layer has children" );
+							} else {
+								assert.ok( !layerView.hasSubviews, "Layer doesn't have children" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test if layer has a clipping mask": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( !layerView.hasClippingMask, "Layer doesn't have a clipping mask" );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					// "test access to view parent": function() {},
 
 			// 		"test access to layer parent": function() {},
 			// 		"test get layer kind": function() {},
@@ -1559,8 +1708,9 @@ function runTests( context ) {
 			// 		"test get shadow styles": function() {},
 			// 		"test duplicate layer": function() {},
 			// 		"test remove layer from parent": function() {}
-			// 	};
-			// } )()
+					"deleteme": function() {}
+				};
+			} )()
 		};
 	} )( View.create( context ) );
 

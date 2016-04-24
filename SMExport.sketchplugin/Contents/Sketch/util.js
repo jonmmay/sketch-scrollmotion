@@ -69,11 +69,9 @@ var util = ( function() {
         * @returns void
     */
     util.log = function( msg ) {
-        if( arguments.length > 1 ) {
-            log( Array.prototype.slice.call( arguments ).join( "\n" ) );
-        } else {
+        util.forEach( arguments, function( msg ) {
             log( msg );
-        }
+        } );
     };
 
     /**

@@ -1,0 +1,84 @@
+/*
+ * ScrollMotion Reset CSS for Web Based Text
+ * Version 3.20
+ *
+ * Schema: http://www.scrollmotion.com/contentspec/schema/3.8/
+ *
+ * Created by Donald Hyde (01/25/2016)
+ *
+ * Changes in 3.20:
+ * - All new paradigm
+ * - No longer requires specific formatting
+ */
+.SM-TextReset {
+    font-size: 24px !important;
+    font-family: ArialMT;
+    line-height: 1.2;
+    text-align: left;
+    white-space: pre-line;
+    word-wrap: break-word;
+}
+
+.SM-TextReset html,.SM-TextReset body,.SM-TextReset div,.SM-TextReset span,.SM-TextReset applet,.SM-TextReset object,.SM-TextReset iframe,
+h1,.SM-TextReset h2,.SM-TextReset h3,.SM-TextReset h4,.SM-TextReset h5,.SM-TextReset h6,.SM-TextReset p,.SM-TextReset blockquote,.SM-TextReset pre,
+a,.SM-TextReset abbr,.SM-TextReset acronym,.SM-TextReset address,.SM-TextReset big,.SM-TextReset cite,.SM-TextReset code,
+del,.SM-TextReset dfn,.SM-TextReset em,.SM-TextReset img,.SM-TextReset ins,.SM-TextReset kbd,.SM-TextReset q,.SM-TextReset s,.SM-TextReset samp,
+small,.SM-TextReset strike,.SM-TextReset strong,.SM-TextReset tt,.SM-TextReset var,
+b,.SM-TextReset u,.SM-TextReset i,.SM-TextReset center,
+dl,.SM-TextReset dt,.SM-TextReset dd,.SM-TextReset li,
+fieldset,.SM-TextReset form,.SM-TextReset label,.SM-TextReset legend,
+table,.SM-TextReset caption,.SM-TextReset tbody,.SM-TextReset tfoot,.SM-TextReset thead,.SM-TextReset tr,.SM-TextReset th,.SM-TextReset td,
+article,.SM-TextReset aside,.SM-TextReset canvas,.SM-TextReset details,.SM-TextReset embed,
+figure,.SM-TextReset figcaption,.SM-TextReset footer,.SM-TextReset header,.SM-TextReset hgroup,
+menu,.SM-TextReset nav,.SM-TextReset output,.SM-TextReset ruby,.SM-TextReset section,.SM-TextReset summary,
+time,.SM-TextReset mark,.SM-TextReset audio,.SM-TextReset video {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    vertical-align: baseline;
+}
+.SM-TextReset div, .SM-TextReset p {
+    /*font-size: 16px;*/
+    /*font-family: Arial;*/
+    /*line-height: 1;*/
+    margin: 0;
+    padding: 0;
+}
+/* HTML5 display-role reset for older browsers */
+.SM-TextReset article, .SM-TextReset aside, .SM-TextReset details, .SM-TextReset figcaption, .SM-TextReset figure,
+.SM-TextReset footer, .SM-TextReset header, .SM-TextReset hgroup, .SM-TextReset menu, .SM-TextReset nav, .SM-TextReset section {
+    display: block;
+}
+/*body {
+    line-height: 1;
+}*/
+.SM-TextReset ol, .SM-TextReset ul {
+    /*list-style: none;*/
+    margin: 0;
+    font-size: 24px;
+}
+.SM-TextReset sub,.SM-TextReset sup {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 60%;
+    position: static;
+}
+.SM-TextReset sup {
+    vertical-align: super;
+}
+.SM-TextReset sub {
+    vertical-align: sub;
+}
+.SM-TextReset blockquote, .SM-TextReset q {
+    quotes: none;
+}
+.SM-TextReset blockquote:before, .SM-TextReset blockquote:after,
+.SM-TextReset q:before, .SM-TextReset q:after {
+    content: '';
+    content: none;
+}
+.SM-TextReset table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
