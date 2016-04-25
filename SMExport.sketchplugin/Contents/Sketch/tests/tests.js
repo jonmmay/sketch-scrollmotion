@@ -37,13 +37,14 @@ function runTests( context ) {
 			subTextLayer;
 
 		artboard = MSArtboardGroup.new();
-		artboard.name = "Test Arboard";
+		artboard.name = "Test Artboard";
 		artboard.frame().setWidth( 1024 );
 		artboard.frame().setHeight( 768 );
 		artboard.frame().setX( 0 );
 		artboard.frame().setY( 0 );
 
 		rectangleLayer = MSShapeGroup.shapeWithPath( MSRectangleShape.alloc().initWithFrame( NSMakeRect( 0, 0, 100, 100 ) ) );
+		rectangleLayer.name = "Test Rectangle";
 
 		textLayer = MSTextLayer.alloc().initWithFrame( NSMakeRect( 0, 0, 1, 1 ) );
 		textLayer.stringValue = "The quick brown fox jumped over the lazy dog.";
@@ -53,6 +54,7 @@ function runTests( context ) {
 		imageData = getFileData( context.plugin.urlForResourceNamed( "icon.png" ) );
 		imageLayer = MSBitmapLayer.bitmapLayerFromImage_withSizeScaledDownByFactor( NSImage.alloc().initWithData( imageData ), 1 );
 		imageLayer.setOrigin( NSMakePoint( 0, 0 ) );
+		imageLayer.name = "Test Bitmap";
 
 		subRectangleLayer = rectangleLayer.duplicate();
 		subTextLayer = textLayer.duplicate();
@@ -65,6 +67,7 @@ function runTests( context ) {
 		layerGroup = MSLayerGroup.alloc().init();
 		layerGroup.addLayers( [ subRectangleLayer, subTextLayer, subImageLayer ] );
         layerGroup.resizeToFitChildrenWithOption( true );
+        layerGroup.name = "Test LayerGroup";
 
         // Add artboard to page
         page.addLayers( [ artboard ] );
@@ -1644,6 +1647,7 @@ function runTests( context ) {
 
 						setup.cleanAfterTest();
 					},
+					// TO DO: Add a layer with a clipping mask
 					"test if layer has a clipping mask": function() {
 						var setup = setupLayersForTesting(),
 							layers = setup.layers;
@@ -1656,21 +1660,250 @@ function runTests( context ) {
 
 						setup.cleanAfterTest();
 					},
-					// "test access to view parent": function() {},
+					"test access to view parent": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							artboard = layers.artboard,
+							layerGroup = layers.layerGroup;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView;
+
+							if( /^sub/.test( key ) ) {
+								layerView = view.make( layers[ key ], view.make( layerGroup ) );
+
+								assert.strictEqual( layerView.parentGroup, view.make( layerGroup ), "Layer contains a reference to parent" );
+							} else {
+								if( key !== "artboard" ) {
+									layerView = view.make( layers[ key ] );
+
+									assert.strictEqual( layerView.parentGroup, view.make( artboard ), "Layer contains reference to parent layer group" );	
+								}
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
 
 			// 		"test access to layer parent": function() {},
-			// 		"test get layer kind": function() {},
-			// 		"test check if artboard": function() {},
-			// 		"test check if layer": function() {},
-			// 		"test check if layer group or artboard": function() {},
-			// 		"test check if view should be ignored": function() {},
-			// 		"test check if view should be flattened": function() {},
-			// 		"test check if view should be extracted": function() {},
-			// 		"test check if view should not be traversed": function() {},
-			// 		"test check if layer name begins with...": function() {},
-			// 		"test check if layer name ends with...": function() {},
+					"test get layer kind": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							types = {
+								artboard: "Artboard",
+								layerGroup: "LayerGroup",
+								rectangleLayer: "Rectangle",
+								textLayer: "Text",
+								imageLayer: "Bitmap",
+								subRectangleLayer: "Rectangle",
+								subTextLayer: "Text",
+								subImageLayer: "Bitmap"
+							};
+
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.strictEqual( layerView.getLayerKind(), types[ key ], "Layer is of type, " + types[ key ] );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if artboard": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "artboard" ) {
+								assert.ok( layerView.isArtboard(), "Layer is an artboard" );
+							} else {
+								assert.ok( !layerView.isArtboard(), "Layer is not an artboard" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if layer": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.ok( layerView.isLayer(), "Layer is a layer" );
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if layer group or artboard": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "artboard" || key === "layerGroup" ) {
+								assert.ok( layerView.isFolder(), "Layer can have children" );
+							} else {
+								assert.ok( !layerView.isFolder(), "Layer can't have children" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if view should be ignored": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						layers.layerGroup.name = "- " + layers.layerGroup.name();
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "layerGroup" ) {
+								assert.ok( layerView.shouldBeIgnored(), "Layer should be ignored" );
+							} else {
+								assert.ok( !layerView.shouldBeIgnored(), "Layer shouldn't be ignored" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if view should be flattened": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						layers.layerGroup.name = "* " + layers.layerGroup.name();
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "layerGroup" ) {
+								assert.ok( layerView.shouldBeFlattened(), "Layer should be flattened" );
+							} else {
+								assert.ok( !layerView.shouldBeFlattened(), "Layer shouldn't be flattened" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+
+					// TO DO: Add a non-extractable layer, eg, slice layer
+					"test check if view should be extracted": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						layers.layerGroup.name = "- " + layers.layerGroup.name();
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "layerGroup" ) {
+								assert.ok( layerView.shouldBeIgnored(), "Layer shouldn't be extracted" );
+							} else {
+								assert.ok( !layerView.shouldBeIgnored(), "Layer should be extracted" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if view should not be traversed": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "artboard" || key === "layerGroup" ) {
+								assert.ok( !layerView.doNotTraverse(), "Layer can be traversed" );
+							} else {
+								assert.ok( layerView.doNotTraverse(), "Layer can't be traversed" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if layer name begins with...": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						layers.layerGroup.name = "[B] " + layers.layerGroup.name();
+						layers.artboard.name = "- " + layers.artboard.name();
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "layerGroup" ) {
+								assert.ok( layerView.nameBeginsWith( "[B]" ), "Layer prefix found" );
+							} else if( key === "artboard" ) {
+								assert.ok( layerView.nameBeginsWith( "-" ), "Layer prefix found" );
+							} else {
+								assert.ok( !layerView.nameBeginsWith( "[B]" ), "Layer prefix doesn't exist" );
+								assert.ok( !layerView.nameBeginsWith( "-" ), "Layer prefix doesn't exist" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test check if layer name ends with...": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers;
+
+						layers.layerGroup.name = layers.layerGroup.name() + " [B]";
+						layers.artboard.name = layers.artboard.name() + " -";
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "layerGroup" ) {
+								assert.ok( layerView.nameEndsWith( "[B]" ), "Layer suffix found" );
+							} else if( key === "artboard" ) {
+								assert.ok( layerView.nameEndsWith( "-" ), "Layer suffix found" );
+							} else {
+								assert.ok( !layerView.nameEndsWith( "[B]" ), "Layer suffix doesn't exist" );
+								assert.ok( !layerView.nameEndsWith( "-" ), "Layer suffix doesn't exist" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
 					
-			// 		"test get sanitized layer name": function() {},
+					// TO DO: empty name should be managed some other way
+					"test get sanitized layer name": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							types = {
+								artboard: "Test Artboard",
+								layerGroup: "Test LayerGroup",
+								rectangleLayer: "Test Rectangle",
+								textLayer: "Test Text",
+								imageLayer: "Test Bitmap",
+								subRectangleLayer: "Test Rectangle",
+								subTextLayer: "untitled",
+								subImageLayer: "Test Bitmap"
+							};
+
+						// Prefix
+						layers.imageLayer.name = "[B] " + layers.imageLayer.name();
+						layers.textLayer.name = "- " + layers.textLayer.name();
+						// Suffix
+						layers.layerGroup.name = layers.layerGroup.name() + " [B]";
+						layers.artboard.name = layers.artboard.name() + " -";
+						// Named tags with attributes
+						layers.subImageLayer.name = "[B=toggle] " + layers.subImageLayer.name();
+						// Name which will become empty
+						layers.subTextLayer.name = "-";
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							assert.strictEqual( layerView.getSanitizedName(), types[ key ], "Layer name can be cleaned of name tags" );
+						} );
+
+						setup.cleanAfterTest();
+					},
 			// 		"test get layer name attributes": function() {},
 			// 		"test add layer name attribute": function() {},
 			// 		"test clear layer name attributes": function() {},

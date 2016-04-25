@@ -1,5 +1,6 @@
 @import "util.js";
 @import "Config.js";
+@import "AnalyticsLogger.js";
 @import "View.js";
 @import "CS.js";
 
@@ -1012,6 +1013,7 @@ function onRun( context ) {
             exportSM = ExportScrollMotion.create( context ),
             cs = ContentSpec.create( context ),
             config = Config.create( context ),
+            analytics = AnalyticsLogger.create( context ),
             csFileURL = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
 
             layersForTransformation = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers],
@@ -1578,32 +1580,27 @@ function onRun( context ) {
         output( transformedLayers );
         log( cs.value() );
 
-        // Crude analytics
-        // ( function() {
-        //     var projectId = "571bca3ebcb79c5d9e07594c",
-        //         writeKey = "d684e9466cb827a9857fe24173d4cf8443885cc1f8b090bbcd1361587cbfdb8b1e761b9c6841767b5e625631efb4a41c5890255b2efb7a6448266dfe7b2b5d808dc73ec540071d66c4f6e1c2fa5162e5941699c5fb9bdb47aad125b43199b3e0",
-        //         eventCollection = analyticsCollection || "tests",
-        //         url = `https:\/\/api.keen.io/3.0/projects/${projectId}/events/${eventCollection}?api_key=${writeKey}`,
-        //         eventJSON = { commandName: pluginCommand.name() };
-
-        //     if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
-        //         log( eventJSON );
-        //         var task = [[NSTask alloc] init],
-        //             argsArray = [NSArray arrayWithObjects:"-X", "POST",
-        //                                                   "-H", "Content-Type: application/json",
-        //                                                   "-d", JSON.stringify( eventJSON ),
-        //                                                   url,
-        //                                                   nil];
-        //             [task setLaunchPath:"/usr/bin/curl"];
-        //             [task setArguments:argsArray];
-        //             [task launch];
-        //     }
-        // } )();
+        if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
+            analytics.log( null, {
+                contentSpecInfo: {
+                    schemaVersion: cs.getSchema(),
+                    resetCssVersion: cs.getResetCss()
+                }
+            } );
+        }
 
         util.debug.debug( "########## Export end ##########" );
         doc.showMessage( "Done" );
     } catch( err ) {
         util.debug.error( "Uncaught error: " + err );
         doc.showMessage( "Error" );
+
+        if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
+            analytics.log( null, {
+                errorInfo: {
+                    message: String( err )
+                }
+            } );
+        }
     }
 }

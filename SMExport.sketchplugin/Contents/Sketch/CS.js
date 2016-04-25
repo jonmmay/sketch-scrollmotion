@@ -326,7 +326,7 @@ var HTMLParser = ( function() {
 var ContentSpec = ( function( options ) {
 	var resetTextCss = ( options && options.resetCSS ) ? options.resetCSS : "reset3.14.1.css",
 		schema = "http://www.scrollmotion.com/contentspec/schema/" + 
-                    ( ( options && options.schemaVersion ) ? options.schemaVersion : "3.11" ) +
+                    ( ( options && options.schemaVersion ) ? options.schemaVersion : "3.18" ) +
                     "/";
 
     function getResetCssVersionNumber() {

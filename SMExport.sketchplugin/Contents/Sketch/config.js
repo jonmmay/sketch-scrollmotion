@@ -17,8 +17,11 @@ var Config = ( function() {
 
         DOCUMENT_NAME,
         SETTINGS_FILENAME,
+        
         IMAGE_EXT = ".png",
-        EXPORT_SCALE_FACTORS = [ 1.0, 2.0 ];
+        EXPORT_SCALE_FACTORS = [ 1.0, 2.0 ],
+
+        USERUUID;
 
     /*
         * @desc
@@ -270,9 +273,13 @@ var Config = ( function() {
             doc = this.doc;
             plugin = this.plugin;
 
+            var pluginIdentifier = [plugin identifier],
+                defsStandard = [NSUserDefaults standardUserDefaults],
+                userUuidKey = pluginIdentifier + "PluginUUIDKey";
+
             PLUGIN_PATH = PLUGIN_PATH || [[plugin url] fileSystemRepresentation];
             RESOURCES_PATH = RESOURCES_PATH || [[plugin urlForResourceNamed:@""] fileSystemRepresentation];
-            SETTINGS_FILENAME = SETTINGS_FILENAME || [plugin identifier] + "-settings";
+            SETTINGS_FILENAME = SETTINGS_FILENAME || pluginIdentifier + "-settings";
             CACHES_PATH = CACHES_PATH || createCachesFolder();
             SKETCH_VERSION = getSketchVersion() || "0.0.0";
 
@@ -281,6 +288,15 @@ var Config = ( function() {
             DOCUMENT_NAME = DOCUMENT_NAME || [doc displayName] + ".scrollmotion";
             EXPORT_FOLDER_PATH = ( typeof EXPORT_FOLDER_PATH !== "undefined" ) ? EXPORT_FOLDER_PATH :
                                  ( DOCUMENT_PATH && DOCUMENT_NAME ) ? DOCUMENT_PATH + "/" + DOCUMENT_NAME : null;
+
+            if( !USERUUID ) {
+                USERUUID = String( [defsStandard valueForKey:userUuidKey] );
+
+                if( !USERUUID ) {
+                    USERUUID = String( [[[NSUUID alloc] init] UUIDString] );
+                    [defsStandard setObject:USERUUID forKey:userUuidKey];
+                }
+            }
         },
         getSketchVersion: function() {
             return SKETCH_VERSION;
@@ -297,6 +313,14 @@ var Config = ( function() {
         getSketchPatchVersion: function() {
             return getSemanticVersion( "patch" );
         },
+        
+        getUserUUID: function() {
+            return USERUUID;
+        },
+        getPluginVersion: function() {
+            return String( [plugin version] );
+        },
+
         getDocumentName: function() {
             return DOCUMENT_NAME;
         },

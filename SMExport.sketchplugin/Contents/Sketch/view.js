@@ -473,12 +473,13 @@ var View = ( function() {
         * @returns {string} layer name without tags or default name if layer name doesn't exist
     */
     View.prototype.getSanitizedName = function() {
-        var name = this.name.replace( /(:|\/)/g , "_" )
-                            .replace( /__/g , "_" )
-                            .replace( /\[.*?\]/g , "" )
-                            .replace( /^(\*|\-|\+)|(\*|\-\+)$/g , "" )
-                            .replace( new RegExp( "@@mask" , "g" ) , "" )
-                            .replace( new RegExp( "@@hidden" , "g" ) , "" )
+        var name = this.name.trim()
+                            .replace( /(:|\/)/g, "_" )
+                            .replace( /__/g, "_" )
+                            .replace( /\[.*?\]/g, "" )
+                            .replace( /^(\*|\-|\+)|(\*|\-|\+)$/g, "" )
+                            .replace( new RegExp( "@@mask", "g" ), "" )
+                            .replace( new RegExp( "@@hidden", "g" ), "" )
                             .trim();
         if( name.length === 0 ) {
             name = defaultName;
