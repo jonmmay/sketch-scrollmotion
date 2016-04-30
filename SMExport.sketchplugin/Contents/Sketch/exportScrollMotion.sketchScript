@@ -301,9 +301,14 @@ var ExportScrollMotion = ( function() {
         return retRgba;
     }
 
-    function getTextAttributedNodes( layer ) {
-        var attrString = [layer attributedString],
-            // Get text attributes as object
+    /**
+        * @desc Get text attributes from text layer
+        * @param {MSTextLayer} textLayer -
+        * @returns {object[]} - array of nodes compatible with cs getTextNodeStyles helper
+    */
+    function getTextAttributedNodes( textLayer ) {
+        var attrString = [textLayer attributedString],
+            // Get text attributes as array separated by styling
             attrsArr = [attrString treeAsDictionary].value.attributes,
             alignValues = [ "left", "right", "center", "justify", "natural" ],
             nodes = [];
@@ -325,22 +330,21 @@ var ExportScrollMotion = ( function() {
                 style[ "font-size" ] = util.toPx( attrs.NSFont.attributes.NSFontSizeAttribute );
                 style[ "font-family" ] = String( attrs.NSFont.attributes.NSFontNameAttribute );
 
-                // Append regular if subfamily doesn't exist
-                if( !( /\w*-\w*/ ).test( style[ "font-family" ] ) ) {
-                    style[ "font-family" ] += "-Regular";
-                }
-
                 // Font family format prior to SEP 3.20
                 style[ "font-family" ] += ", '" + attrs.NSFont.family  + "'";
 
                 // NSParagraphStyle
-                style[ "text-align" ] = Number( attrs.NSParagraphStyle.style.alignment );
-                // Return "natural" alignment as left
-                style[ "text-align" ] = ( style[ "text-align" ] == alignValues.indexOf( "natural" ) ) ? alignValues[ 0 ] : alignValues[ style[ "text-align" ] ];
+                if( attrs.NSParagraphStyle ) {
+                    style[ "text-align" ] = Number( attrs.NSParagraphStyle.style.alignment );
+                    // Return "natural" alignment as left
+                    style[ "text-align" ] = ( style[ "text-align" ] == alignValues.indexOf( "natural" ) ) ? alignValues[ 0 ] : alignValues[ style[ "text-align" ] ];
 
-                if( attrs.NSParagraphStyle.style.maximumLineHeight > 0 ) {
-                    // maximumLineHeight and minimumLineHeight should be the same value
-                    style[ "line-height" ] = util.toPx( attrs.NSParagraphStyle.style.maximumLineHeight );
+                    if( attrs.NSParagraphStyle.style.maximumLineHeight > 0 ) {
+                        // maximumLineHeight and minimumLineHeight should be the same value
+                        style[ "line-height" ] = util.toPx( attrs.NSParagraphStyle.style.maximumLineHeight );
+                    }
+                } else {
+                    style[ "text-align" ] = "left";
                 }
 
                 // Optional NSKern
@@ -369,8 +373,10 @@ var ExportScrollMotion = ( function() {
                 // Remove nodes without text and line breaks
                 tempNodes = tempNodes.reduce( function( prev, curr ) {
                     if( curr.length === 0 && !curr.leadingLineBreak ) {
+                        // Exclude current value and return array
                         return prev;
                     } else {
+                        // Add current value to array
                         return prev.concat( curr );    
                     }
                 }, [] );
@@ -528,7 +534,6 @@ var ExportScrollMotion = ( function() {
                 // Defer to binding
             } );
 
-            // TO DO: Line breaks, sequential spaces, tabs
             // TO DO: Rotation
             viewBindingControl.layerKindRegistry( "Text", function( bindObj ) {
                 var view    = bindObj.getView(),
@@ -539,50 +544,68 @@ var ExportScrollMotion = ( function() {
                     layerCS     = view.getLayerCS(),
                     id          = String( [( view.layer ) objectID] );
 
+                // Get text nodes and node styles
                 overlay.setTextNodes( getTextAttributedNodes( view.layer ) );
+                // Transform nodes into html
                 overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
 
-                fontAssetHandler( view, function( font, fontName ) {
-                    bindObj.exportFonts.push( util.Command.create( 
-                        // Execute
-                        function( fontFound ) {
-                            if( fontFound ) {
-                                // Do nothing
-                            } else {
-                                // Revert custom font overlays to default font/text
-                                overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
-                                    var postScriptName;
-                                    if( node.style[ "font-family" ] ) {
-                                        postScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
+                // Prepare text layer fonts for export
+                overlay.getFontFamilies().forEach( function( name ) {
+                    var nameMatches = name.match( new RegExp( "^([^,]*)(?:,\\s?'([^']*)')?$" ) ),
+                        postScriptName = nameMatches[ 1 ],
+                        familyName = nameMatches[ 2 ], // Won't exist post SEP 3.20
+                        font;
 
-                                        if( postScriptName === fontName ) {
-                                            node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
-                                            // Clean up associated tags
-                                            if( node.style[ "font-style" ] ) {
-                                                delete node.style[ "font-style" ];    
-                                            }
-                                            if( node.style[ "font-weight" ] ) {
-                                                delete node.style[ "font-weight" ];    
+                    // Create font
+                    if( postScriptName ) {
+                        font = [NSFont fontWithName:postScriptName size:0.0];
+                    }
+
+                    if( font ) {
+                        bindObj.exportFonts.push( util.Command.create( 
+                            // Execute
+                            function( fontFound ) {
+                                if( fontFound ) {
+                                    // Do nothing
+                                } else {
+                                    // Revert custom font overlays to default font/text
+                                    overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
+                                        var foundPostScriptName;
+                                        
+                                        if( node.style[ "font-family" ] ) {
+                                            foundPostScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
+
+                                            if( foundPostScriptName === postScriptName ) {
+                                                node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
+                                                // Clean up associated tags
+                                                if( node.style[ "font-style" ] ) {
+                                                    delete node.style[ "font-style" ];    
+                                                }
+                                                if( node.style[ "font-weight" ] ) {
+                                                    delete node.style[ "font-weight" ];    
+                                                }
                                             }
                                         }
-                                    }
 
-                                    return node;
-                                } ) );
+                                        return node;
+                                    } ) );
 
-                                overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
-                            }
-                        },
+                                    overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
+                                }
+                            },
 
-                        // Undo
-                        function() {},
-                        
-                        // Value
-                        {
-                            getView: function() { return view },
-                            fontName: fontName, 
-                            font: font
-                    } ) );
+                            // Undo
+                            function() {},
+                            
+                            // Value
+                            {
+                                getView: function() { return view },
+                                fontName: postScriptName, 
+                                font: font
+                        } ) );
+                    } else {
+                        // TO DO: what to do if font isn't found?
+                    }
                 } );
 
                 rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
@@ -1058,7 +1081,7 @@ var ExportScrollMotion = ( function() {
 } )();
 
 function onRun( context ) {
-    var DEBUG_PREVENT_EXPORT = true;
+    var DEBUG_PREVENT_EXPORT = false;
     
     try{
         util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)

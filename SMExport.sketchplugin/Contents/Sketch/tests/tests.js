@@ -9,7 +9,7 @@ function runTests( context ) {
 		endDate,
 		suite = {},
 
-		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.20/",
+		csSchemaVer = "http://www.scrollmotion.com/contentspec/schema/3.21/",
 		csResetCSS = "reset3.20.css";
 	log( "##### Started | " + startDate.toLocaleTimeString() + " #####" );
 

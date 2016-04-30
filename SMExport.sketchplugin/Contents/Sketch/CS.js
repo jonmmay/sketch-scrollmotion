@@ -329,6 +329,16 @@ var ContentSpec = ( function( options ) {
                     ( ( options && options.schemaVersion ) ? options.schemaVersion : "3.18" ) +
                     "/";
 
+    // Testing available fonts
+    var availableFonts = [];
+
+    util.forEach( [[NSFontManager sharedFontManager] availableFonts], function( name ) {
+        name = String( name );
+        if( !( /^\./ ).test( name ) ) {
+            availableFonts.push( name );
+        }
+    } );
+
     function getResetCssVersionNumber() {
         var versionMatch = resetTextCss.match( /(?:\d{1,}\.?){2,3}/ ),
             versionArr = versionMatch ? versionMatch[ 0 ]
@@ -562,8 +572,7 @@ var ContentSpec = ( function( options ) {
 
         if( resetCssVersion < 3200 ) {
             return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
-        } else {
-            
+        } else {         
             return "<span style=\"font-family:" + postScriptName.toLowerCase() + ";\">" + html + "</span>";
         }
     }
@@ -628,22 +637,24 @@ var ContentSpec = ( function( options ) {
         }
     }
 
+    // TO DO: Refactor
     function encodeSpecialCharacters( str ) {
+        str = str.replace( "\t", "   " );
+
         var chars = {
                 ">": "&gt;",
                 "<": "&lt;",
                 "&": "&amp;",
                 '"': '\"',
-                "\t": "   ",
-                
+
                 // Sequential spaces, '  '
                 "  ": " &nbsp;"
             },
-            regex = new RegExp( "(" + Object.keys( chars )
+            charRegex = new RegExp( "(" + Object.keys( chars )
                 .map( function( val ) { return "\\" + val; } )
                 .join( "|" ) + ")", "g" );
 
-        return str.replace( regex, function( match ) {
+        return str.replace( charRegex, function( match ) {
             if( chars[ match ] ) {
                 return chars[ match ];
             }
@@ -1143,17 +1154,18 @@ var ContentSpec = ( function( options ) {
             getHtmlFromNodeStyles: function() {
                 // Process styles and font family
                 var resetCssVersion = getResetCssVersionNumber(),
-                    html = [ "" ],
+                    html = [ { stringValue: "", style: null } ],
                     lineIndex = 0,
                     textAlign = "left";
 
-                this._nodeStyles.forEach( function( node, i, arr ) {
-                    var str = "",
-                        style = node.style || {},
-                        lineBreak = node.leadingLineBreak;
+                if( resetCssVersion < 3200 ) {
+                    this._nodeStyles.forEach( function( node, i, arr ) {
+                        var str = "",
+                            style = node.style || {},
+                            lineBreak = node.leadingLineBreak;
 
-                    if( resetCssVersion < 3200 ) {
                         str = setTextStyles( style, encodeSpecialCharacters( node.stringValue ) );
+                        html[ lineIndex ].style = html[ lineIndex ].style || {};
 
                         // Font family exists and is not a default font
                         if( style[ "font-family" ] && !testIsDefaultFont( style[ "font-family" ] ) ) {
@@ -1166,30 +1178,43 @@ var ContentSpec = ( function( options ) {
 
                         // Process line breaks
                         if( lineBreak ) {
-                            html[ lineIndex ] = setTextAlign( textAlign, html[ lineIndex ] );
+                            html[ lineIndex ].stringValue = setTextAlign( textAlign, html[ lineIndex ].stringValue );
 
                             // Update line index
                             lineIndex += 1;
                             // Update html
-                            html[ lineIndex ] = "";
+                            html[ lineIndex ] = { stringValue: "", style: {} };
                             // Update text align
                             textAlign = style[ "text-align" ] || "left";
                         }
 
                         // Prepend html to local string
-                        str = html[ lineIndex ] + str;
+                        str = html[ lineIndex ].stringValue + str;
 
                         // Set html
-                        html[ lineIndex ] = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
-                    } else {
+                        html[ lineIndex ].stringValue = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
+                    } );
+
+                    return html.map( function( line ) {
+                        return line.stringValue;
+                    } ).join( "" );
+                } else {
+                    // SEP 3.20 text
+                    this._nodeStyles.forEach( function( node, i, arr ) {
+                        var str = "",
+                            // Clone style to delete default values
+                            style = util.naiveClone( node.style ) || {},
+                            lineBreak = node.leadingLineBreak;
+
                         // 3.20 text instance style excludes defaults
-                        Object.keys( style ).forEach( function( key ) {
+                        Object.keys( style ).forEach( function( key ) {                            
                             if( style[ key ] === getTextDefaultStyleFor( key ) ) {
                                 delete style[ key ];
                             }
                         } );
 
                         str = encodeSpecialCharacters( node.stringValue );
+                        html[ lineIndex ].style = html[ lineIndex ].style || style;
 
                         if( style.color ) {
                             str = setTextColor( style.color, str );
@@ -1205,35 +1230,39 @@ var ContentSpec = ( function( options ) {
                         }
 
                         // Prepend html to local string and set html
-                        str = setTextStyles( style, str );
+                        // str = setTextStyles( style, str );
 
                         // Process line breaks
                         if( lineBreak ) {
                             if( lineIndex === 0 ) {
                                 // Create html with all current styling
-                                if( html[ lineIndex ].length === 0 ) {
-                                    html[ lineIndex ] = str.replace( encodeSpecialCharacters( node.stringValue ), "" );
+                                if( html[ lineIndex ].stringValue.length === 0 ) {
+                                    html[ lineIndex ].stringValue = str.replace( encodeSpecialCharacters( node.stringValue ), "" );
+                                    html[ lineIndex ].style = style;
                                 }
                             }
 
                             // Get previous end tag and prepend br tag
-                            html[ lineIndex ] = html[ lineIndex ].replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)|^$/, "<br>$1" );
+                            // html[ lineIndex ].stringValue = html[ lineIndex ].stringValue.replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)|^$/, "<br>$1" );
+                            html[ lineIndex ].stringValue += "<br>";
 
                             // Update line index
                             lineIndex += 1;
                             // Update html
-                            html[ lineIndex ] = "";
+                            html[ lineIndex ] = { stringValue: "", style: style };
                         }
 
                         // Prepend html to local string
-                        str = html[ lineIndex ] + str;
+                        str = html[ lineIndex ].stringValue + str;
 
                         // Set html
-                        html[ lineIndex ] = str;
-                    }
-                } );
+                        html[ lineIndex ].stringValue = str;
+                    } );
 
-                return html.join( "" );
+                    return html.map( function( line ) {
+                        return setTextStyles( line.style, line.stringValue );
+                    } ).join( "" );
+                }
             },
             getStringValue: function() {
                 return this._stringValue;
@@ -1303,6 +1332,24 @@ var ContentSpec = ( function( options ) {
             },
             getFontFamily: function() {
                 return this.firstInstanceofTextStyle( "font-family" );
+            },
+            getFontFamilies: function() {
+                var nodes = this._nodeStyles,
+                    fonts = [];
+
+                nodes.forEach( function( node ) {
+                    if( node.style[ "font-family" ] ) {
+                        fonts.push( node.style[ "font-family" ] );
+                    }
+                } );
+
+                return fonts.reduce( function( arr, name ) {                    
+                    if( arr.indexOf( name ) >= 0 ) {
+                        return arr;
+                    } else {
+                        return arr.concat( name );
+                    }
+                }, [] );
             },
             getTextDefaultStyleFor: getTextDefaultStyleFor,
 
@@ -1807,6 +1854,6 @@ var ContentSpec = ( function( options ) {
         }
     } );
 } )( {
-    schemaVersion: "3.20",
+    schemaVersion: "3.21",
     resetCSS: "reset3.20.css"
 } );
