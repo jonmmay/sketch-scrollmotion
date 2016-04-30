@@ -504,14 +504,21 @@ var ContentSpec = ( function( options ) {
         html = html || "";
         
         var resetCssVersion = getResetCssVersionNumber(),
-            stylesStr;
+            stylesStr,
+            rgb;
 
         if( resetCssVersion < 3200 ) {
             // Do nothing
         } else {
-            // Get postscript name
+            // Get postscript name only
             if( styles[ "font-family" ] ) {
                 styles[ "font-family" ] = styles[ "font-family" ].replace( /^([^,]*).*/, "$1" );
+            }
+            // Ensure rgb value
+            if( styles.color && util.isColorHex( styles.color ) ) {
+                rgb = util.hexToRgb( styles.color );
+                rgb = [ "r", "g", "b" ].map( function( key ) { return rgb[key]; } );
+                styles.color = "rgb(" + rgb.join( "," ) + ")";
             }
 
             // 3.20 text instance style excludes defaults
@@ -583,7 +590,7 @@ var ContentSpec = ( function( options ) {
         } else {
             // Ensure hex color
             if( rgbRegex.test( color ) ) {
-                hex = util.rgbToHex.apply( null, color.match( rgbRegex )[0]
+                hex = util.rgbToHex.apply( null, color.match( rgbRegex )[ 0 ]
                                                       .replace( /\s*/g, "" )
                                                       .split( "," ) );
             }
@@ -627,6 +634,7 @@ var ContentSpec = ( function( options ) {
                 "<": "&lt;",
                 "&": "&amp;",
                 '"': '\"',
+                "\t": "   ",
                 
                 // Sequential spaces, '  '
                 "  ": " &nbsp;"
@@ -635,7 +643,6 @@ var ContentSpec = ( function( options ) {
                 .map( function( val ) { return "\\" + val; } )
                 .join( "|" ) + ")", "g" );
 
-        log( str );
         return str.replace( regex, function( match ) {
             if( chars[ match ] ) {
                 return chars[ match ];
@@ -1017,7 +1024,7 @@ var ContentSpec = ( function( options ) {
                                 nodes[ i ].leadingLineBreak = true;
 
                                 // Remove line break
-                                lineBreaks.splice( lineBreaks.indexOf( nodes[ i ].index ) );
+                                lineBreaks.splice( lineBreaks.indexOf( nodes[ i ].index ), 1 );
                             }
                         }
                     }
@@ -1207,15 +1214,10 @@ var ContentSpec = ( function( options ) {
                                 if( html[ lineIndex ].length === 0 ) {
                                     html[ lineIndex ] = str.replace( encodeSpecialCharacters( node.stringValue ), "" );
                                 }
-
-                                // Update line index
-                                lineIndex = html.length;
-                                // Update html
-                                html[ lineIndex ] = "";
                             }
 
                             // Get previous end tag and prepend br tag
-                            html[ lineIndex - 1 ] = html[ lineIndex - 1 ].replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)/, "<br>$1" );
+                            html[ lineIndex ] = html[ lineIndex ].replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)|^$/, "<br>$1" );
 
                             // Update line index
                             lineIndex += 1;

@@ -1870,7 +1870,7 @@ function runTests( context ) {
 						setup.cleanAfterTest();
 					},
 					
-					// TO DO: empty name should be managed some other way
+					// TO DO: empty name should be managed some other way rather than injecting a default name
 					"test get sanitized layer name": function() {
 						var setup = setupLayersForTesting(),
 							layers = setup.layers,
@@ -1904,9 +1904,145 @@ function runTests( context ) {
 
 						setup.cleanAfterTest();
 					},
-			// 		"test get layer name attributes": function() {},
-			// 		"test add layer name attribute": function() {},
-			// 		"test clear layer name attributes": function() {},
+					"test get layer name attributes": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							types = {
+								artboard: "Test Artboard",
+								layerGroup: "Test LayerGroup",
+								rectangleLayer: "Test Rectangle",
+								textLayer: "Test Text",
+								imageLayer: "Test Bitmap",
+								subRectangleLayer: "Test Rectangle",
+								subTextLayer: "untitled",
+								subImageLayer: "Test Bitmap"
+							};
+
+						// Prefix
+						layers.imageLayer.name = "[B] " + layers.imageLayer.name();
+						layers.textLayer.name = "- " + layers.textLayer.name();
+						// Suffix
+						layers.layerGroup.name = layers.layerGroup.name() + " [B]";
+						layers.artboard.name = layers.artboard.name() + " -";
+						// Named tags with attributes
+						layers.subImageLayer.name = "[B=toggle] " + layers.subImageLayer.name();
+						// Name which will become empty
+						layers.subTextLayer.name = "*";
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "imageLayer" || key === "layerGroup" ) {
+								assert.strictEqual( layerView.getNameAttributes()[ "B" ][ 0 ], true, "Layer name tag attributes found" );
+							} else if( key === "textLayer" || key === "artboard" ) {
+								assert.strictEqual( layerView.getNameAttributes()[ "-" ][ 0 ], true, "Layer name tag attributes found" );
+							} else if( key === "subImageLayer" ) {
+								assert.strictEqual( layerView.getNameAttributes()[ "B" ][ 0 ], "toggle", "Layer name tag attributes found" );
+							} else if( key === "subTextLayer" ) {
+								assert.strictEqual( layerView.getNameAttributes()[ "*" ][ 0 ], true, "Layer name tag attributes found" );
+							} else {
+								assert.strictEqual( Object.keys( layerView.getNameAttributes() ).length, 0, "Layer name tag attributes don't exist" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test add layer name attribute": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							types = {
+								artboard: "- Test Artboard",
+								layerGroup: "[B] Test LayerGroup",
+								rectangleLayer: "Test Rectangle",
+								textLayer: "- Test Text",
+								imageLayer: "[B] Test Bitmap",
+								subRectangleLayer: "Test Rectangle",
+								subTextLayer: "* Test Text",
+								subImageLayer: "[B=toggle] Test Bitmap"
+							};
+
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "imageLayer" || key === "layerGroup" ) {
+								layerView.addNameAttributes( "B" );
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes found in name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes found in layer name" );
+							} else if( key === "textLayer" || key === "artboard" ) {
+								layerView.addNameAttributes( "-" );
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes found in name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes found in layer name" );
+							} else if( key === "subTextLayer" ) {
+								layerView.addNameAttributes( "*" );
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes found in name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes found in layer name" );
+							} else if( key === "subImageLayer" ) {
+								layerView.addNameAttributes( "B", [ "toggle" ] );
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes found in name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes found in layer name" );
+							} else {
+								layerView.addNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes not added to name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes not added to layer name" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+					},
+					"test clear layer name attributes": function() {
+						var setup = setupLayersForTesting(),
+							layers = setup.layers,
+							types = {
+								artboard: "Test Artboard",
+								layerGroup: "Test LayerGroup",
+								rectangleLayer: "Test Rectangle",
+								textLayer: "Test Text",
+								imageLayer: "Test Bitmap",
+								subRectangleLayer: "Test Rectangle",
+								subTextLayer: "untitled",
+								subImageLayer: "Test Bitmap"
+							};
+
+						// Prefix
+						layers.imageLayer.name = "[B] " + layers.imageLayer.name();
+						layers.textLayer.name = "- " + layers.textLayer.name();
+						// Suffix
+						layers.layerGroup.name = layers.layerGroup.name() + " [B]";
+						layers.artboard.name = layers.artboard.name() + " -";
+						// Named tags with attributes
+						layers.subImageLayer.name = "[B=toggle] " + layers.subImageLayer.name();
+						// Name which will become empty
+						layers.subTextLayer.name = "*";
+						
+						Object.keys( layers ).forEach( function( key ) {
+							var layerView = view.make( layers[ key ] );
+
+							if( key === "imageLayer" || key === "layerGroup" ) {
+								layerView.clearNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes cleared from name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes cleared from layer name" );
+							} else if( key === "textLayer" || key === "artboard" ) {
+								layerView.clearNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes cleared from name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes cleared from layer name" );
+							} else if( key === "subTextLayer" ) {
+								layerView.clearNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes cleared from name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes cleared from layer name" );
+							} else if( key === "subImageLayer" ) {
+								layerView.clearNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes cleared from name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes cleared from layer name" );
+							} else {
+								layerView.clearNameAttributes();
+								assert.strictEqual( layerView.name, types[ key ], "Layer name tag attributes cleared from name" );
+								assert.strictEqual( String( layerView.layer.name() ), types[ key ], "Layer name tag attributes cleared from layer name" );
+							}
+						} );
+
+						setup.cleanAfterTest();
+
+					},
 					
 			// 		"test get data attached to layer": function() {},
 			// 		"test set data attached to layer": function() {},

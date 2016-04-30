@@ -525,6 +525,10 @@ var util = ( function() {
         } : null;
     };
 
+    util.isColorHex = function( color ) {
+        return ( /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i ).test( color );
+    };
+
     /**
         * @desc Capture number from string
         * @param {string} string -

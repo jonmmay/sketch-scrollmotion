@@ -90,6 +90,7 @@
     "menu": {
         "isRoot": false,
         "items": [
+            "tests",
             "importScrollMotion",
             "exportScrollMotion",
             "-",

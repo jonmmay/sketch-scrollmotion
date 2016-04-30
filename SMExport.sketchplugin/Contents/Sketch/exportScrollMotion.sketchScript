@@ -277,15 +277,110 @@ var ExportScrollMotion = ( function() {
         // Return "natural" alignment as left
         return ( alignment == values.indexOf( "natural" ) ) ? values[ 0 ] : values[ alignment ];
     }
+    
     function getRgba( color ) {
-        return String( color ).replace( /[\(\)]/g, "" ).split( " " ).map( function( val ) {
-            var types = val.split( ":" ),
-                type = types[ 0 ],
-                value = types[ 1 ];
+        var rgba,
+            retRgba = { r:0.0, g:0.0, b:0.0 ,a: 1.0 };
+        if( color.className && String( color.className() ) === "MSColor" ) {
+            // (r:0.816204 g:0.007513 b:0.106696 a:1.000000)
+            rgba = color.RGBADictionary();
+            util.forEach( rgba, function( val, key ) {
+                retRgba[ key ] = key !== "a" ? Math.round( Number( val ) * 255 ) : Number( val );
+            } );
+        } else if( ( /^rgba?\((?:\d\.\d*,?){3,4}\)$/ ).test( String( color ) ) ) {
+            // rgba(0.290196,0.290196,0.290196,1.000000)
+            rgba = String( color ).match( new RegExp( "\\(([^\\)]*)\\)" ) )[ 1 ].split( "," );
+            
+            [ "r", "g", "b", "a" ].forEach( function( key, i ) {
+                if( rgba[ i ] ) {
+                    retRgba[ key ] = key !== "a" ? Math.round( Number( rgba[ i ] ) * 255 ) : Number( rgba[ i ] );    
+                }
+            } );
+        }
 
-            return ( type !== "a" ) ? Math.round( Number( value ) * 255 ) : Number( value );
-        } ).join( "," );
+        return retRgba;
     }
+
+    function getTextAttributedNodes( layer ) {
+        var attrString = [layer attributedString],
+            // Get text attributes as object
+            attrsArr = [attrString treeAsDictionary].value.attributes,
+            alignValues = [ "left", "right", "center", "justify", "natural" ],
+            nodes = [];
+
+            util.forEach( attrsArr, function( attrs ) {
+                var tempNodes = [],
+                    node = {
+                    index: Number( attrs.location ),
+                    stringValue: String( attrs.text ),
+                    length: Number( attrs.length ),
+                    style: {}
+                },
+                style = node.style;
+
+                // NSColor
+                style.color = util.rgbToHex.apply( null, util.values( getRgba( attrs.NSColor.color ) ) );
+
+                // NSFont
+                style[ "font-size" ] = util.toPx( attrs.NSFont.attributes.NSFontSizeAttribute );
+                style[ "font-family" ] = String( attrs.NSFont.attributes.NSFontNameAttribute );
+
+                // Append regular if subfamily doesn't exist
+                if( !( /\w*-\w*/ ).test( style[ "font-family" ] ) ) {
+                    style[ "font-family" ] += "-Regular";
+                }
+
+                // Font family format prior to SEP 3.20
+                style[ "font-family" ] += ", '" + attrs.NSFont.family  + "'";
+
+                // NSParagraphStyle
+                style[ "text-align" ] = Number( attrs.NSParagraphStyle.style.alignment );
+                // Return "natural" alignment as left
+                style[ "text-align" ] = ( style[ "text-align" ] == alignValues.indexOf( "natural" ) ) ? alignValues[ 0 ] : alignValues[ style[ "text-align" ] ];
+
+                if( attrs.NSParagraphStyle.style.maximumLineHeight > 0 ) {
+                    // maximumLineHeight and minimumLineHeight should be the same value
+                    style[ "line-height" ] = util.toPx( attrs.NSParagraphStyle.style.maximumLineHeight );
+                }
+
+                // Optional NSKern
+                if( attrs.NSKern ) {
+                    style[ "letter-spacing" ] = util.toPx( attrs.NSKern );
+                }
+
+                // Line breaks
+                tempNodes = node.stringValue.split( "\n" ).map( function( subnodeStr, i, arr ) {
+                    var subnode = util.naiveClone( node ),
+                        indexCount = 0;
+                    subnode.stringValue = subnodeStr;
+                    subnode.length = subnodeStr.length;
+                    if( i > 0 ) {
+                        subnode.leadingLineBreak = true;
+                    }
+
+                    while( indexCount < i ) {
+                        subnode.index += arr[ indexCount ].length;
+                        indexCount += 1;
+                    }
+
+                    return subnode;
+                } );
+
+                // Remove nodes without text and line breaks
+                tempNodes = tempNodes.reduce( function( prev, curr ) {
+                    if( curr.length === 0 && !curr.leadingLineBreak ) {
+                        return prev;
+                    } else {
+                        return prev.concat( curr );    
+                    }
+                }, [] );
+
+                nodes = nodes.concat( tempNodes );
+            } );
+
+            return nodes;
+       }
+
 
     return util.Object.extend( {
         init: function( ctx ) {
@@ -442,43 +537,9 @@ var ExportScrollMotion = ( function() {
 
                     overlay     = cs.make( "text_complex" ),
                     layerCS     = view.getLayerCS(),
-                    id          = String( [( view.layer ) objectID] ),
-                    nsfont      = [[[( view.layer ) style] textStyle] attributes].NSFont,
+                    id          = String( [( view.layer ) objectID] );
 
-                    textStr         = String( [( view.layer ) stringValue] ).replace( "\t", "   " ),
-                    fontFamily      = String( [( view.layer ) fontPostscriptName] ) + ", '" + String( [nsfont familyName] ) + "'",
-                    textAlign       = getTextAlignment( view.layer ),
-                    // Use lineHeight in > 3.7
-                    lineHeight      = util.toPx( [( view.layer ) lineSpacing] ),
-                    // auto value is null
-                    letterSpacing   = [( view.layer ) characterSpacing],
-                    color           = "#" + [[( view.layer ) textColor] hexValue],
-                    fontSize        = util.toPx( [( view.layer ) fontSize] );
-
-                overlay.setTextNodes( textStr.split( "\n" ).map( function( str, i, strArray ) {
-                    var node = {
-                        "style": {
-                            "font-family": fontFamily,
-                            "text-align": textAlign,
-                            "line-height": lineHeight,
-                            "color": color,
-                            "font-size": fontSize
-                        },
-                        "stringValue": str,
-                        "length": str.length,
-                        "index": strArray.slice( 0, i ).join( "" ).length,
-                    };
-
-                    if( letterSpacing && Number.isInteger( Number( letterSpacing ) ) ) {
-                        node.style[ "letter-spacing" ] = util.toPx( letterSpacing );
-                    }
-                    if( i > 0 ) {
-                        node.leadingLineBreak = true;
-                    }
-                    
-                    return node;
-                } ) );
-
+                overlay.setTextNodes( getTextAttributedNodes( view.layer ) );
                 overlay.setTextHtml( overlay.getHtmlFromNodeStyles() );
 
                 fontAssetHandler( view, function( font, fontName ) {
@@ -807,15 +868,15 @@ var ExportScrollMotion = ( function() {
                         if( border ) {
                             overlay.setKeyValue( "cgBorderWidth", util.toPx( [border thickness] ) );
                             overlay.setKeyValue( "cgBorderColor", "#" + [[border color] hexValue] );
-                            overlay.setKeyValue( "borderAlpha", Number( getRgba( [border color] ).split( "," ).pop() ) );
+                            overlay.setKeyValue( "borderAlpha", getRgba( [border color] ).a );
                         }
                         if( fill ) {
                             overlay.setKeyValue( "cgButtonColor", "#" + [[fill color] hexValue] );
-                            // overlay.setKeyValue( "cgButtonAlpha" , Number( getRgba( [fill color] ).split( "," ).pop() ) );
+                            // overlay.setKeyValue( "cgButtonAlpha" , getRgba( [fill color] ).a );
                         }
                         if( downFill ) {
                             overlay.setKeyValue( "cgButtonPressedColor", "#" + [[downFill color] hexValue] );
-                            // overlay.setKeyValue( "cgButtonPressedAlpha", Number( getRgba( [downFill color] ).split( "," ).pop() ) );
+                            // overlay.setKeyValue( "cgButtonPressedAlpha", getRgba( [downFill color] ).a );
                         } else if( fill ) {
                             overlay.setKeyValue( "cgButtonPressedColor", "#" + [[fill color] hexValue] );
                         }
@@ -997,7 +1058,7 @@ var ExportScrollMotion = ( function() {
 } )();
 
 function onRun( context ) {
-    var DEBUG_PREVENT_EXPORT = false;
+    var DEBUG_PREVENT_EXPORT = true;
     
     try{
         util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)

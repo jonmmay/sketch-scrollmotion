@@ -530,6 +530,7 @@ var View = ( function() {
 
         name += ( this.name.length > 0 ? " " : "" ) + this.name;
 
+        this.name = name;
         [( this.layer ) setName:name];
 
         return this;
@@ -542,6 +543,7 @@ var View = ( function() {
     View.prototype.clearNameAttributes = function() {
         var name = this.getSanitizedName();
         
+        this.name = name;
         [( this.layer ) setName:name];
 
         return this;
