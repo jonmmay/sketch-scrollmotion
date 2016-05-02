@@ -45,8 +45,8 @@
             "identifier": "ReportIssue"
         },
         {
-            "script": "exportScrollMotion.sketchscript",
-            "handler": "onRun",
+            "script": "export.sketchscript",
+            "handler": "onExport",
             "shortcut": "ctrl shift s",
             "name": "Export",
             "identifier": "exportScrollMotion"

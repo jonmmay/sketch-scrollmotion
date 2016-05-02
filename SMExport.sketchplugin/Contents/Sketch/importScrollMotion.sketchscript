@@ -1,4 +1,5 @@
 @import "util.js";
+@import "sketchLayerUtil.js";
 @import "config.js";
 @import "View.js";
 @import "CS.js";
@@ -274,12 +275,12 @@ var ImportScrollMotion = ( function( bindingNames ) {
                     indexOfSpace,
                     maxChars = 21,
 
-                    fontFamily = textOverlay.getFontFamily(),
-                    fontSize = textOverlay.getFontSize(),
+                    fontFamily = textOverlay.getFontFamily() || textOverlay.getTextDefaultStyleFor( "font-family" ),
+                    fontSize = textOverlay.getFontSize() || textOverlay.getTextDefaultStyleFor( "font-size" ),
                     lnHeight = textOverlay.getLineHeight(),
                     charSpace = textOverlay.getLetterSpacing(),
-                    txtAlign = textOverlay.getTextAlign(),
-                    txtColor = textOverlay.getColor(),
+                    txtAlign = textOverlay.getTextAlign() || textOverlay.getTextDefaultStyleFor( "text-align" ),
+                    txtColor = textOverlay.getColor() || textOverlay.getTextDefaultStyleFor( "color" ),
                     txtAlpha = cs.alpha;
 
                 // Return null if no text value
@@ -295,11 +296,9 @@ var ImportScrollMotion = ( function( bindingNames ) {
                 // Set text
                 textLayer.stringValue = stringWithBreaks( stringVal, textOverlay.getTextNodes().results() );
 
-                if( fontFamily ) {
-                    textLayer.fontPostscriptName = fontFamilyName( fontFamily );
-                }
+                [textLayer setFont:[NSFont fontWithName:fontPostScriptName( fontFamily ) size:numRoundHalfUp( fontSize )]];
                                 
-                if( fontSize ) { textLayer.fontSize = numRoundHalfUp( fontSize ); }
+                // if( fontSize ) { textLayer.fontSize = numRoundHalfUp( fontSize ); }
                 if( charSpace ) { [textLayer setCharacterSpacing:numRoundHalfUp( charSpace )]; }
 
                 if( lnHeight ) { 
@@ -619,10 +618,15 @@ var ImportScrollMotion = ( function( bindingNames ) {
         }
         return str;
     }
-    function fontFamilyName( name ) {
-        var prefName = name.slice( 0, name.indexOf( "," ) ).trim();
+    function fontPostScriptName( name ) {
+        var nameMatches = name.match( new RegExp( "^([^,]*)(?:,\\s?'([^']*)')?$" ) ),
+            postScriptName = nameMatches[ 1 ],
+            familyName = nameMatches[ 2 ]; // Won't exist post SEP 3.20
         
-        return prefName.replace( /\u0022|\u0027/ , "" );
+        return postScriptName;
+        // var prefName = name.slice( 0, name.indexOf( "," ) ).trim();
+        
+        // return prefName.replace( /\u0022|\u0027/ , "" );
     }
     
     function retinaImage( name ) {
@@ -652,7 +656,7 @@ var ImportScrollMotion = ( function( bindingNames ) {
     */
     function hexColorFromString( str ) {
         // Return str if already hex color
-        if( ( /^#[0-9a-fA-F]{6}$/i ).test( str ) ) {
+        if( util.isColorHex ) {
             return str;
         }
 

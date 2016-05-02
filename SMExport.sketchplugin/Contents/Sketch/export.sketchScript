@@ -1,4 +1,5 @@
 @import "util.js";
+// @import "sketchLayerUtil.js";
 @import "Config.js";
 @import "AnalyticsLogger.js";
 @import "View.js";
@@ -9,14 +10,14 @@
 // TO DO: Smart merge CS to concate properties such as metaData custom fonts
 
 var ExportScrollMotion = ( function() {
-    
+
     // Requires access to config
     function imageAssetHandler( view, callback ) {
         var layerName = util.unique( util.slugify( view.getSanitizedName() ) ),
             ext = this.config.getImageExtension(),
             filename = this.config.getExportFolderPath() + "/" + layerName + ext,
             src = layerName + ext;
-            
+
         if( callback ) {
             callback( src, filename );
         }
@@ -24,7 +25,7 @@ var ExportScrollMotion = ( function() {
     function fontAssetHandler( view, callback ) {
         var nsfont = [[[( view.layer ) style] textStyle] attributes].NSFont,
             fontName = String( [nsfont fontName] );
-            
+
         if( callback ) {
             callback( nsfont, fontName );
         }
@@ -46,7 +47,7 @@ var ExportScrollMotion = ( function() {
             types = [],
             requiresRastering = false;
 
-        util.forEach( borders, function( border ) {                    
+        util.forEach( borders, function( border ) {
             if( [border isEnabled] ) {
                 enabled += 1;
                 types.push( [border fillType] );
@@ -68,7 +69,7 @@ var ExportScrollMotion = ( function() {
             types = [],
             requiresRastering = false;
 
-        util.forEach( fills, function( fill ) {                    
+        util.forEach( fills, function( fill ) {
             if( [fill isEnabled] ) {
                 enabled += 1;
                 types.push( [fill fillType] );
@@ -89,7 +90,7 @@ var ExportScrollMotion = ( function() {
             enabled = 0,
             requiresRastering = false;
 
-        util.forEach( shadows, function( shadow ) {                    
+        util.forEach( shadows, function( shadow ) {
             if( [shadow isEnabled] ) {
                 enabled += 1;
             }
@@ -102,7 +103,7 @@ var ExportScrollMotion = ( function() {
             enabled = 0,
             requiresRastering = false;
 
-        util.forEach( shadows, function( shadow ) {                    
+        util.forEach( shadows, function( shadow ) {
             if( [shadow isEnabled] ) {
                 enabled += 1;
             }
@@ -113,7 +114,7 @@ var ExportScrollMotion = ( function() {
     function viewRequiresRastering( view ) {
         var kind = view.getLayerKind(),
             requiresRastering = false;
-            
+
         if( kind === "Bitmap" ) {
             return true;
         } else if( kind === "Artboard" || kind === "Slice" ) {
@@ -156,7 +157,7 @@ var ExportScrollMotion = ( function() {
 
         if( view.hasSubviews ) {
             subviews = view.subviews();
-            
+
             if( subviews.length > 1 ) {
                 util.forEach( view.subviews(), function( subview ) {
                     var layerName = subview.name.toLowerCase(),
@@ -169,11 +170,11 @@ var ExportScrollMotion = ( function() {
 
                         if( matches ) {
                             matchedStates[ state ].push( subview );
-                        }                        
+                        }
                     } );
                 } );
             } else {
-                matchedStates.normal.push( subviews[ 0 ] );    
+                matchedStates.normal.push( subviews[ 0 ] );
             }
         } else {
             matchedStates.normal.push( view );
@@ -183,12 +184,12 @@ var ExportScrollMotion = ( function() {
         // Coincidently this is priority listing
         matchedStates.unmatched = unmatched;
         priority.unshift( "unmatched" );
-        
+
         priority.forEach( function( state, i ) {
             matchedStates[ state ] = matchedStates[ state ].filter( function( item ) {
                 for( var ii = i + 1, iilen = priority.length; ii < iilen; ii++ ) {
                     if( priority[ ii ] === state ) { continue; }
-                    
+
                     for( var jj = 0, jjlen = matchedStates[ priority[ ii ] ].length; jj < jjlen; jj++ ) {
                         if( matchedStates[ priority[ ii ] ][ jj ].name === item.name ) {
                             return false;
@@ -277,7 +278,7 @@ var ExportScrollMotion = ( function() {
         // Return "natural" alignment as left
         return ( alignment == values.indexOf( "natural" ) ) ? values[ 0 ] : values[ alignment ];
     }
-    
+
     function getRgba( color ) {
         var rgba,
             retRgba = { r:0.0, g:0.0, b:0.0 ,a: 1.0 };
@@ -290,10 +291,10 @@ var ExportScrollMotion = ( function() {
         } else if( ( /^rgba?\((?:\d\.\d*,?){3,4}\)$/ ).test( String( color ) ) ) {
             // rgba(0.290196,0.290196,0.290196,1.000000)
             rgba = String( color ).match( new RegExp( "\\(([^\\)]*)\\)" ) )[ 1 ].split( "," );
-            
+
             [ "r", "g", "b", "a" ].forEach( function( key, i ) {
                 if( rgba[ i ] ) {
-                    retRgba[ key ] = key !== "a" ? Math.round( Number( rgba[ i ] ) * 255 ) : Number( rgba[ i ] );    
+                    retRgba[ key ] = key !== "a" ? Math.round( Number( rgba[ i ] ) * 255 ) : Number( rgba[ i ] );
                 }
             } );
         }
@@ -377,7 +378,7 @@ var ExportScrollMotion = ( function() {
                         return prev;
                     } else {
                         // Add current value to array
-                        return prev.concat( curr );    
+                        return prev.concat( curr );
                     }
                 }, [] );
 
@@ -430,7 +431,7 @@ var ExportScrollMotion = ( function() {
                     id = String( [( view.layer ) objectID] );
 
                 page.setKeyValue( "displayName", view.getSanitizedName() );
-                
+
                 // Merge preexisting content spec properties
                 if( layerCS && shouldMergeLayerCS ) {
                     // Set preexisting page id
@@ -450,15 +451,15 @@ var ExportScrollMotion = ( function() {
                 var view = bindObj.getView(),
                     parent = bindObj.getParent(),
                     rect,
-                    
+
                     overlay = cs.make( "image" ),
                     layerCS = view.getLayerCS(),
                     id = String( [( view.layer ) objectID] );
 
                 boundImageAssetHandler( view, function( src, filename ) {
                     overlay.setKeyValue( "images", [ src ] );
-                    
-                    bindObj.exportFiles.push( util.Command.create( 
+
+                    bindObj.exportFiles.push( util.Command.create(
                         // Create artboard specifically for exporting layer
                         function() {
                             var dupView = view.duplicate(),
@@ -524,8 +525,8 @@ var ExportScrollMotion = ( function() {
                 // Reset value
                 this.stopAutoApplyBindingForChildren = false;
 
-                // If layerGroup has clipping mask and no bindings, 
-                // Export layerGroup as a flattened Bitmap
+                // If layerGroup has clipping mask and no bindings,
+                // export layerGroup as a flattened Bitmap
                 if( view.hasClippingMask && util.values( view.getNameAttributes() ).length === 0 ) {
                     viewBindingControl.layerKindGenerators[ "Bitmap" ].object( bindObj );
                     this.stopAutoApplyBindingForChildren = true;
@@ -562,7 +563,7 @@ var ExportScrollMotion = ( function() {
                     }
 
                     if( font ) {
-                        bindObj.exportFonts.push( util.Command.create( 
+                        bindObj.exportFonts.push( util.Command.create(
                             // Execute
                             function( fontFound ) {
                                 if( fontFound ) {
@@ -571,7 +572,7 @@ var ExportScrollMotion = ( function() {
                                     // Revert custom font overlays to default font/text
                                     overlay.setTextNodes( overlay.getTextNodeStyles().map( function( node ) {
                                         var foundPostScriptName;
-                                        
+
                                         if( node.style[ "font-family" ] ) {
                                             foundPostScriptName = node.style[ "font-family" ].replace( /^([^,]*).*/, "$1" );
 
@@ -579,10 +580,10 @@ var ExportScrollMotion = ( function() {
                                                 node.style[ "font-family" ] = overlay.getTextDefaultStyleFor( "font-family" );
                                                 // Clean up associated tags
                                                 if( node.style[ "font-style" ] ) {
-                                                    delete node.style[ "font-style" ];    
+                                                    delete node.style[ "font-style" ];
                                                 }
                                                 if( node.style[ "font-weight" ] ) {
-                                                    delete node.style[ "font-weight" ];    
+                                                    delete node.style[ "font-weight" ];
                                                 }
                                             }
                                         }
@@ -596,11 +597,11 @@ var ExportScrollMotion = ( function() {
 
                             // Undo
                             function() {},
-                            
+
                             // Value
                             {
                                 getView: function() { return view },
-                                fontName: postScriptName, 
+                                fontName: postScriptName,
                                 font: font
                         } ) );
                     } else {
@@ -670,12 +671,12 @@ var ExportScrollMotion = ( function() {
                         requiresRastering = view.getLayerValueForKey( "exportAsImage" ) || false,
                         inspectorToggle = view.getLayerValueForKey( "toggle" ) || false;
 
-                    // Reset export files 
+                    // Reset export files
                     bindObj.exportFonts = [];
                     bindObj.exportFiles = [];
 
                     // Basic button properties
-                    var basicButtonDownState, 
+                    var basicButtonDownState,
                         normalStates = [], downStates = [],
                         textView, textPos, textColor, downColor,
                         pos, border, cornerRadius,
@@ -698,7 +699,7 @@ var ExportScrollMotion = ( function() {
                         }
                         if( stateViews.downOn.length > 0 ) {
                             requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.downOn );
-                        }   
+                        }
                     }
 
                     if( stateViews.normal.length > 0 ) {
@@ -708,7 +709,7 @@ var ExportScrollMotion = ( function() {
                     if( stateViews.down.length > 0 ) {
                         requiresRastering = requiresRastering || buttonStateViewsRequiresRastering( stateViews.down );
                     }
-                    
+
                     overlay = cs.make( !requiresRastering ? "button" : "image_button" );
                     overlay.setKeyValue( "displayName", view.getSanitizedName() );
                     overlay.setKeyValue( "toggle", inspectorToggle );
@@ -720,12 +721,12 @@ var ExportScrollMotion = ( function() {
                             var stateView = stateViews[ state ][ 0 ],
                                 buttonStateName = state === "normal" ? "images" :
                                                   "images" + state.replace( /^(\w)/, function( m ) { return m.toUpperCase(); } );
-                            
+
                             if( stateView ) {
                                 boundImageAssetHandler( stateView, function( src, filename ) {
                                     overlay.setKeyValue( buttonStateName, [ src ] );
 
-                                    bindObj.exportFiles.push( util.Command.create( 
+                                    bindObj.exportFiles.push( util.Command.create(
                                         // Create artboard specifically for exporting layer
                                         function() {
                                             var artboard = [MSArtboardGroup new],
@@ -740,7 +741,7 @@ var ExportScrollMotion = ( function() {
 
                                             // Set group name to first state layer name
                                             group.name = stateViews[ state ][ 0 ].name;
-                                            
+
                                             // Move multiple layers into a single group
                                             if( stateViews[ state ].length > 1 ) {
                                                 stateViews[ state ].forEach( function( sview ) {
@@ -779,7 +780,7 @@ var ExportScrollMotion = ( function() {
                                         }, {
                                             getView: function() { return view; },
                                             target: filename
-                                    } ) );                                    
+                                    } ) );
                                 } );
                             }
                         } );
@@ -817,7 +818,7 @@ var ExportScrollMotion = ( function() {
 
                             if( kind === "Text" && !textView ) {
                                 overlay.setKeyValue( "text", String( [( stateView.layer ) stringValue] ) );
-                                
+
                                 textView = stateView;
                                 textColor = [( textView.layer ) textColor];
                                 textPos = textView.getLayoutRelativeTo( view );
@@ -852,8 +853,8 @@ var ExportScrollMotion = ( function() {
                         // Assign cg button properties to overlay
                         if( textView ) {
                             overlay.setKeyValue( "font" , String( [( textView.layer ) fontPostscriptName] ) );
-                            fontAssetHandler( textView, function( font, fontName ) {                                
-                                bindObj.exportFonts.push( util.Command.create( 
+                            fontAssetHandler( textView, function( font, fontName ) {
+                                bindObj.exportFonts.push( util.Command.create(
                                     // Execute
                                     function( fontFound ) {
                                         if( fontFound ) {
@@ -866,11 +867,11 @@ var ExportScrollMotion = ( function() {
 
                                     // Undo
                                     function() {},
-                                    
+
                                     // Value
                                     {
                                         getView: function() { return textView },
-                                        fontName: fontName, 
+                                        fontName: fontName,
                                         font: font
                                 } ) );
                             } );
@@ -880,7 +881,7 @@ var ExportScrollMotion = ( function() {
                             overlay.setKeyValue( "fontColor" , "#" + [textColor hexValue] );
                         }
 
-                        // SmartStudio requires text padding to be an whole number 
+                        // SmartStudio requires text padding to be an whole number
                         // otherwise the button is completely jacked up
                         if( textPos && pos ) { overlay.setKeyValue( "textPadding",  util.toPx( Math.floor( textPos.x - pos.x ) ) ); }
                         if( downColor || textColor ) {
@@ -905,13 +906,13 @@ var ExportScrollMotion = ( function() {
 
                         if( typeof cornerRadius !== undefined && pos ) {
                             // Ensure corner radius doesn't exceed half of smallest dimension
-                            overlay.setKeyValue( "cgCornerRadius" , util.toPx( 
-                                ( cornerRadius <= Math.min( pos.width , pos.height ) / 2 ) ? 
+                            overlay.setKeyValue( "cgCornerRadius" , util.toPx(
+                                ( cornerRadius <= Math.min( pos.width , pos.height ) / 2 ) ?
                                     cornerRadius : Math.min( pos.width , pos.height ) / 2
                             ) );
                         }
                     }
-                    
+
                     rect = parent ? rectForOverlay( view, parent.getView() ) : rectForOverlay( view );
                     overlay.setLayouts( csOrientation, util.merge( rect, {
                         "horizontalAlign": "left",
@@ -939,7 +940,7 @@ var ExportScrollMotion = ( function() {
 
                     // Attach to bindObj
                     bindObj.overlay = overlay;
-                }   
+                }
             } );
 
             // Container
@@ -949,13 +950,13 @@ var ExportScrollMotion = ( function() {
                     var view = bindObj.getView(),
                         parent = bindObj.getParent(),
                         rect,
-                        
+
                         overlay = cs.make( "container" ),
                         layerCS = view.getLayerCS(),
                         id = String( [( view.layer ) objectID] ),
                         frame = view.getClippingMask(),
                         scrollFrame = view.getInfluenceLayoutSansStyles(),
-                        
+
                         // Using stub default values if not defined
                         inspectorPaging = view.getLayerValueForKey( "paging" ),
                         inspectorClipToBounds = view.getLayerValueForKey( "clipToBounds" ),
@@ -964,7 +965,7 @@ var ExportScrollMotion = ( function() {
                         inspectorBounces = view.getLayerValueForKey( "userScrollingBounces" ),
                         inspectorscrollStyle = view.getLayerValueForKey( "scrollerStyle" ),
                         inspectorScrollDir = view.getLayerValueForKey( "userScrolling" ),
-                        
+
                         scrollDir = inspectorScrollDir ? inspectorScrollDir :
                                     scrollFrame.width > frame && scrollFrame.height > frame.height ? "both" :
                                     scrollFrame.width > frame.width ? "horizontal" :
@@ -988,11 +989,11 @@ var ExportScrollMotion = ( function() {
                     //
                     var invalidTapThrough = view.getLayerValueForKey( "tapThrough" );
 
-                    if( typeof inspectorClickThrough === "undefined" && 
+                    if( typeof inspectorClickThrough === "undefined" &&
                         typeof invalidTapThrough !== "undefined" ) {
                         inspectorClickThrough = invalidTapThrough;
                     }
-                    
+
                     // Clear layer attribute
                     view.clearLayerKey( "tapThrough" );
 
@@ -1021,7 +1022,7 @@ var ExportScrollMotion = ( function() {
                     if( typeof inspectorscrollStyle !== "undefined" ) {
                         overlay.setKeyValue( "scrollerStyle" , inspectorscrollStyle );
                     }
-                    
+
                     overlay.setKeyValue( "hidden", view.isHidden() );
                     overlay.setKeyValue( "alpha", Number( [[[( view.layer ) style] contextSettings] opacity] ) );
 
@@ -1052,7 +1053,7 @@ var ExportScrollMotion = ( function() {
             // Process layers excluding layers tagged to be ignored
             util.forEach( layersForTransformation, function( layer ) {
                 var layerView = viewBind.make( layer );
-                
+
                 if( !layerView.shouldBeIgnored() ) {
                     if( layerView.isArtboard() ) {
                         eligibleArtboardViews.push( layerView )
@@ -1070,8 +1071,8 @@ var ExportScrollMotion = ( function() {
             // Process eligible layers
             util.forEach( eligibleViews, function( layerView ) {
                 var boundLayers = viewBindingControl.applyBindings( layerView );
-                
-                transformedLayers = transformedLayers.concat( boundLayers );                
+
+                transformedLayers = transformedLayers.concat( boundLayers );
             } );
 
             return transformedLayers;
@@ -1079,462 +1080,275 @@ var ExportScrollMotion = ( function() {
     } );
 } )();
 
-function onRun( context ) {
-    var DEBUG_PREVENT_EXPORT = false;
-    
-    try{
-        util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
+function onExport( context ) {
+	var DEBUG_PREVENT_EXPORT = false;
 
-        util.debug.debug( "########## Export start ##########" );
+    var doc         = context.document,
+        selection   = context.selection,
+        plugin      = context.plugin,
+        fileManager = [NSFileManager defaultManager];
 
-        var doc = context.document,
-            selection = context.selection,
-            plugin = context.plugin,
-            pluginCommand = context.command,
-            fileManager = [NSFileManager defaultManager],
+    function catchError( err ) {
+        util.debug.error( "Uncaught error: " + err, err );
+        doc.showMessage( "Error" );
+    }
 
-            exportSM = ExportScrollMotion.create( context ),
-            cs = ContentSpec.create( context ),
-            config = Config.create( context ),
-            analytics = AnalyticsLogger.create( context ),
-            csFileURL = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
+    // Set to 3 or lower for production
+    util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
 
-            layersForTransformation = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers],
-            transformedLayers,
-            data,
-            json,
-            screens,
-            orientation,
-            fontSize,
+    util.debug.debug( "########## Export start ##########" );
 
-            unsavedAlert,
-            unsavedMessages = [
-                {
-                    title: "Hey Now",
-                    body: "Save your Sketch project and try again!"
-                },
-                {
-                    title: "Wait",
-                    body: "Where's your file? Please save and try again."
-                },
-                {
-                    title: "Come on " + String( NSFullUserName() ),
-                    body: "You should know you need to save to export."
-                },
-                {
-                    title: "Forgetting something?",
-                    body: "Be sure to save before exporting."
-                }
-            ],
-            unsavedIndex = Math.floor( Math.random() * unsavedMessages.length ),
-            unsavedIconData,
-            unsavedIcon,
+	// Set up
+    var exportSM 	= ExportScrollMotion.create( context ),
+        cs 			= ContentSpec.create( context ),
+        config 		= Config.create( context ),
+        analytics 	= AnalyticsLogger.create( context ),
 
-            analyticsCollection = "events";
+        csFileURL   = [NSURL fileURLWithPath:config.getExportFolderPath() + "/ContentSpec.json"],
+		// Selection else all layers on current page
+        layersForTransformation  = ( [selection count] > 0 ) ? selection : [[doc currentPage] layers];
 
-        // User must save document to export
-        if( !config.getExportFolderPath() ) {
-            unsavedAlert = [COSAlertWindow new];
-            [unsavedAlert setMessageText: unsavedMessages[ unsavedIndex ].title];
-            [unsavedAlert setInformativeText: unsavedMessages[ unsavedIndex ].body];
-
-            unsavedIconData = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
-            unsavedIcon = [[NSImage alloc] initWithData:unsavedIconData];
-            if( unsavedIcon ) {
-                [unsavedAlert setIcon:unsavedIcon];    
+    function run() {
+        return new util.QueueSync( function( resolve, reject ) {
+            if( !config.getExportFolderPath() ) {
+                reject( "Sketch project not saved" );
+            } else {
+                resolve( config.getExportFolderPath() );
             }
-            
-            [unsavedAlert runModal];
-            
-            return;
+        } )
+    }
+
+    run()
+
+    // Determine if document is saved
+    .then( function( res ) {}, function( err ) {
+       // Document is not saved
+        var alert        = [COSAlertWindow new],
+            iconData     = [NSData dataWithContentsOfURL:[( context.plugin ) urlForResourceNamed:@"icon.png"]],
+            icon         = [[NSImage alloc] initWithData:iconData],
+            messages,
+            index;
+
+        messages = [
+            {
+                title:  "Hey Now",
+                body:   "Save your Sketch project and try again!"
+            },
+            {
+                title:  "Wait",
+                body:   "Where's your file? Please save and try again."
+            },
+            {
+                title:  "Come on " + String( NSFullUserName() ),
+                body:   "You should know you need to save to export."
+            },
+            {
+                title:  "Forgetting something?",
+                body:   "Be sure to save before exporting."
+            }
+        ];
+        index = Math.floor( Math.random() * messages.length );
+
+        [alert setMessageText:messages[ index ].title];
+        [alert setInformativeText:messages[ index ].body];
+
+        if( icon ) {
+            [alert setIcon:icon];
         }
+
+        [alert runModal];
+
+        // Pass error
+        return util.QueueSync.reject( err );
+    } )
+
+    // Merge with existing CS
+    .then( function() {
+        var data,
+            json;
 
         // Attempt to initialize with export folder's content spec to retain data
         if( !config.getSettingsKeyValue( "cleanExport" ) ) {
-            data = getFileData( csFileURL );
-            
+            data = util.getFileData( csFileURL );
+
             if( data ) {
-                json = getJSONObjectWithData( data, true );
-                
+                json = util.getJSONObjectWithData( data, true );
+
                 if( json ) {
                     // Convert JSON for use with JavaScript
                     cs.initWithJSON( JSON.parse( String( util.stringifyJSON( json ) ) ) );
                 }
             }
         }
+    } )
 
-        function getFileData( url ) {
-            if( url && [url isKindOfClass:[NSURL class]] ) {
-                return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
-                    [NSData dataWithContentsOfURL:url] : null;  
-            }
-            return null;
-        }
-        function getJSONObjectWithData( data, mutable ) {
-            var err = [[MOPointer alloc] init],
-                json;
-            mutable = mutable ? NSJSONReadingMutableContainers : 0;
-            
-            if( data && [data isKindOfClass:[NSData class]] ) {
-                json = [NSJSONSerialization JSONObjectWithData:data options:mutable error:err];
+    // Set CS screen support and process layers for CS
+    // TO DO: What if an artboard doesn't exist?
+    .then( function() {
+        return new util.QueueSync( function( resolve, reject ) {
 
-                if( err.value() ) {
-                    util.debug.warn( "json error: can't load json" );
-                    util.debug.warn( err.value() );
-                    return null;
-                }
-                return json;
-            }
-            return null;
-        }
-        function showDialog( title, message ) {
-            var alert = [COSAlertWindow new],
-                responseCode;
-            
-            [alert setMessageText: title];
-            [alert setInformativeText: message];
+            var fontSize = 14,
+                screens,
+                orientation,
+                transformedLayers;
 
-            return {
-                addButtonWithTitle: function( title ) {
-                    [alert addButtonWithTitle: title];
-                    return this;
-                },
-                run: function( actionHandler ) {
-                    responseCode = [alert runModal];
-                    if( actionHandler ) {
-                        // 1000 = rightmost button
-                        // 1001 = second button from right
-                        // 1002 = third button from right
-                        // 100 + n
-                        actionHandler( responseCode );
-                    }
-                }
-            };
-        }
-        function promptUserForFontURL( font ) {
-            var openPanel = [NSOpenPanel openPanel],
-                title = "Please locate font " + [font displayName],
-                fileTypes = [ "ttf", "otf" ];
+            // TO DO: Optimize by breaking loop when screen is found
+            function setCSScreenSupport( layers ) {
+                var view        = View.create( context ),
+                    screens     = cs.getScreenSupportScreens(),
+                    addScreen   = true,
+                    screenSize,
+                    orientation;
 
-            [openPanel setCanChooseFiles:true];
-            [openPanel setCanChooseDirectories:false];
-            [openPanel setAllowsMultipleSelection:false];
-            [openPanel setCanCreateDirectories:false];
-            [openPanel setMessage:title];
+                util.forEach( layers, function( layer ) {
+                    var viewLayer = view.make( layer );
 
-            // This doesn't appear to be an option as of OSX 10.11
-            // [openPanel setTitle:title];
+                    if( addScreen ) {
+                        // Get layer artboard
+                        if( !viewLayer.isArtboard() ) {
+                            viewLayer = viewLayer.getParentArtboard();
+                        }
 
-            fileTypes = fileTypes.map( function( type ) {
-                return [@"" stringByAppendingString:type];
-            } );
+                        if( viewLayer && viewLayer.isArtboard() && !viewLayer.shouldBeIgnored() ) {
+                            screenSize  = viewLayer.getAbsoluteLayout();
+                            orientation = ( screenSize.width < screenSize.height ) ? "portrait" : "landscape";
 
-            [openPanel setAllowedFileTypes:fileTypes];
+                            // See if screen size matches an existing screen
+                            if( screens.length > 0 ) {
+                                screens.some( function( screen ) {
+                                    if( screen.width        === screenSize.width &&
+                                        screen.height       === screenSize.height &&
+                                        screen.orientation  === orientation ) {
 
-            if( [openPanel runModal] == NSOKButton ) {
-                return [[openPanel URLs] firstObject];
-            } else {
-                return null;
-            }
-        }
-        function checkManifestForFonts( fonts ) {
-            var manifest = config.getSettingsManifest(),
-                fontManifest = manifest ? manifest.fonts || {} : {},
-                unregisteredFonts = fonts.filter( function( font ) {
-                    if( !fontManifest[ [font fontName] ] ) {
-                        return true;
-                    }
-                } ),
-                shouldPromptUser = false,
-                newFonts = {};
+                                        // Screen exists; don't add
+                                        addScreen = false;
+                                        return true;
+                                    }
+                                } );
+                            }
 
-            // Inform user of missing fonts
-            if( unregisteredFonts.length > 0 ) {
-                showDialog( "Missing Font File" + ( unregisteredFonts.length > 1 ? "s" : "" ),
-                            "Please locate the font file" + ( unregisteredFonts.length > 1 ? "s" : "" ) + " used in this document:\n" +
-                            unregisteredFonts.map( function( font ) {
-                                return [font displayName];
-                            } ).join( "\n" ) )
-                    .addButtonWithTitle( "OK" )
-                    .addButtonWithTitle( "Not Now" )
-                    .run( function( res ) {
-                        shouldPromptUser = ( res == 1001 ) ? false : true;
-                    } );
-            }
-
-            // Prompt user to locate missing fonts
-            if( shouldPromptUser ) {
-                unregisteredFonts.forEach( function( font ) {
-                    var url = promptUserForFontURL( font );
-
-                    if( url ) {
-                        newFonts[ [font fontName] ] = [url fileSystemRepresentation];
+                            if( addScreen ) {
+                                cs.addScreenSupportScreen( orientation, screenSize.width, screenSize.height );
+                                addScreen = false;
+                            }
+                        }
                     }
                 } );
             }
+            function mapCSOverlaysToParent( layers ) {
+                var startPageId = cs.getStartPage(),
+                    csTypes = {
+                        overlay: function( obj ) {
+                            var overlay         = obj.overlay,
+                                existingCS      = cs.getOverlay( overlay.getOverlayId() ),
+                                parent          = obj.getParent ? obj.getParent() : null,
+                                parentObject    = parent ? parent.overlay ? parent.overlay : parent.page : null,
+                                overlayId;
 
-            // Save missing font paths to font manifest
-            if( util.values( newFonts ).length > 0 ) {
-                util.merge( fontManifest, newFonts );
-                manifest.fonts = fontManifest;
-
-                config.setSettingsManifest( manifest );
-            }
-
-            return fontManifest;
-        }
-        
-        function setCSScreenSupport( layers ) {
-            var view = View.create( context ),
-                screenSize,
-                orientation,
-                screens = cs.getScreenSupportScreens(),
-                addScreen = true;
-
-            util.forEach( layers, function( layer ) {
-                var viewLayer = view.make( layer );
-
-                if( addScreen ) {
-                    // Get layer artboard
-                    if( !viewLayer.isArtboard() ) {
-                        viewLayer = viewLayer.getParentArtboard();
-                    }
-
-                    if( viewLayer && viewLayer.isArtboard() ) {
-                        screenSize = viewLayer.getAbsoluteLayout();
-                        orientation = ( screenSize.width < screenSize.height ) ? "portrait" : "landscape";
-
-                        // See if screen size matches an existing screen
-                        if( screens.length > 0 ) {
-                            screens.some( function( screen ) {
-                                if( screen.width === screenSize.width &&
-                                    screen.height === screenSize.height &&
-                                    screen.orientation === orientation ) {
-
-                                    // Screen exists; don't add
-                                    addScreen = false;
-                                    return true;
-                                }
-                            } );
-                        }
-
-                        if( addScreen ) {
-                            cs.addScreenSupportScreen( orientation, screenSize.width, screenSize.height );
-                            addScreen = false;
-                        }
-                    }
-                }
-            } );
-        }
-        function mapCSOverlaysToParent( layers ) {
-            var startPageId = cs.getStartPage(),
-                csTypes = {
-                    overlay: function( obj ) {
-                        var overlay = obj.overlay,
-                            existingCS = cs.getOverlay( overlay.getOverlayId() ),
-                            parent = obj.getParent ? obj.getParent() : null,
-                            parentObject = parent ? parent.overlay ? parent.overlay : parent.page : null,
-                            overlayId;
-
-                        // Generate new overlay id if existing overlay doesn't exist or is a different overlay type
-                        if( !existingCS || ( existingCS && existingCS.type !== overlay.value().type ) ) {
-                            overlay.setOverlayId( cs.generateOverlayId() );
-                        }
-
-                        // Overlay id is stored on layer
-                        else {                            
-                            // Check overlay id against cs overlay ids
-                            overlayId = cs.generateOverlayId( overlay.getOverlayId() );
-                            
-                            // Replace id if id is already used
-                            if( overlayId !== overlay.getOverlayId() ) {
-                               overlay.setValue( cs.replaceIdWithId( overlay.value(), overlay.getOverlayId(), overlayId ) );
+                            // Generate new overlay id if existing overlay doesn't exist or is a different overlay type
+                            if( !existingCS || ( existingCS && existingCS.type !== overlay.value().type ) ) {
+                                overlay.setOverlayId( cs.generateOverlayId() );
                             }
-                        }
 
-                        // Add overlay to content spec
-                        cs.appendOverlay( overlay.value() );
+                            // Overlay id is stored on layer
+                            else {
+                                // Check overlay id against cs overlay ids
+                                overlayId = cs.generateOverlayId( overlay.getOverlayId() );
 
-                        // Attach content spec to layer
-                        if( obj.getView().getLayerCS() ) {
-                            obj.getView().setLayerCS( overlay.value() );
-                        }
+                                // Replace id if id is already used
+                                if( overlayId !== overlay.getOverlayId() ) {
+                                   overlay.setValue( cs.replaceIdWithId( overlay.value(), overlay.getOverlayId(), overlayId ) );
+                                }
+                            }
 
-                        // Add overlay reference to parent overlay/page
-                        if( parentObject && parentObject.addReferenceByOverlayId ) {
-                            parentObject.addReferenceByOverlayId( overlay.getOverlayId() );
+                            // Add overlay to content spec
+                            cs.appendOverlay( overlay.value() );
 
                             // Attach content spec to layer
-                            if( parent.getView().getLayerCS() ) {
-                                parent.getView().setLayerCS( overlay.value() );
+                            if( obj.getView().getLayerCS() ) {
+                                obj.getView().setLayerCS( overlay.value() );
+                            }
+
+                            // Add overlay reference to parent overlay/page
+                            if( parentObject && parentObject.addReferenceByOverlayId ) {
+                                parentObject.addReferenceByOverlayId( overlay.getOverlayId() );
+
+                                // Attach content spec to layer
+                                if( parent.getView().getLayerCS() ) {
+                                    parent.getView().setLayerCS( overlay.value() );
+                                }
+                            }
+                        },
+                        page: function( obj ) {
+                            var page        = obj.page,
+                                existingCS  = cs.getPage( page.getPageId() ),
+                                pageId;
+
+                            // Generate new page id if existing page doesn't exist
+                            if( !existingCS ) {
+                                page.setPageId( cs.generatePageId() );
+                            }
+
+                            // Page id is stored on layer
+                            else {
+                                // Check page id against cs page ids
+                                pageId = cs.generatePageId( page.getPageId() );
+
+                                // Replace id if id is already used
+                                if( pageId !== page.getPageId() ) {
+                                   page.setValue( cs.replaceIdWithId( page.value(), page.getPageId(), pageId ) );
+                                }
+                            }
+
+                            // Add page to content spec
+                            cs.appendPage( page.value() );
+
+                            // Attach content spec to layer
+                            if( obj.getView().getLayerCS() ) {
+                                obj.getView().setLayerCS( page.value() );
+                            }
+
+                            // Set start page if none exists
+                            if( !startPageId ) {
+                                cs.setStartPage( page.getPageId() );
+                                startPageId = page.getPageId();
                             }
                         }
-                    },
-                    page: function( obj ) {
-                        var page = obj.page,
-                            existingCS = cs.getPage( page.getPageId() ),
-                            pageId;
+                    };
 
-                        // Generate new page id if existing page doesn't exist
-                        if( !existingCS ) {
-                            page.setPageId( cs.generatePageId() );
-                        }
+                return layers.map( function( obj ) {
+                    obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
 
-                        // Page id is stored on layer
-                        else {
-                            // Check page id against cs page ids
-                            pageId = cs.generatePageId( page.getPageId() );
-                            
-                            // Replace id if id is already used
-                            if( pageId !== page.getPageId() ) {
-                               page.setValue( cs.replaceIdWithId( page.value(), page.getPageId(), pageId ) );
-                            }
-                        }
-                        
-                        // Add page to content spec
-                        cs.appendPage( page.value() );
-
-                        // Attach content spec to layer
-                        if( obj.getView().getLayerCS() ) {
-                            obj.getView().setLayerCS( page.value() );
-                        }
-
-                        // Set start page if none exists
-                        if( !startPageId ) {
-                            cs.setStartPage( page.getPageId() );
-                            startPageId = page.getPageId();
-                        }
+                    if( obj.type !== null ) {
+                        csTypes[ obj.type ]( obj );
                     }
-                };
 
-            return layers.map( function( obj ) {
-                obj.type = ( obj.overlay !== null ) ? "overlay" : ( obj.page !== null ) ? "page" : null;
-
-                if( obj.type !== null ) {
-                    csTypes[ obj.type ]( obj );
-                }
-
-                return obj;
-            } );
-        }
-
-        function makeSlice( layer, rect, scaleFactor ) {
-            // Old
-            // var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];                                    
-            // slice.page = [[doc currentPage] copyIncludingObjectIDS];
-            // slice.format = config.getImageExtension().replace( "." , "" );
-            // slice.scale = scaleFactor;
-
-            var slice = [MSExportRequest requestWithRect:rect scale:scaleFactor];
-
-            [slice setShouldTrim:false];
-            [slice setSaveForWeb:true];
-            [slice configureForLayer:layer];
-            
-            [slice setFormat:( config.getImageExtension().replace( "." , "" ) )];
-
-            return slice;
-        }
-        function disableMaskForExport( view ) {
-            var parentView = view.parentGroup,
-                maskLayer = null;
-
-            if( view.hasClippingMask ) {
-                maskLayer = view;
+                    return obj;
+                } );
             }
 
-            if( maskLayer === null ) {
-                while( parentView !== null && !parentView.hasClippingMask && !parentView.isArtboard() ) {
-                    parentView = parentView.parentGroup;
-                }
-                if( parentView !== null && parentView.hasClippingMask ) {
-                    maskLayer = parentView;
-                }
-            }
+            setCSScreenSupport( layersForTransformation );
 
-            if( maskLayer !== null ) {
-                maskLayer.disableMask();
-            }
-            return maskLayer;
-        }
-        function disableHiddenForExport( view ) {
-            var parentView = view.parentGroup,
-                hiddenLayer = null;
+            screens = cs.getScreenSupportScreens();
+            orientation = screens.length > 0 ? screens[ 0 ].orientation : "landscape";
 
-            if( view.hasHiddenSubviews() ) {
-                hiddenLayer = view;
-            }
+            // Create content spec from layer information
+            transformedLayers = exportSM.processLayers( layersForTransformation, orientation, fontSize );
+            // Map overlay relationships
+            mapCSOverlaysToParent( transformedLayers );
 
-            if( hiddenLayer === null ) {
-                while( parentView !== null && !parentView.hasHiddenSubviews() && !parentView.isArtboard() ) {
-                    parentView = parentView.parentGroup;
-                }
-                if( parentView !== null && parentView.hasHiddenSubviews() ) {
-                    hiddenLayer = parentView;
-                }
-            }
+            resolve( transformedLayers );
+        } );
+    } )
 
-            if( hiddenLayer !== null ) {
-                hiddenLayer.disableHidden();
-            }
-            return hiddenLayer;
-        }
-        function exportImage( view, filename ) {
-            var slice,
-                hasClippingMask = ( view.isFolder() && view.hasClippingMask ) ? true : false,
-                scaleFactors = config.getExportScaleFactors(),
-                
-                // Get absolute rect--width and height without subviews or style--if layer has clipping mask
-                // Else, get rect including styles
-                rect = hasClippingMask ? [[( view.layer ) absoluteRect] rect] : [( view.layer) absoluteInfluenceRect],
+    // Process output
+    .then( function( layers ) {
+        return new util.QueueSync( function( rootResolve, rootReject ) {
 
-                // Get parent layer and disable hidden layers
-                maskLayer = !hasClippingMask ? disableMaskForExport( view ) : null,
-                
-                // Get parent layer and disable hidden layers 
-                hiddenLayer = !hasClippingMask ? disableHiddenForExport( view ) : null,
-                exportFilename,
-                exportFileExt = filename.slice( filename.lastIndexOf( "." ) ),
-                imageData;
-
-            scaleFactors.forEach( function( scale ) {
-                if( typeof scale !== "number" ) {
-                    util.debug.warn( "Can't export at scale: " + scale );
-                    return;
-                }
-
-                var scaleStr = (scale !== 1 ) ? "@" + scale + "x" : "";
-
-                slice = makeSlice( view.layer, rect, scale );
-                exportFilename = filename.slice( 0, filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;
-
-                if( slice ) {
-                    // Old
-                    // imageData = [MSExportManager dataForRequest:slice];
-                    // [imageData writeToFile:exportFilename atomically:true];
-
-                    [slice setName:filename];
-                    [doc saveArtboardOrSlice:slice toFile:exportFilename];
-                    util.debug.debug( "Writing asset: " + slice + ", to disk: " + exportFilename );
-                    
-                } else {
-                    util.debug.warn( "Can't slice asset: " + exportFilename );
-                }
-            } );
-
-            if( maskLayer ) {
-                maskLayer.enableMask();
-            }
-            if( hiddenLayer ) {
-                hiddenLayer.enableHidden();
-            }
-        }
-        function output( layers ) {
-            var fileManager = [NSFileManager defaultManager],
-                targetFolderPath = config.getExportFolderPath(),
+            var targetFolderPath    = config.getExportFolderPath(),
                 exportFiles = [],
                 exportFonts = [],
-                userFonts = {},
+                userFonts   = {},
                 fontManifest,
 
                 json = cs.value(),
@@ -1542,127 +1356,368 @@ function onRun( context ) {
                 jsonPath,
 
                 resourcesStudioPrefPath = config.getResourcesPath() + "/__studio__preferences.json",
-                resourcesResetCSS = config.getResourcesPath() + "/" + cs.getResetCss(),
-                targetStudioPrefPath = targetFolderPath + "/__studio__preferences.json",
-                targetResetCSSPath = targetFolderPath + "/" + cs.getResetCss();
+                resourcesResetCSS       = config.getResourcesPath() + "/" + cs.getResetCss(),
+                targetStudioPrefPath    = targetFolderPath + "/__studio__preferences.json",
+                targetResetCSSPath      = targetFolderPath + "/" + cs.getResetCss();
 
-            if( util.debug.getLevel() > 3 && DEBUG_PREVENT_EXPORT ) { 
-                util.debug.debug( "### Deferring output ###" );
-                return;
+            function showDialog( title, message ) {
+                var alert = [COSAlertWindow new],
+                    responseCode;
+
+                [alert setMessageText: title];
+                [alert setInformativeText: message];
+
+                return {
+                    addButtonWithTitle: function( title ) {
+                        [alert addButtonWithTitle: title];
+                        return this;
+                    },
+                    run: function( actionHandler ) {
+                        responseCode = [alert runModal];
+                        if( actionHandler ) {
+                            // 1000 = rightmost button
+                            // 1001 = second button from right
+                            // 1002 = third button from right
+                            // 100 + n
+                            actionHandler( responseCode );
+                        }
+                    }
+                };
             }
 
-            util.debug.debug( "Saving to path: " + targetFolderPath );
+            /**
+                * @desc Prompt user to identify font url, ttf or otf
+                * @param {NSFont}
+                * @returns {NSUrl|null} font file url
+            */
+            function promptUserForFontURL( font ) {
+                var openPanel   = [NSOpenPanel openPanel],
+                    title       = "Please locate font " + [font displayName],
+                    fileTypes   = [ "ttf", "otf" ];
 
-            // 1. Remove export folder based on userSettings
-            if( config.getSettingsKeyValue( "cleanExport" ) && [fileManager fileExistsAtPath:targetFolderPath] ) {
-                [fileManager removeItemAtPath:targetFolderPath error:nil];
-            }
+                [openPanel setCanChooseFiles:true];
+                [openPanel setCanChooseDirectories:false];
+                [openPanel setAllowsMultipleSelection:false];
+                [openPanel setCanCreateDirectories:false];
+                [openPanel setMessage:title];
 
-            // 2. Create export folder if none exists
-            if( ![fileManager fileExistsAtPath:targetFolderPath] ) {
-                [fileManager createDirectoryAtPath:targetFolderPath withIntermediateDirectories:true attributes:nil error:nil];
-            }
+                // This doesn't appear to be an option as of OSX 10.11
+                // [openPanel setTitle:title];
 
-            // 3. Collect export files
-            util.forEach( layers, function( obj ) {
-                exportFiles = exportFiles.concat( obj.exportFiles );
-                exportFonts = exportFonts.concat( obj.exportFonts );
-            } );
+                fileTypes = fileTypes.map( function( type ) {
+                    return [@"" stringByAppendingString:type];
+                } );
 
-            // 4. Export fonts
+                [openPanel setAllowedFileTypes:fileTypes];
 
-            // Get unique fonts used
-            exportFonts.forEach( function( font ) {
-                if( !userFonts[ font.value.fontName ] ) {
-                    userFonts[ font.value.fontName ] = font.value.font;
+                if( [openPanel runModal] == NSOKButton ) {
+                    return [[openPanel URLs] firstObject];
+                } else {
+                    return null;
                 }
-            } );
+            }
 
-            // Get paths to all unique fonts
-            fontManifest = checkManifestForFonts( util.values( userFonts ) );
+            /**
+                * @desc Checks cs fonts against found font urls
+                * @param {array} fonts -
+                * @returns {object} fontManifest -
+            */
+            function checkManifestForFonts( fonts ) {
+                var manifest        = config.getSettingsManifest(),
+                    fontManifest    = manifest ? manifest.fonts || {} : {},
+                    unregisteredFonts,
+                    shouldPromptUser = false,
+                    newFonts = {};
 
-            // Copy font from manifest or revert overlay to common font
-            util.forEach( userFonts, function( nsfont, fontName ) {
-                var path = fontManifest[ fontName ],
-                    fontFound = path ? !![fileManager fileExistsAtPath:path] : false,
-                    fontOverlays,
-                    fileName,
-                    style;
-
-                // Pre-process overlays
-                fontOverlays = exportFonts.filter( function( fontObj ) {
-                        return fontName === fontObj.value.fontName;
+                unregisteredFonts = fonts.filter( function( font ) {
+                    if( !fontManifest[ [font fontName] ] ) {
+                        return true;
+                    }
                 } );
-                fontOverlays.forEach( function( fontObj ) {
-                    fontObj.execute( fontFound );
+
+                // Inform user of missing fonts
+                if( unregisteredFonts.length > 0 ) {
+                    showDialog( "Missing Font File" + ( unregisteredFonts.length > 1 ? "s" : "" ),
+                                "Please locate the font file" + ( unregisteredFonts.length > 1 ? "s" : "" ) + " used in this document:\n" +
+                                unregisteredFonts.map( function( font ) {
+                                    return [font displayName];
+                                } ).join( "\n" ) )
+                        .addButtonWithTitle( "OK" )
+                        .addButtonWithTitle( "Not Now" )
+                        .run( function( res ) {
+                            shouldPromptUser = ( res == 1001 ) ? false : true;
+                        } );
+                }
+
+                // Prompt user to locate missing fonts
+                if( shouldPromptUser ) {
+                    unregisteredFonts.forEach( function( font ) {
+                        var url = promptUserForFontURL( font );
+
+                        if( url ) {
+                            newFonts[ [font fontName] ] = [url fileSystemRepresentation];
+                        }
+                    } );
+                }
+
+                // Save missing font paths to font manifest
+                if( util.values( newFonts ).length > 0 ) {
+                    util.merge( fontManifest, newFonts );
+                    manifest.fonts = fontManifest;
+
+                    config.setSettingsManifest( manifest );
+                }
+
+                return fontManifest;
+            }
+
+            function makeSlice( layer, rect, scaleFactor ) {
+                // Old
+                // var slice = [[MSExportRequest exportRequestsFromExportableLayer:layer inRect:rect useIDForName:false] firstObject];
+                // slice.page = [[doc currentPage] copyIncludingObjectIDS];
+                // slice.format = config.getImageExtension().replace( "." , "" );
+                // slice.scale = scaleFactor;
+
+                var slice = [MSExportRequest requestWithRect:rect scale:scaleFactor];
+
+                [slice setShouldTrim:false];
+                [slice setSaveForWeb:true];
+                [slice configureForLayer:layer];
+
+                [slice setFormat:( config.getImageExtension().replace( "." , "" ) )];
+
+                return slice;
+            }
+
+            // TO DO: Include in image commands
+            function disableMaskForExport( view ) {
+                var parentView  = view.parentGroup,
+                    maskLayer   = null;
+
+                if( view.hasClippingMask ) {
+                    maskLayer = view;
+                }
+
+                if( maskLayer === null ) {
+                    while( parentView !== null && !parentView.hasClippingMask && !parentView.isArtboard() ) {
+                        parentView = parentView.parentGroup;
+                    }
+                    if( parentView !== null && parentView.hasClippingMask ) {
+                        maskLayer = parentView;
+                    }
+                }
+
+                if( maskLayer !== null ) {
+                    maskLayer.disableMask();
+                }
+                return maskLayer;
+            }
+            // TO DO: Include in image commands
+            function disableHiddenForExport( view ) {
+                var parentView  = view.parentGroup,
+                    hiddenLayer = null;
+
+                if( view.hasHiddenSubviews() ) {
+                    hiddenLayer = view;
+                }
+
+                if( hiddenLayer === null ) {
+                    while( parentView !== null && !parentView.hasHiddenSubviews() && !parentView.isArtboard() ) {
+                        parentView = parentView.parentGroup;
+                    }
+                    if( parentView !== null && parentView.hasHiddenSubviews() ) {
+                        hiddenLayer = parentView;
+                    }
+                }
+
+                if( hiddenLayer !== null ) {
+                    hiddenLayer.disableHidden();
+                }
+                return hiddenLayer;
+            }
+            function exportImage( view, filename ) {
+                var slice,
+                    hasClippingMask = ( view.isFolder() && view.hasClippingMask ) ? true : false,
+                    scaleFactors    = config.getExportScaleFactors(),
+
+                    // Get absolute rect--width and height without subviews or style--if layer has clipping mask
+                    // Else, get rect including styles
+                    rect        = hasClippingMask ? [[( view.layer ) absoluteRect] rect] : [( view.layer) absoluteInfluenceRect],
+                    // Get parent layer and disable hidden layers
+                    maskLayer   = !hasClippingMask ? disableMaskForExport( view ) : null,
+
+                    // Get parent layer and disable hidden layers
+                    hiddenLayer     = !hasClippingMask ? disableHiddenForExport( view ) : null,
+                    exportFileExt   = filename.slice( filename.lastIndexOf( "." ) ),
+                    exportFilename,
+                    imageData;
+
+                scaleFactors.forEach( function( scale ) {
+                    if( typeof scale !== "number" ) {
+                        util.debug.warn( "Can't export at scale: " + scale );
+                        return;
+                    }
+
+                    var scaleStr = (scale !== 1 ) ? "@" + scale + "x" : "";
+
+                    slice           = makeSlice( view.layer, rect, scale );
+                    exportFilename  = filename.slice( 0, filename.lastIndexOf( "." ) ) + scaleStr + exportFileExt;
+
+                    if( slice ) {
+                        // Old
+                        // imageData = [MSExportManager dataForRequest:slice];
+                        // [imageData writeToFile:exportFilename atomically:true];
+
+                        [slice setName:filename];
+                        [doc saveArtboardOrSlice:slice toFile:exportFilename];
+                        util.debug.debug( "Writing asset: " + slice + ", to disk: " + exportFilename );
+
+                    } else {
+                        util.debug.warn( "Can't slice asset: " + exportFilename );
+                    }
                 } );
 
-                // Add fonts to content spec and scrollmotion folder
-                if( fontFound ) {
-                    fileName = path.split( "/" ).slice( -1 )[ 0 ];
-                    style = fontName.split( "-" ).slice( -1 )[ 0 ];
-                    style = ( fontName !== style ) ? style : "Regular";
+                if( maskLayer ) {
+                    maskLayer.enableMask();
+                }
+                if( hiddenLayer ) {
+                    hiddenLayer.enableHidden();
+                }
+            }
 
-                    cs.addFontMetaData( {
-                        fileName: fileName,
-                        postScriptName: String( [nsfont fontName] ),
-                        fullName: String( [nsfont displayName] ),
-                        familyName: String( [nsfont familyName] ),
-                        style: style
+            return new util.QueueSync( function( resolve, reject ) {
+                if( util.debug.getLevel() > 3 && DEBUG_PREVENT_EXPORT ) {
+                    util.debug.debug( "### Deferring output ###" );
+                    reject( "Deferring output" );
+                } else if( !json ) {
+                    reject( "Content Spec not found" );
+                } else if( !layers ) {
+                    reject( "Layers not found" );
+                } else {
+                    util.debug.debug( "Saving to path: " + targetFolderPath );
+                    resolve();
+                }
+            } )
+
+            // Prepare export folder
+            .then( function() {
+                // Remove export folder based on userSettings
+                if( config.getSettingsKeyValue( "cleanExport" ) && [fileManager fileExistsAtPath:targetFolderPath] ) {
+                    [fileManager removeItemAtPath:targetFolderPath error:nil];
+                }
+
+                // Create export folder if none exists
+                if( ![fileManager fileExistsAtPath:targetFolderPath] ) {
+                    [fileManager createDirectoryAtPath:targetFolderPath withIntermediateDirectories:true attributes:nil error:nil];
+                }
+            } )
+
+            // Process scrollmotion assets - images and fonts
+            .then( function() {
+                // Collect export files
+                util.forEach( layers, function( obj ) {
+                    exportFiles = exportFiles.concat( obj.exportFiles );
+                    exportFonts = exportFonts.concat( obj.exportFonts );
+                } );
+
+
+                // Process fonts against known paths
+                // Get unique fonts used
+                exportFonts.forEach( function( font ) {
+                    if( !userFonts[ font.value.fontName ] ) {
+                        userFonts[ font.value.fontName ] = font.value.font;
+                    }
+                } );
+
+                // Get paths to all unique fonts
+                fontManifest = checkManifestForFonts( util.values( userFonts ) );
+
+                // Copy font from manifest or revert overlay to common font
+                util.forEach( userFonts, function( nsfont, fontName ) {
+                    var path        = fontManifest[ fontName ],
+                        fontFound   = path ? !![fileManager fileExistsAtPath:path] : false,
+                        fontOverlays,
+                        fileName,
+                        style;
+
+                    // Pre-process overlays
+                    fontOverlays = exportFonts.filter( function( fontObj ) {
+                            return fontName === fontObj.value.fontName;
+                    } );
+                    fontOverlays.forEach( function( fontObj ) {
+                        fontObj.execute( fontFound );
                     } );
 
-                    util.debug.debug( "Copying from path: " + path + ", to path: " + targetFolderPath + "/" + fileName );
-                    [fileManager copyItemAtPath:path toPath:( targetFolderPath + "/" + fileName ) error:nil];
+                    // Add fonts to content spec and scrollmotion folder
+                    if( fontFound ) {
+                        fileName    = path.split( "/" ).slice( -1 )[ 0 ];
+                        style       = fontName.split( "-" ).slice( -1 )[ 0 ];
+                        style       = ( fontName !== style ) ? style : "Regular";
+
+                        cs.addFontMetaData( {
+                            fileName:       fileName,
+                            postScriptName: String( [nsfont fontName] ),
+                            fullName:       String( [nsfont displayName] ),
+                            familyName:     String( [nsfont familyName] ),
+                            style:          style
+                        } );
+
+                        util.debug.debug( "Copying from path: " + path + ", to path: " + targetFolderPath + "/" + fileName );
+                        [fileManager copyItemAtPath:path toPath:( targetFolderPath + "/" + fileName ) error:nil];
+                    }
+
+                    // Post-process overlays
+                    fontOverlays.forEach( function( fontObj ) {
+                        fontObj.undo();
+                    } );
+                } );
+            } )
+
+            // Save ContentSpec.json
+            .then( function() {
+                // Save json
+                if( json ) {
+                    jsonStr     = util.stringifyJSON( json );
+                    jsonPath    = targetFolderPath + "/ContentSpec.json";
+
+                    debug.debug( "Writing content spec to path: " + jsonPath );
+                    [jsonStr writeToFile:jsonPath atomically:true encoding:NSUTF8StringEncoding error:null];
                 }
-                
-                // Post-process overlays
-                fontOverlays.forEach( function( fontObj ) {
-                    fontObj.undo();
-                } );
+
+                // Copy resources
+                if( [fileManager fileExistsAtPath:resourcesStudioPrefPath] ) {
+                    [fileManager copyItemAtPath:resourcesStudioPrefPath toPath:targetStudioPrefPath error:nil];
+                }
+                if( [fileManager fileExistsAtPath:resourcesResetCSS] ) {
+                    [fileManager copyItemAtPath:resourcesResetCSS toPath:targetResetCSSPath error:nil];
+                }
+            } )
+
+            // Export images
+            .then( function() {
+                if( exportFiles.length ) {
+                    exportFiles.forEach( function( fileObj ) {
+                        fileObj.execute();
+                        // Assign plugin context to exportImage context for access to currentPage
+                        exportImage( fileObj.value.getView(), fileObj.value.target );
+                        fileObj.undo();
+                    } );
+                }
+            } )
+
+            .then( function() {
+                log( cs.value() );
+                rootResolve();
+            } )
+
+            .catch( function( err ) {
+                rootReject( err );
             } );
+        } );
+    } )
 
-            // 5. Save ContentSpec.json
-            if( json ) {
-                jsonStr = util.stringifyJSON( json );
-                jsonPath = targetFolderPath + "/ContentSpec.json";
-
-                debug.debug( "Writing content spec to path: " + jsonPath );
-                [jsonStr writeToFile:jsonPath atomically:true encoding:NSUTF8StringEncoding error:null];
-            }
-
-            // 6. Export images
-            if( exportFiles.length ) {
-                exportFiles.forEach( function( fileObj ) {
-                    fileObj.execute();
-                    // Assign plugin context to exportImage context for access to currentPage
-                    exportImage( fileObj.value.getView(), fileObj.value.target );
-                    fileObj.undo();
-                } );
-            }
-
-            // 7. Copy resources
-            if( [fileManager fileExistsAtPath:resourcesStudioPrefPath] ) {
-                [fileManager copyItemAtPath:resourcesStudioPrefPath toPath:targetStudioPrefPath error:nil];
-            }
-            if( [fileManager fileExistsAtPath:resourcesResetCSS] ) {
-                [fileManager copyItemAtPath:resourcesResetCSS toPath:targetResetCSSPath error:nil];
-            }
-        }
-
-        // Set content spec screen support
-        setCSScreenSupport( layersForTransformation );
-
-        screens = cs.getScreenSupportScreens();
-        orientation = screens.length > 0 ? screens[ 0 ].orientation : "landscape";
-        fontSize = 14;
-
-        // Create content spec from layer information
-        transformedLayers = exportSM.processLayers( layersForTransformation, orientation, fontSize );
-
-        mapCSOverlaysToParent( transformedLayers );
-        output( transformedLayers );
-        log( cs.value() );
-
+    // Log analytics
+    .then( function() {
         if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
             analytics.log( null, {
                 contentSpecInfo: {
@@ -1671,12 +1726,17 @@ function onRun( context ) {
                 }
             } );
         }
-
         util.debug.debug( "########## Export end ##########" );
         doc.showMessage( "Done" );
-    } catch( err ) {
-        util.debug.error( "Uncaught error: " + err );
-        doc.showMessage( "Error" );
+    } )
+
+    // Capture errors
+    .catch( function( err ) {
+        if( err === "Deferring output" ) {
+            doc.showMessage( "Done" );
+        } else {
+            catchError( err );
+        }
 
         if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
             analytics.log( null, {
@@ -1685,5 +1745,5 @@ function onRun( context ) {
                 }
             } );
         }
-    }
+    } );
 }

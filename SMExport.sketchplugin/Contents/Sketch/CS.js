@@ -1195,11 +1195,14 @@ var ContentSpec = ( function( options ) {
                         html[ lineIndex ].stringValue = ( i + 1 === arr.length ) ? setTextAlign( textAlign, str ) : str;
                     } );
 
+                    // Join into a string
                     return html.map( function( line ) {
                         return line.stringValue;
                     } ).join( "" );
-                } else {
-                    // SEP 3.20 text
+                }
+
+                // SEP 3.20 text
+                else {
                     this._nodeStyles.forEach( function( node, i, arr ) {
                         var str = "",
                             // Clone style to delete default values
@@ -1243,7 +1246,6 @@ var ContentSpec = ( function( options ) {
                             }
 
                             // Get previous end tag and prepend br tag
-                            // html[ lineIndex ].stringValue = html[ lineIndex ].stringValue.replace( /(<\/[-A-Za-z0-9_]+[^>]*>$)|^$/, "<br>$1" );
                             html[ lineIndex ].stringValue += "<br>";
 
                             // Update line index
@@ -1259,6 +1261,7 @@ var ContentSpec = ( function( options ) {
                         html[ lineIndex ].stringValue = str;
                     } );
 
+                    // Apply styling and join into a string
                     return html.map( function( line ) {
                         return setTextStyles( line.style, line.stringValue );
                     } ).join( "" );

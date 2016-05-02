@@ -1,4 +1,5 @@
 @import "../util.js";
+@import "../sketchLayerUtil.js";
 @import "../Config.js";
 @import "../CS.js";
 @import "../View.js";
@@ -36,23 +37,17 @@ function runTests( context ) {
 			textLayer,
 			subTextLayer;
 
-		artboard = MSArtboardGroup.new();
+		artboard = util.sketchLayers.artboard( null, NSMakeRect( 0, 0, 1024, 768 ) );
 		artboard.name = "Test Artboard";
-		artboard.frame().setWidth( 1024 );
-		artboard.frame().setHeight( 768 );
-		artboard.frame().setX( 0 );
-		artboard.frame().setY( 0 );
 
-		rectangleLayer = MSShapeGroup.shapeWithPath( MSRectangleShape.alloc().initWithFrame( NSMakeRect( 0, 0, 100, 100 ) ) );
+		rectangleLayer = util.sketchLayers.rectangleShape( NSMakeRect( 0, 0, 100, 100 ) );
 		rectangleLayer.name = "Test Rectangle";
 
-		textLayer = MSTextLayer.alloc().initWithFrame( NSMakeRect( 0, 0, 1, 1 ) );
-		textLayer.stringValue = "The quick brown fox jumped over the lazy dog.";
+		textLayer = util.sketchLayers.text( "The quick brown fox jumped over the lazy dog." );
 		textLayer.name = "Test Text";
 		textLayer.adjustFrameToFit();
 
-		imageData = getFileData( context.plugin.urlForResourceNamed( "icon.png" ) );
-		imageLayer = MSBitmapLayer.bitmapLayerFromImage_withSizeScaledDownByFactor( NSImage.alloc().initWithData( imageData ), 1 );
+		imageLayer = util.sketchLayers.bitmap( context.plugin.urlForResourceNamed( "icon.png" ) );
 		imageLayer.setOrigin( NSMakePoint( 0, 0 ) );
 		imageLayer.name = "Test Bitmap";
 
@@ -64,9 +59,7 @@ function runTests( context ) {
 		subTextLayer.setOrigin( NSMakePoint( 512, 0 ) );
 		subImageLayer.setOrigin( NSMakePoint( 512, 0 ) );
 
-		layerGroup = MSLayerGroup.alloc().init();
-		layerGroup.addLayers( [ subRectangleLayer, subTextLayer, subImageLayer ] );
-        layerGroup.resizeToFitChildrenWithOption( true );
+		layerGroup = util.sketchLayers.layerGroup( [ subRectangleLayer, subTextLayer, subImageLayer ] );
         layerGroup.name = "Test LayerGroup";
 
         // Add artboard to page
@@ -1324,6 +1317,9 @@ function runTests( context ) {
 									}
 								}
 							},
+							// "test getting font families": function() {
+							// 	getFontFamilies
+							// },
 							// "test getting text underline decoration": function() {
 							// 	var textOverlay,
 							// 		decoration;

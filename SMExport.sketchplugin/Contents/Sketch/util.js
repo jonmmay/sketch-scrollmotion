@@ -1,10 +1,11 @@
 // Documentation for readability; not tested to produce a valid output
 
 var util = ( function() {
-    var util = {},
-        logLevel = 5,
-        logMethods = "error,warn,info,debug,log".split( "," )
-        debug = {};
+    var util        = {},
+        fileManager = [NSFileManager defaultManager],
+        logLevel    = 5,
+        logMethods  = "error,warn,info,debug,log".split( "," )
+        debug       = {};
 
     util.debug = debug;
     
@@ -69,7 +70,9 @@ var util = ( function() {
         * @returns void
     */
     util.log = function( msg ) {
-        util.forEach( arguments, function( msg ) {
+        var args = Array.prototype.slice.call( arguments );
+
+        util.forEach( args, function( msg ) {
             log( msg );
         } );
     };
@@ -219,7 +222,7 @@ var util = ( function() {
             len;
 
         // Cocoa
-        if( obj.count && obj.class ) {
+        if( obj && obj.count && obj.class ) {
             // Cocoa array
             if( [obj isKindOfClass:[NSArray class]] || [obj className] == "MSArray" ) {
                 i = 0;
@@ -246,7 +249,7 @@ var util = ( function() {
                 iterator( obj[ i ] , i );
             }
         } else {
-            debug.log( "cannot iterator this obj of " + ( obj.className ? [obj className] : ( typeof obj ) ) );
+            debug.log( "cannot iterate this obj of " + ( obj && obj.className ? [obj className] : ( typeof obj ) ) );
         }
     };
 
@@ -364,6 +367,38 @@ var util = ( function() {
         }
         return null;
     };
+
+    /**
+        * @desc Get data from file at URL
+    */
+    util.getFileData = function( url ) {
+        if( url && [url isKindOfClass:[NSURL class]] ) {
+            return ( [fileManager fileExistsAtPath:[url fileSystemRepresentation]] ) ?
+                [NSData dataWithContentsOfURL:url] : null;  
+        }
+        return null;
+    };
+
+    /**
+        
+    */
+    util.getJSONObjectWithData = function( data, mutable ) {
+        var err = [[MOPointer alloc] init],
+            json;
+        mutable = mutable ? NSJSONReadingMutableContainers : 0;
+        
+        if( data && [data isKindOfClass:[NSData class]] ) {
+            json = [NSJSONSerialization JSONObjectWithData:data options:mutable error:err];
+
+            if( err.value() ) {
+                util.debug.warn( "json error: can't load json" );
+                util.debug.warn( err.value() );
+                return null;
+            }
+            return json;
+        }
+        return null;
+    }
 
     /**
         * @desc
@@ -573,6 +608,110 @@ var util = ( function() {
         * @desc empty function helper
     */
     util.noop = function() {};
+
+    //Experimental for error handling propogation, not Promises/A+ spec
+    util.QueueSync = function( fn ) {
+        // http://www.mattgreer.org/articles/promises-in-wicked-detail/
+        var QueueSync = util.QueueSync,
+            state = "pending",
+            value,
+            deferred = null;
+
+        if ( !( this instanceof QueueSync ) ) {
+            util.debug.error( "QueueSync must be constructed via new" );
+            return new QueueSync( fn )
+        }
+
+        function resolve( newValue ) {
+            try {
+                if( newValue && typeof newValue.then === "function" ) {
+                    newValue.then( resolve, reject );
+                    return;
+                }
+                state = "resolved";
+                value = newValue;
+
+                if( deferred ) {
+                    handle( deferred );
+                }
+            } catch( e ) {
+                reject( e );
+            }
+        }
+
+        function reject( exception ) {
+            state = "rejected";
+            value = exception;
+
+            if( deferred ) {
+                handle( deferred );
+            }
+        }
+
+        function handle( handler ) {
+            if( state === "pending" ) {
+                deferred = handler;
+                return;
+            }
+
+            var handlerCallback,
+                ret;
+
+            if( state === "resolved" ) {
+                handlerCallback = handler.onResolved;
+            } else {
+                handlerCallback = handler.onRejected;
+            }
+
+            // Synchronous
+            if( !handlerCallback ) {
+                if( state === "resolved" ) {
+                    handler.resolve( value );
+                } else {
+                    handler.reject( value );
+                }
+
+                return;
+            }
+
+            // Synchronous
+            try {
+                ret = handlerCallback( value );
+            } catch( e ) {
+                handler.reject( e );
+                return;
+            }
+
+            handler.resolve( ret );
+        }
+
+        this.then = function( onResolved, onRejected ) {
+            return new QueueSync( function( resolve, reject ) {
+                handle( {
+                    onResolved: onResolved,
+                    onRejected: onRejected,
+                    resolve: resolve,
+                    reject: reject
+                } );
+            } );
+        };
+
+        this.catch = this.then.bind( this, null );
+
+        QueueSync.resolve = function ( value ) {
+            return new QueueSync( function( resolve ) {
+                resolve( value );
+            } );
+        };
+
+        QueueSync.reject = function( value ) {
+            return new QueueSync( function( resolve, reject ) {
+                reject( value );
+            } );
+        };
+
+        fn( resolve, reject );
+    };
 
     return util;
 } )();
