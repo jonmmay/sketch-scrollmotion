@@ -1094,7 +1094,7 @@ function onExport( context ) {
     }
 
     // Set to 3 or lower for production
-    util.debug.setLevel( 5 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
+    util.debug.setLevel( 3 ); // log (5) > debug (4) > info (3) > warn (2) > error (1)
 
     util.debug.debug( "########## Export start ##########" );
 
@@ -1706,7 +1706,7 @@ function onExport( context ) {
             } )
 
             .then( function() {
-                log( cs.value() );
+                util.debug.debug( cs.value() );
                 rootResolve();
             } )
 
@@ -1719,7 +1719,7 @@ function onExport( context ) {
     // Log analytics
     .then( function() {
         if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
-            analytics.log( null, {
+            analytics.log( "export", {
                 contentSpecInfo: {
                     schemaVersion: cs.getSchema(),
                     resetCssVersion: cs.getResetCss()
@@ -1739,7 +1739,7 @@ function onExport( context ) {
         }
 
         if( util.debug.getLevel() <= 3 && !DEBUG_PREVENT_EXPORT ) {
-            analytics.log( null, {
+            analytics.log( "export", {
                 errorInfo: {
                     message: String( err )
                 }
