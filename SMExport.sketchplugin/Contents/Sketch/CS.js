@@ -573,7 +573,7 @@ var ContentSpec = ( function( options ) {
         if( resetCssVersion < 3200 ) {
             return "<span class=\"sm-font-family\" style=\"font-family:" + fontFamily + ";font-style:normal;font-weight:normal;\">" + html + "</span>";
         } else {         
-            return "<span style=\"font-family:" + postScriptName.toLowerCase() + ";\">" + html + "</span>";
+            return "<span style=\"font-family:" + postScriptName + ";\">" + html + "</span>";
         }
     }
 
@@ -771,15 +771,10 @@ var ContentSpec = ( function( options ) {
                             children.forEach( function( child ) {
                                 Object.keys( attrs ).forEach( function( attrKey ) {
                                     var attr = attrs[ attrKey ],
+                                        childAttr = child._inheritedAttributes[ attrKey ] || {},
                                         key;
 
-                                    if( !child._inheritedAttributes[ attrKey ] ) {
-                                        child._inheritedAttributes[ attrKey ] = {};
-                                    }
-
-                                    for( key in attr ) {
-                                        child._inheritedAttributes[ attrKey ][ key ] = attr[ key ];
-                                    }
+                                    child._inheritedAttributes[ attrKey ] = util.merge( {}, attr, childAttr );
                                 } );
 
                                 resolveChildren( child, nodes );
@@ -1203,14 +1198,14 @@ var ContentSpec = ( function( options ) {
 
                 // SEP 3.20 text
                 else {
-                    this._nodeStyles.forEach( function( node, i, arr ) {
+                    this._nodeStyles.forEach( function( node ) {
                         var str = "",
                             // Clone style to delete default values
                             style = util.naiveClone( node.style ) || {},
                             lineBreak = node.leadingLineBreak;
 
                         // 3.20 text instance style excludes defaults
-                        Object.keys( style ).forEach( function( key ) {                            
+                        Object.keys( style ).forEach( function( key ) {
                             if( style[ key ] === getTextDefaultStyleFor( key ) ) {
                                 delete style[ key ];
                             }
